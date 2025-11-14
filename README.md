@@ -6,7 +6,7 @@ This notebook presents a cloud-friendly workflow for performing fully dynamic do
 
 Rather than relying on static docking or predefined poses, this workflow demonstrates how cloud computing can be used to observe natural binding and unbinding events, capture multiple inclusion modes, and explore realistic association pathways with minimal setup.
 
-A quick note
+**A quick note**
 
 This notebook is designed as an interactive learning tool, not a full production-grade MD workflow. Its goal is to walk users through the core ideas behind fully dynamic docking, showing—step by step—how a host and guest naturally associate in explicit solvent using the LB-PaCS-MD approach.
 
@@ -14,11 +14,11 @@ Importantly, this notebook is meant for everyone: computational chemists, experi
 
 The current release supports β-cyclodextrin (β-CD) as the host system, enabling users to explore host–guest complexation in an accessible and reproducible environment. Future versions will expand to additional host frameworks.
 
-Reporting issues
+**Reporting issues**
 
 If you encounter errors or unexpected behavior, please feel free to report them through the GitHub issue tracker referenced in the manuscript. https://github.com/nyelidl/DFDD
 
-Acknowledgments
+**Acknowledgments**
 
 We gratefully acknowledge the OpenMM team for providing an exceptional open-source MD engine with robust GPU support.
 
@@ -28,6 +28,6 @@ Visualization throughout the notebook uses py3Dmol, an elegant molecular viewer 
 
 This work was inspired by community efforts to make MD simulations more accessible through cloud-based platforms, especially educational initiatives demonstrating how Colab can be used for hands-on computational chemistry training.
 
-Last but not least
+**Last but not least**
 
 We gratefully acknowledge Arantes et al. Pablo R. Arantes (@pablitoarantes), Marcelo D. Polêto (@mdpoleto), Conrado Pedebos (@ConradoPedebos) and Rodrigo Ligabue-Braun (@ligabue_braun) for developing the Making It Rain: Cloud-Based Molecular Simulations for Everyone framework, which served as the foundational inspiration for this work.
