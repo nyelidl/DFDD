@@ -1,6 +1,6 @@
 # DFDD
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](
-https://colab.research.google.com/drive/1CHNVIQqp4fFmnLem_Jf4a99i2L00XhMA?usp=sharing)
+https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing)
 
 This notebook presents a cloud-friendly workflow for performing fully dynamic docking using OpenMM and an implementation of the LB-PaCS-MD (Ligand Binding Path Sampling based on Parallel Cascade Selection MD) strategy. The goal is to provide an accessible way for students and researchers to explore how host–guest systems undergo spontaneous binding in explicit solvent using enhanced MD sampling on Google Colab. This notebook is a supplementary material of the paper "Distance-guided fully dynamic docking for in silico host–guest complexation" (link here) and we encourage everyone to read it before using this pipeline.
 
