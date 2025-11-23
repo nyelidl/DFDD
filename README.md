@@ -6,6 +6,8 @@ This notebook presents a cloud-friendly workflow for performing fully dynamic do
 
 Rather than relying on static docking or predefined poses, this workflow demonstrates how cloud computing can be used to observe natural binding and unbinding events, capture multiple inclusion modes, and explore realistic association pathways with minimal setup.
 
+![Description](./wf.png)
+
 **A quick note**
 
 This notebook is designed as an interactive learning tool, not a full production-grade MD workflow. Its goal is to walk users through the core ideas behind fully dynamic docking, showing—step by step—how a host and guest naturally associate in explicit solvent using the LB-PaCS-MD approach.
