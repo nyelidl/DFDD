@@ -27,10 +27,6 @@ DFDD provides **comprehensive support for cyclodextrin host molecules**, enablin
 - ✅ **Hydroxypropyl β-CD (HPBCD)** — Partial O6-hydroxypropyl substitution (4 substituents)
 - ✅ **6-Tetra-hydroxypropyl β-CD** — O6 position variant (4 substituents)
 
-### **Other Cyclodextrin Sizes**
-- ✅ **α-Cyclodextrin (α-CD)** — 6-membered glucose ring
-- ✅ **γ-Cyclodextrin (γ-CD)** — 8-membered glucose ring
-
 Each host type is **automatically detected** during the workflow, with appropriate force field parameters, ring closure bonds, and substituent bonding patterns applied seamlessly. This enables users to compare binding behaviors across different cyclodextrin architectures without manual parameter adjustments.
 
 **Force Field Support:**
@@ -43,7 +39,7 @@ Future versions may expand to additional host frameworks beyond cyclodextrins.
 
 ## ✨ Key Features
 
-- 🔬 **8 Cyclodextrin Host Types** with automatic detection
+- 🔬 **5 Cyclodextrin Host Types** with automatic detection
 - 🧪 **SMILES-based Guest Input** with automated GAFF2 parameterization
 - 🚀 **GPU-Accelerated MD** via OpenMM on Google Colab
 - 📈 **Enhanced Sampling** using LB-PaCS-MD for binding pathways
@@ -127,7 +123,7 @@ If you use this workflow in your research, please cite:
 ```bibtex
 @article{DFDD2026,
   title={DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation},
-  author={[Author names]},
+  author={[Hengphasatporn K, Duan L, Harada R, Shigeta Y.]},
   journal={Journal of Chemical Information and Modeling},
   year={2026},
   doi={10.1021/acs.jcim.5c02852}
@@ -182,8 +178,9 @@ For quick ligand preparation and pKa/protonation-based conversion, check out:
 
 ## 📊 Version History
 
-- **v3.0** (2026-02) — Complete cyclodextrin support (all 8 types with auto-detection)
-- **v2.0** — Added GLYCAM-06 support for β-CD variants
+- **v1.3** (2026-02) — QM ligan optimization
+- **v1.2** — Complete beta-cyclodextrin support (all 5 types with auto-detection)
+- **v1.1** — Added GLYCAM-06 support for β-CD variants
 - **v1.0** — Initial release (DFT β-CD only)
 
 ---
