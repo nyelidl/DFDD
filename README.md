@@ -221,7 +221,8 @@ These works establish the methodological foundation of the PaCS framework,
 supporting both LB-PaCS-MD for ligand binding/unbinding processes and
 PaCS-Q for automated MD and QM/MM MD reaction path sampling.
 
-Related Application in Host–Guest Systems
+###Related Application in Host–Guest Systems
+
 S. Ali, A. Aman, K. Hengphasatporn, et al.
 Evaluating solubility, stability, and inclusion complexation of
 oxyresveratrol with various β-cyclodextrin derivatives using advanced
