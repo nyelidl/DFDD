@@ -1,4 +1,5 @@
-# DFDD1.3 - Distance-Guided Fully Dynamic Docking
+# DFDD - Distance-Guided Fully Dynamic Docking
+Version 1.3.1
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing)
 [![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs.jcim.5c02852-blue)](https://doi.org/10.1021/acs.jcim.5c02852)
