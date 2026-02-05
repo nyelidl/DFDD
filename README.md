@@ -57,8 +57,6 @@ For rapid ligand setup with protonation state prediction:
 
 ## 🎯 Supported Host Systems
 
-## 🎯 Supported Host Systems
-
 DFDD provides **comprehensive support for cyclodextrin host molecules**, enabling exploration of host–guest complexation across a diverse family of supramolecular systems:
 
 ### **β-Cyclodextrin Family** (7 glucose units)
@@ -160,7 +158,7 @@ If you use this workflow in your research, please cite:
 ```bibtex
 @article{DFDD2026,
   title={DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation},
-  author={[Authors]},
+  author={Hengphasatporn K, Lian D, Harada R, Shigeta Y},
   journal={Journal of Chemical Information and Modeling},
   year={2026},
   doi={10.1021/acs.jcim.5c02852}
