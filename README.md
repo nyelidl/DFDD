@@ -1,4 +1,4 @@
-# DFDD - Distance-Guided Fully Dynamic Docking
+# DFDD1.3 - Distance-Guided Fully Dynamic Docking
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing)
 [![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs.jcim.5c02852-blue)](https://doi.org/10.1021/acs.jcim.5c02852)
@@ -13,6 +13,48 @@ Rather than relying on static docking or predefined poses, this workflow demonst
 ![DFDD Workflow](./wf.png)
 
 ---
+
+---
+
+## ✨ New Feature: HF/RESP Ligand Optimization
+
+DFDD now includes **Hartree-Fock based RESP charge fitting** for quantum-level ligand parameterization:
+
+### **Why HF/RESP?**
+
+🔬 **Quantum-Level Accuracy** — HF/6-31G* electrostatic potential calculations using **Psi4**  
+⚡ **RESP Charge Fitting** — Industry-standard restrained electrostatic potential protocol  
+🎯 **GAFF2 Integration** — Complete force field generation via **AmberTools**  
+☁️ **Cloud-Native** — All QM calculations run seamlessly on **Google Colab**  
+📊 **Automated Validation** — Topology checks and energy minimization included  
+
+### **Automated Workflow**
+
+```
+SMILES → 3D Structure → HF Geometry Optimization → ESP Calculation → RESP Fitting → GAFF2 Parameters
+```
+
+**Typical Performance** (Google Colab T4 GPU):
+- HF geometry optimization: 5-15 minutes
+- ESP calculation & RESP fitting: 2-5 minutes
+- **Total ligand setup: ~20 minutes**
+
+### **Technical Details**
+
+- **QM Method**: Hartree-Fock (HF/6-31G* — standard AMBER protocol)
+- **QM Engine**: Psi4
+- **Charge Fitting**: AmberTools RESP module
+- **Force Field**: GAFF2 (General Amber Force Field)
+- **Output**: Complete .mol2 and .frcmod files for AMBER
+
+### **Quick Ligand Preparation**
+
+For rapid ligand setup with protonation state prediction:  
+[![Streamlit](https://img.shields.io/badge/Streamlit-pKaNET_Cloud-brightgreen?logo=streamlit)](https://pkanetcloud.streamlit.app/)
+
+---
+
+## 🎯 Supported Host Systems
 
 ## 🎯 Supported Host Systems
 
@@ -39,23 +81,25 @@ Future versions may expand to additional host frameworks beyond cyclodextrins.
 
 ## ✨ Key Features
 
-- 🔬 **5 Cyclodextrin Host Types** with automatic detection
+- 🔬 **HF/RESP QM Ligand Optimization** for high-accuracy atomic charges
+- 🧬 **5 Cyclodextrin Host Types** with automatic detection
 - 🧪 **SMILES-based Guest Input** with automated GAFF2 parameterization
 - 🚀 **GPU-Accelerated MD** via OpenMM on Google Colab
 - 📈 **Enhanced Sampling** using LB-PaCS-MD for binding pathways
 - 📊 **Automatic Analysis** including RMSD, Rg, distance metrics, and 2D free energy landscapes
 - ☁️ **Cloud-Ready** — runs entirely in the browser, no local installation needed
-- 🎓 **Educational** — designed for users with no prior MD experience
+- 🎓 **Educational** — designed for users with no prior MD experience  
 
 ---
 
 ## 🚀 Quick Start
 
 1. Click the **"Open in Colab"** badge above
-2. Select your cyclodextrin host from the dropdown (8 options available)
+2. Select your cyclodextrin host from the dropdown (5 options available)
 3. Input your guest molecule as a SMILES string
-4. Run the cells in order
-5. Analyze binding pathways and free energy landscapes
+4. **Optional**: Enable HF/RESP QM optimization for high-accuracy charges
+5. Run the cells in order
+6. Analyze binding pathways and free energy landscapes
 
 **No coding experience required!** The workflow handles everything automatically.
 
@@ -63,13 +107,15 @@ Future versions may expand to additional host frameworks beyond cyclodextrins.
 
 ## 📖 Workflow Overview
 
-1. **Host Selection** — Choose from 8 cyclodextrin variants
-2. **Guest Preparation** — Input SMILES, generate 3D structure and GAFF2 parameters
-3. **Complex Building** — Position guest along host axis
-4. **System Setup** — Solvation, neutralization, and topology generation
-5. **Equilibration** — Energy minimization and heating with restraints
-6. **Enhanced Sampling** — LB-PaCS-MD to capture binding pathways
-7. **Analysis** — Trajectory visualization, free energy landscapes, binding mode identification
+1. **Host Selection** — Choose from 5 cyclodextrin variants
+2. **Guest Preparation** — Input SMILES, generate 3D structure
+3. **QM Optimization** (Optional) — HF/RESP charge fitting with Psi4
+4. **Force Field Assignment** — Automated GAFF2 parameterization
+5. **Complex Building** — Position guest along host axis
+6. **System Setup** — Solvation, neutralization, and topology generation
+7. **Equilibration** — Energy minimization and heating with restraints
+8. **Enhanced Sampling** — LB-PaCS-MD to capture binding pathways
+9. **Analysis** — Trajectory visualization, free energy landscapes, binding mode identification
 
 Each step provides **visual feedback** and **diagnostic output** to help users understand molecular-level interactions.
 
@@ -83,9 +129,17 @@ Each step provides **visual feedback** and **diagnostic output** to help users u
 
 **No local software installation needed!** Everything runs in the cloud.
 
+**Included Software:**
+- OpenMM (GPU-accelerated MD engine)
+- Psi4 (Quantum chemistry for HF/RESP)
+- AmberTools (Parameterization, RESP fitting, MM-PBSA)
+- ParmEd, MDAnalysis (Topology and trajectory handling)
+- NumPy, Deeptime (Data analysis)
+- py3Dmol (3D molecular visualization)
+
 **Compute Resources:**
 - Designed for Google Colab's free tier
-- GPU acceleration available (OpenCL/CUDA)
+- GPU acceleration available (T4/V100/A100)
 - For production-scale studies, consider Colab Pro or HPC resources
 
 ---
@@ -98,24 +152,6 @@ This notebook is designed as an **interactive learning tool**, not a full produc
 
 ---
 
-## 🐛 Reporting Issues
-
-If you encounter errors or unexpected behavior, please report them through the [GitHub issue tracker](https://github.com/nyelidl/DFDD/issues).
-
-When reporting issues, please include:
-- Host type being used
-- Error messages (full text)
-- Steps to reproduce
-- Browser and Colab environment info
-
-We welcome:
-- Bug reports
-- Feature requests
-- Documentation improvements
-- Parameter compatibility questions
-
----
-
 ## 📚 Citation
 
 If you use this workflow in your research, please cite:
@@ -123,7 +159,7 @@ If you use this workflow in your research, please cite:
 ```bibtex
 @article{DFDD2026,
   title={DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation},
-  author={[Hengphasatporn K, Duan L, Harada R, Shigeta Y.]},
+  author={[Authors]},
   journal={Journal of Chemical Information and Modeling},
   year={2026},
   doi={10.1021/acs.jcim.5c02852}
@@ -143,6 +179,66 @@ For GLYCAM-06 parameters, please also cite:
 }
 ```
 
+If you use HF/RESP parameterization, please also cite:
+```bibtex
+@article{RESP1993,
+  title={A well-behaved electrostatic potential based method using charge restraints for deriving atomic charges: the RESP model},
+  author={Bayly, Christopher I and Cieplak, Piotr and Cornell, Wendy D and Kollman, Peter A},
+  journal={The Journal of Physical Chemistry},
+  volume={97},
+  number={40},
+  pages={10269--10280},
+  year={1993}
+}
+```
+
+---
+
+## Related Publications
+
+### DFDD (Main Paper)
+**"DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation"**  
+*Journal of Chemical Information and Modeling* (2026)  
+DOI: [10.1021/acs.jcim.5c02852](https://doi.org/10.1021/acs.jcim.5c02852)
+
+---
+
+### PaCS-Q: QM/MM Reaction Path Sampling (Recommended Reading)
+
+**1. PaCS-Q Methodology**  
+Lian Duan, Kowit Hengphasatporn, Ryuhei Harada, and Yasuteru Shigeta  
+*Parallel Cascade Selection QM/MM MD for Efficient Reaction Path Sampling*  
+Journal of Chemical Theory and Computation 2025, 21 (8), 4309–4318  
+DOI: [10.1021/acs.jctc.5c00169](https://doi.org/10.1021/acs.jctc.5c00169)
+
+**2. PaCS-Q Automated Workflow**  
+Lian Duan, Kowit Hengphasatporn, and Yasuteru Shigeta  
+*Automated Workflow for PaCS-Q Reaction Path Sampling*  
+Journal of Chemical Information and Modeling 2025, 65 (13), 6441–6445  
+DOI: [10.1021/acs.jcim.5c00936](https://doi.org/10.1021/acs.jcim.5c00936)
+
+These works provide the conceptual framework that supports both PaCS-MD and PaCS-Q approaches.
+
+---
+
+## 🐛 Reporting Issues
+
+If you encounter errors or unexpected behavior, please report them through the [GitHub issue tracker](https://github.com/nyelidl/DFDD/issues).
+
+When reporting issues, please include:
+- Host type being used
+- Whether HF/RESP optimization was enabled
+- Error messages (full text)
+- Steps to reproduce
+- Browser and Colab environment info
+
+We welcome:
+- Bug reports
+- Feature requests
+- Documentation improvements
+- HF/RESP workflow questions
+- Parameter compatibility questions
+
 ---
 
 ## 🙏 Acknowledgments
@@ -150,6 +246,7 @@ For GLYCAM-06 parameters, please also cite:
 We gratefully acknowledge:
 
 - The **OpenMM team** for providing an exceptional open-source MD engine with robust GPU support
+- The **Psi4 developers** for accessible quantum chemistry tools
 - The developers of **AmberTools**, **ParmEd**, **MDAnalysis**, **NumPy**, and **Deeptime**
 - **David Koes** for creating **py3Dmol**, the elegant molecular viewer used throughout
 - The **Woods Research Group** at the University of Georgia for GLYCAM-06 force field parameters
@@ -178,7 +275,7 @@ For quick ligand preparation and pKa/protonation-based conversion, check out:
 
 ## 📊 Version History
 
-- **v1.3** (2026-02) — QM ligan optimization
+- **v1.3** (2026-02) — **HF/RESP QM ligand optimization** added
 - **v1.2** — Complete beta-cyclodextrin support (all 5 types with auto-detection)
 - **v1.1** — Added GLYCAM-06 support for β-CD variants
 - **v1.0** — Initial release (DFT β-CD only)
@@ -211,4 +308,4 @@ For questions or collaboration opportunities, please:
 
 ---
 
-*Last updated: February 2026 | DFDD v3.0 — Complete Cyclodextrin Support*
+*Last updated: February 2026 | DFDD v1.3 — HF/RESP QM Ligand Optimization*
