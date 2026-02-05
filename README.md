@@ -202,21 +202,32 @@ DOI: [10.1021/acs.jcim.5c02852](https://doi.org/10.1021/acs.jcim.5c02852)
 
 ---
 
-### PaCS-Q: QM/MM Reaction Path Sampling (Recommended Reading)
+### PaCS-Q and LB-PaCS-MD: Path Sampling Frameworks (Recommended Reading)
 
-**1. PaCS-Q Methodology**  
-Lian Duan, Kowit Hengphasatporn, Ryuhei Harada, and Yasuteru Shigeta  
-*Parallel Cascade Selection QM/MM MD for Efficient Reaction Path Sampling*  
-Journal of Chemical Theory and Computation 2025, 21 (8), 4309–4318  
-DOI: [10.1021/acs.jctc.5c00169](https://doi.org/10.1021/acs.jctc.5c00169)
+1. Ligand Binding Path Sampling (LB-PaCS-MD)
+   Hiroki Aida, Yasuteru Shigeta, and Ryuhei Harada
+   Ligand Binding Path Sampling Based on Parallel Cascade Selection
+   Molecular Dynamics (LB-PaCS-MD)
+   Materials 2022, 15 (4), 1490
+   DOI: 10.3390/ma15041490
 
-**2. PaCS-Q Automated Workflow**  
-Lian Duan, Kowit Hengphasatporn, and Yasuteru Shigeta  
-*Automated Workflow for PaCS-Q Reaction Path Sampling*  
-Journal of Chemical Information and Modeling 2025, 65 (13), 6441–6445  
-DOI: [10.1021/acs.jcim.5c00936](https://doi.org/10.1021/acs.jcim.5c00936)
+2. PaCS-Q Automated Toolkit
+   Lian Duan, Kowit Hengphasatporn, and Yasuteru Shigeta
+   PaCS-Q: Python Toolkits for Path Sampling in MD and QM/MM MD Simulation
+   Journal of Chemical Information and Modeling 2025, 65 (13), 6441–6445
+   DOI: 10.1021/acs.jcim.5c00936
 
-These works provide the conceptual framework that supports both PaCS-MD and PaCS-Q approaches.
+These works establish the methodological foundation of the PaCS framework,
+supporting both LB-PaCS-MD for ligand binding/unbinding processes and
+PaCS-Q for automated MD and QM/MM MD reaction path sampling.
+
+Related Application in Host–Guest Systems
+S. Ali, A. Aman, K. Hengphasatporn, et al.
+Evaluating solubility, stability, and inclusion complexation of
+oxyresveratrol with various β-cyclodextrin derivatives using advanced
+computational techniques and experimental validation
+Computational Biology and Chemistry 2024, 112, 108111
+DOI: 10.1016/j.compbiolchem.2024.108111
 
 ---
 
