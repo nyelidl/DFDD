@@ -3,7 +3,7 @@ Version 1.3.2
 
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif">
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing) < ##**☁️ Cloud-ready | 📱 iPad-compatible**
 [![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs.jcim.5c02852-blue)](https://doi.org/10.1021/acs.jcim.5c02852)
 [![License](https://img.shields.io/badge/License-Academic-green.svg)]()
 
@@ -21,7 +21,7 @@ Rather than relying on static docking poses, DFDD captures **natural binding pat
 
 ---
 
-## 🔧 Ligand Parameterization (AM1-BCC, Default & Recommended)
+## 🔧 Ligand Parameterization using AM1-BCC (Default & Recommended)
 
 DFDD adopts a **single, robust ligand parameterization pathway** optimized for **stability and reproducibility in cloud environments**.
 
