@@ -71,8 +71,8 @@ DFDD supports a broad range of cyclodextrin hosts with **automatic detection and
 
 ### β-Cyclodextrin Family
 - Native β-CD  
-  - GLYCAM-06 force field  
-  - DFT-derived parameters (alternative)
+  - GLYCAM-06 force field  (BCD)
+  - DFT-derived parameters (default)
 - Dimethylated β-CD (DMBCD)
 - Methylated β-CD (MBCD)
 - Hydroxypropyl β-CD (HPBCD)
@@ -116,6 +116,14 @@ No local installation or coding experience required.
 
 ---
 
+## Note
+
+If you are interested in performing docking using **AutoDock Vina v1.2.7** for **protein–ligand** or **cyclodextrin–guest** systems, you may also find the following repository useful:
+
+https://github.com/nyelidl/Docking_workshop
+
+---
+
 ## 📚 Citation
 
 If you use DFDD or pKaNET Cloud, please cite:
@@ -128,3 +136,5 @@ If you use DFDD or pKaNET Cloud, please cite:
   year={2026},
   doi={10.1021/acs.jcim.5c02852}
 }
+
+
