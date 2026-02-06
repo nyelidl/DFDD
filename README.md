@@ -1,5 +1,5 @@
 # DFDD - Distance-Guided Fully Dynamic Docking
-Version 1.3.1
+Version 1.3.2
 
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif" width="500">
 
