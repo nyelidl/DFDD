@@ -1,7 +1,7 @@
 # DFDD — Distance-Guided Fully Dynamic Docking
 ##**☁️ Cloud-ready | 📱 iPad-compatible**
 
-Version 1.3.2
+Version 1.3.3
 
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif">
 
@@ -77,8 +77,7 @@ DFDD supports a broad range of cyclodextrin hosts with **automatic detection and
   - DFT-derived parameters (default)
 - Dimethylated β-CD (DMBCD)
 - Methylated β-CD (MBCD)
-- Hydroxypropyl β-CD (HPBCD)
-- 6-Tetra-hydroxypropyl β-CD
+- Hydroxypropyl β-CD (6-Tetra-hydroxypropyl β-CD)
 
 All hosts are prepared automatically with correct bonding, ring closure, and force-field assignments.
 
