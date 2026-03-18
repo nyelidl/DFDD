@@ -1,7 +1,7 @@
 # DFDD — Distance-Guided Fully Dynamic Docking
 ##**☁️ Cloud-ready | 📱 iPad-compatible**
 
-Version 1.3.3
+*version 1.3.6* | 17 March 2026
 
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif">
 
