@@ -1,7 +1,7 @@
 # DFDD — Distance-Guided Fully Dynamic Docking
 ##**☁️ Cloud-ready | 📱 iPad-compatible**
 
-*version 1.3.6* | 17 March 2026
+*version 1.3.7* | 18 March 2026
 
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif">
 
@@ -83,16 +83,35 @@ All hosts are prepared automatically with correct bonding, ring closure, and for
 
 ---
 
-## 📊 Outputs
-
-- Optional pH-adjusted ligand structures
-- GAFF2 parameters (`.prep`, `.frcmod`)
-- AMBER topology and coordinates (`.prmtop`, `.inpcrd`)
+## 📊 **Outputs**
+- pH-adjusted ligand structure (optional)
+- GAFF2 parameter files (`.prep`, `.frcmod`)
+- Complex topology/coordinates (`.prmtop`, `.inpcrd`)
 - MD trajectories (NetCDF)
 - Binding mode structures (PDB)
-- Distance and free-energy analyses
+- Free-energy / distance landscape analysis
 - MM-PBSA / MM-GBSA binding energy estimates
+- **DBFE absolute binding free energy** (ΔG_bind with T/R entropy correction)
 - Downloadable ZIP result bundle
+
+---
+
+## ⚡ **Binding Free Energy Methods**
+
+DFDD provides three complementary binding energy estimates, all from the same MD frames:
+
+| Method | Entropy | Solvent | Best for |
+|---|---|---|---|
+| **MM-GBSA** | ✗ | GB implicit | Relative ranking |
+| **MM-PBSA** | ✗ | PB implicit | Relative ranking |
+| **DBFE** | ✅ ΔG_TR | OBC2 implicit | Absolute ΔG_bind |
+
+**DBFE (Direct Binding Free Energy)** computes the full thermodynamic cycle:
+> ΔG_bind = ΔG_inter + **ΔG_TR** − ΔG_sym
+>
+> where **ΔG_TR** is the translational + rotational entropy correction absent in MM-PBSA/GBSA.
+
+No additional simulations required — DBFE reuses the existing cMD frames.
 
 ---
 
@@ -125,17 +144,15 @@ https://github.com/nyelidl/Docking_workshop
 
 ---
 
-## 📚 Citation
+## **Citation**
 
-If you use DFDD or pKaNET Cloud, please cite:
+If you use **DFDD**, **pKaNET Cloud**, or **DBFE** in your research, **please cite**:
 
-```bibtex
-@article{DFDD2026,
-  title={DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation},
-  author={Hengphasatporn, K. and Duan, L. and Harada, R. and Shigeta, Y.},
-  journal={Journal of Chemical Information and Modeling},
-  year={2026},
-  doi={10.1021/acs.jcim.5c02852}
-}
+**Hengphasatporn, K.; Duan, L.; Harada, R.; Shigeta, Y.**  
+*DFDD: A Cloud-Ready Tool for Distance-Guided Fully Dynamic Docking in Host–Guest Complexation.*  
+**Journal of Chemical Information and Modeling**, 2026.  
+DOI: https://doi.org/10.1021/acs.jcim.5c02852
 
-
+**For DBFE:**  
+*Binding Free Energies without Alchemy.*  
+arxiv: https://arxiv.org/abs/2603.12253 | Code: https://github.com/molecularmodelinglab/dbfe
