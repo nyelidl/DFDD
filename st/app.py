@@ -45,47 +45,82 @@ st.set_page_config(
     page_title="DFDD",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ─── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* Progress stepper */
+/* ── Global font size boost ───────────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-size: 17px !important;
+}
+/* Streamlit main content text */
+.stMarkdown p, .stMarkdown li, .stMarkdown td, .stMarkdown th,
+.stText, .stCaption, label, .stSelectbox, .stNumberInput,
+.stRadio label, .stCheckbox label, .stTextInput input,
+.stSelectbox select, div[data-testid="stWidgetLabel"] {
+    font-size: 1rem !important;
+}
+/* Sidebar text */
+section[data-testid="stSidebar"] * {
+    font-size: 0.97rem !important;
+}
+/* Primary buttons — green */
+button[kind="primary"], .stButton > button[kind="primary"] {
+    background-color: #1D9E75 !important;
+    border-color: #1D9E75 !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+}
+button[kind="primary"]:hover, .stButton > button[kind="primary"]:hover {
+    background-color: #0F6E56 !important;
+    border-color: #0F6E56 !important;
+}
+button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
+    background-color: #085041 !important;
+    border-color: #085041 !important;
+}
+/* Secondary buttons */
+button[kind="secondary"] { font-size: 1rem !important; }
+/* Code blocks */
+code, pre { font-size: 0.9rem !important; }
+
+/* ── Progress stepper ─────────────────────────────────────────────────────── */
 .stepper{display:flex;align-items:center;gap:0;margin-bottom:2rem;overflow-x:auto;padding:0.5rem 0}
-.step-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:60px}
-.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:13px;font-weight:600;transition:all .3s}
+.step-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:64px}
+.step-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:15px;font-weight:600;transition:all .3s}
 .step-done  .step-circle{background:#1D9E75;color:#fff}
 .step-active .step-circle{background:#1D9E75;color:#fff;box-shadow:0 0 0 4px #E1F5EE}
 .step-todo  .step-circle{background:#f0f0f0;color:#999}
-.step-label{font-size:10px;margin-top:4px;text-align:center;color:#666;max-width:64px}
-.step-line{flex:1;height:2px;background:#e0e0e0;margin:0 2px;margin-bottom:18px}
+.step-label{font-size:12px;margin-top:5px;text-align:center;color:#666;max-width:72px}
+.step-line{flex:1;height:2px;background:#e0e0e0;margin:0 2px;margin-bottom:20px}
 .step-line.done{background:#1D9E75}
 
-/* Waiting card */
+/* ── Waiting card ─────────────────────────────────────────────────────────── */
 .wait-card{background:#f8fffe;border:1px solid #c7ede2;border-radius:12px;
   padding:2rem;text-align:center;margin:1rem 0}
-.wait-title{font-size:1.4rem;font-weight:600;color:#0F6E56;margin-bottom:.5rem}
-.wait-sub{color:#555;font-size:.95rem}
+.wait-title{font-size:1.6rem;font-weight:600;color:#0F6E56;margin-bottom:.5rem}
+.wait-sub{color:#555;font-size:1.1rem}
 
-/* Section header */
-.sec-header{font-size:1.5rem;font-weight:700;color:#0F6E56;margin-bottom:.25rem}
-.sec-sub{color:#666;margin-bottom:1.5rem}
+/* ── Section header ───────────────────────────────────────────────────────── */
+.sec-header{font-size:1.75rem;font-weight:700;color:#0F6E56;margin-bottom:.25rem}
+.sec-sub{color:#666;font-size:1.05rem;margin-bottom:1.5rem}
 
-/* Molecule card */
+/* ── Molecule card ────────────────────────────────────────────────────────── */
 .mol-card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem}
 
-/* Choice card */
-.choice-card{border:2px solid #e0e0e0;border-radius:10px;padding:1rem;cursor:pointer;
-  transition:all .2s;background:#fff}
+/* ── Choice card ──────────────────────────────────────────────────────────── */
+.choice-card{border:2px solid #e0e0e0;border-radius:10px;padding:1.1rem;cursor:pointer;
+  transition:all .2s;background:#fff;font-size:1rem}
 .choice-card.selected{border-color:#1D9E75;background:#f0faf6}
 
-/* Result metric */
+/* ── Result metric ────────────────────────────────────────────────────────── */
 .res-metric{background:#f0faf6;border:1px solid #c7ede2;border-radius:10px;
-  padding:1rem 1.5rem;text-align:center}
-.res-value{font-size:1.8rem;font-weight:700;color:#0F6E56}
-.res-label{color:#555;font-size:.85rem;margin-top:.25rem}
+  padding:1.1rem 1.6rem;text-align:center}
+.res-value{font-size:2rem;font-weight:700;color:#0F6E56}
+.res-label{color:#555;font-size:1rem;margin-top:.3rem}
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,12 +191,12 @@ def log_expander(key, label="📋 Log"):
         with st.expander(label, expanded=False):
             st.code(txt[-4000:])
 
-def next_button(next_step: int, label: str = "Next →"):
+def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
     """Render a centred green Next button that advances the wizard."""
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
     col = st.columns([2, 1, 2])[1]
     with col:
-        if st.button(f"✅ {label}", key=f"next_to_{next_step}", type="primary",
+        if st.button(label, key=f"next_to_{next_step}{key_suffix}", type="primary",
                      use_container_width=True):
             go_step(next_step)
 
@@ -220,23 +255,56 @@ def render_stepper(current):
 # STEP 0 — Install remaining packages (mamba already set up by Colab cell)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _conda_prefix():
+    """Return the conda base prefix, checking common Miniforge/condacolab locations."""
+    for path in [
+        "/usr/local",           # condacolab default
+        os.path.expanduser("~/miniforge3"),
+        os.path.expanduser("~/conda"),
+        "/opt/conda",
+        "/usr/local/miniforge3",
+    ]:
+        if os.path.exists(os.path.join(path, "bin", "mamba")):
+            return path
+        if os.path.exists(os.path.join(path, "bin", "conda")):
+            return path
+    return None
+
+
 def _mamba_available():
+    prefix = _conda_prefix()
+    if prefix and os.path.exists(os.path.join(prefix, "bin", "mamba")):
+        return True
     rc, _ = core.run_cmd(["bash", "-lc", "which mamba"], timeout=10)
     return rc == 0
 
 
+def _conda_run(conda_cmd, **kwargs):
+    """Run a mamba/conda command after sourcing conda init."""
+    prefix = _conda_prefix() or "/usr/local"
+    init   = f"source {prefix}/etc/profile.d/conda.sh 2>/dev/null || true"
+    full   = f"{init} && {conda_cmd}"
+    return core.run_cmd(["bash", "-lc", full], **kwargs)
+
+
 def _tools_ready():
-    """Return True if the key scientific tools are already on PATH."""
+    """Return True if key scientific tools are already on PATH."""
+    prefix = _conda_prefix() or "/usr/local"
+    init   = f"source {prefix}/etc/profile.d/conda.sh 2>/dev/null || true"
     for tool in ["antechamber", "tleap", "cpptraj", "obabel"]:
-        rc, _ = core.run_cmd(["bash", "-lc", f"which {tool}"], timeout=5)
+        rc, _ = core.run_cmd(["bash", "-lc", f"{init} && which {tool}"], timeout=5)
         if rc != 0:
             return False
     return True
 
 
-def _run_install_step(cmd, desc, pct, progress, log_area, log):
+def _run_install_step(cmd, desc, pct, progress, log_area, log, conda_cmd=None):
+    """Run one install command. Use conda_cmd (string) for mamba calls."""
     progress.progress(pct, text=f"📦 {desc}…")
-    rc, out = core.run_cmd(cmd, cwd=WD(), timeout=1800)
+    if conda_cmd:
+        rc, out = _conda_run(conda_cmd, timeout=1800)
+    else:
+        rc, out = core.run_cmd(cmd, cwd=WD(), timeout=1800)
     log += f"\n{'='*40}\n{desc}\n{out}"
     log_area.code(log[-4000:])
     return log, rc == 0
@@ -294,9 +362,8 @@ def page_install():
     # Phase 1 — AmberTools + RDKit + xtb
     phases.info("**Phase 1/3** — Installing AmberTools, RDKit, xtb…  ☕ ~5–8 min")
     log, ok = _run_install_step(
-        ["bash", "-lc",
-         "mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -20"],
-        "AmberTools + RDKit + xtb", 10, progress_bar, log_area, log
+        None, "AmberTools + RDKit + xtb", 10, progress_bar, log_area, log,
+        conda_cmd="mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -20"
     )
     if not ok:
         st.error("❌ mamba install (AmberTools/RDKit/xtb) failed — see log.")
@@ -306,9 +373,8 @@ def page_install():
     # Phase 2 — OpenFF + NGLView (non-fatal)
     phases.info("**Phase 2/3** — Installing OpenFF toolkit + NGLView…")
     log, ok = _run_install_step(
-        ["bash", "-lc",
-         "mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -10"],
-        "OpenFF + NGLView", 55, progress_bar, log_area, log
+        None, "OpenFF + NGLView", 55, progress_bar, log_area, log,
+        conda_cmd="mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -10"
     )
     if not ok:
         st.warning("⚠️ OpenFF/NGLView had errors (non-fatal). Continuing…")
@@ -338,178 +404,365 @@ def page_install():
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 1 — Select host
 # ══════════════════════════════════════════════════════════════════════════════
+
+HOST_PREVIEW_URLS = {
+    "β-CD (DFT)":     "https://raw.githubusercontent.com/nyelidl/host-guest/main/BCD-n/BCD.pdb",
+    "β-CD (GLYCAM)":  "https://raw.githubusercontent.com/nyelidl/DFDD/main/GLYCAM/gBCD.pdb",
+    "DM-β-CD":        "https://raw.githubusercontent.com/nyelidl/DFDD/main/GLYCAM/gDMBCD.pdb",
+    "M-β-CD":         "https://raw.githubusercontent.com/nyelidl/DFDD/main/GLYCAM/gMBCD.pdb",
+    "HP-β-CD":        "https://raw.githubusercontent.com/nyelidl/DFDD/main/GLYCAM/g6tetraHPBCD.pdb",
+}
+
+HOST_OPTIONS_MAP = {
+    "β-CD (DFT)":    "DFT",
+    "β-CD (GLYCAM)": "Native β-CD (GLYCAM)",
+    "DM-β-CD":       "Dimethylated β-CD (GLYCAM)",
+    "M-β-CD":        "Methylated β-CD (GLYCAM)",
+    "HP-β-CD":       "6-tetra HP β-CD (GLYCAM)",
+}
+
+HOST_FULL_NAMES = {
+    "β-CD (DFT)":    "Default β-CD — DFT-derived charges (recommended)",
+    "β-CD (GLYCAM)": "Native β-CD — GLYCAM-06, 7 glucose units",
+    "DM-β-CD":       "Dimethylated β-CD — GLYCAM-06, O2/O6 methylation",
+    "M-β-CD":        "Methylated β-CD — GLYCAM-06, O6 methylation",
+    "HP-β-CD":       "6-tetra HP-β-CD — GLYCAM-06, 4 hydroxypropyl groups",
+}
+
+
+def _fetch_preview_pdb(url):
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=8) as r:
+            return r.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+
+
 def page_host():
     render_stepper(1)
     st.markdown('<div class="sec-header">🏗️ Select host</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Choose the cyclodextrin host for your simulation.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Choose the cyclodextrin host. The 3D structure loads automatically.</div>', unsafe_allow_html=True)
 
-    HOST_OPTIONS = {
-        "Default β-CD (DFT parameters)": "DFT",
-        "Native β-CD (GLYCAM)": "Native β-CD (GLYCAM)",
-        "Dimethylated β-CD (DM-β-CD)": "Dimethylated β-CD (GLYCAM)",
-        "Methylated β-CD (M-β-CD)": "Methylated β-CD (GLYCAM)",
-        "6-tetra HP-β-CD": "6-tetra HP β-CD (GLYCAM)",
-    }
+    abbrevs = list(HOST_OPTIONS_MAP.keys())
 
-    HOST_DESCRIPTIONS = {
-        "Default β-CD (DFT parameters)": "DFT-derived charges. Recommended for most users.",
-        "Native β-CD (GLYCAM)": "GLYCAM-06 force field. 7 glucose units.",
-        "Dimethylated β-CD (DM-β-CD)": "GLYCAM-06 with O2/O6 methylation.",
-        "Methylated β-CD (M-β-CD)": "GLYCAM-06 with O6 methylation.",
-        "6-tetra HP-β-CD": "GLYCAM-06 with 4 hydroxypropyl groups.",
-    }
+    # Default selection
+    prev = st.session_state.get("host_option_abbrev", abbrevs[0])
+    if prev not in abbrevs:
+        prev = abbrevs[0]
 
-    selected = st.session_state.get("host_option") or list(HOST_OPTIONS.keys())[0]
+    # ── Single-row compact radio ──────────────────────────────────────────────
+    selected = st.radio(
+        "Host molecule",
+        abbrevs,
+        index=abbrevs.index(prev),
+        horizontal=True,
+        key="host_radio",
+    )
 
-    cols = st.columns(2)
-    new_selection = selected
-    for i, (name, _) in enumerate(HOST_OPTIONS.items()):
-        col = cols[i % 2]
-        with col:
-            is_sel = (name == new_selection)
-            card_cls = "choice-card selected" if is_sel else "choice-card"
-            st.markdown(
-                f'<div class="{card_cls}" style="margin-bottom:10px">'
-                f'<strong>{"✅ " if is_sel else ""}{name}</strong><br>'
-                f'<span style="color:#666;font-size:.85rem">{HOST_DESCRIPTIONS[name]}</span>'
-                f'</div>', unsafe_allow_html=True)
-            if st.button("Select" if not is_sel else "Selected ✓",
-                         key=f"host_btn_{i}",
-                         type="primary" if is_sel else "secondary"):
-                new_selection = name
-                st.session_state["host_option"] = name
+    # Update session and clear preview cache if selection changed
+    if selected != st.session_state.get("host_option_abbrev"):
+        st.session_state["host_option_abbrev"] = selected
+        st.session_state["host_option"] = HOST_FULL_NAMES[selected]
+        # Clear prepared host if user switches to a different one
+        if st.session_state.get("host_type") is not None:
+            prev_key = HOST_OPTIONS_MAP.get(prev)
+            new_key  = HOST_OPTIONS_MAP.get(selected)
+            if prev_key != new_key:
+                st.session_state["host_path"] = None
+                st.session_state["host_type"] = None
+    else:
+        st.session_state["host_option_abbrev"] = selected
+        st.session_state["host_option"] = HOST_FULL_NAMES[selected]
 
-    st.session_state["host_option"] = new_selection
+    # Full name description
+    st.caption(HOST_FULL_NAMES[selected])
+
+    # ── 3D preview ────────────────────────────────────────────────────────────
+    prepared_path = st.session_state.get("host_path")
+    if prepared_path and os.path.exists(prepared_path):
+        preview_pdb   = core.read_file(prepared_path)
+        preview_label = "**Prepared structure**"
+    else:
+        cache_key   = f"host_preview_pdb_{selected}"
+        preview_pdb = st.session_state.get(cache_key)
+        if not preview_pdb:
+            url = HOST_PREVIEW_URLS.get(selected)
+            if url:
+                with st.spinner("Loading 3D preview…"):
+                    preview_pdb = _fetch_preview_pdb(url)
+                if preview_pdb:
+                    st.session_state[cache_key] = preview_pdb
+        preview_label = f"**Preview — {selected}**"
+
+    if preview_pdb:
+        st.markdown(preview_label)
+        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420), height=430)
+    else:
+        st.info("3D preview unavailable — check internet connection.")
+
     st.divider()
 
-    if st.button("▶ Prepare host", type="primary"):
-        host_key = HOST_OPTIONS[new_selection]
-        with st.spinner(f"Preparing {new_selection}…"):
-            if host_key == "DFT":
-                result, log, err = core.prepare_host_dft(WD())
+    # ── Prepare / Next ────────────────────────────────────────────────────────
+    host_ready = (
+        st.session_state.get("host_path")
+        and os.path.exists(st.session_state.get("host_path") or "")
+        and st.session_state.get("host_type") is not None
+    )
+
+    if host_ready:
+        st.success(f"✅ Host ready: `{st.session_state['host_path']}`")
+        next_button(2, "Next → Prepare guest", key_suffix="_done")
+    else:
+        if st.button("▶ Prepare host", type="primary"):
+            host_key = HOST_OPTIONS_MAP[selected]
+            with st.spinner(f"Preparing {selected}…"):
+                if host_key == "DFT":
+                    result, log, err = core.prepare_host_dft(WD())
+                else:
+                    result, log, err = core.prepare_host_glycam(host_key, WD())
+            st.session_state["log_host"] = log
+            if err:
+                st.error(f"❌ {err}")
+                log_expander("log_host")
             else:
-                result, log, err = core.prepare_host_glycam(host_key, WD())
-        st.session_state["log_host"] = log
+                for k, v in result.items():
+                    st.session_state[k] = v
+                st.success(f"✅ Host ready: `{result['host_path']}`")
+                next_button(2, "Next → Prepare guest", key_suffix="_prepared")
 
-        if err:
-            st.error(f"❌ {err}")
-            log_expander("log_host")
-        else:
-            for k, v in result.items():
-                st.session_state[k] = v
-            st.success(f"✅ Host ready: `{result['host_path']}`")
-
-            hp = st.session_state.get("host_path")
-            if hp and os.path.exists(hp):
-                pdb = core.read_file(hp)
-                st.components.v1.html(py3dmol_html(pdb, 680, 380), height=390)
-
-            next_button(2, "Next → Prepare guest")
-
-    # Already done — show Next button
-    if st.session_state.get("host_path") and os.path.exists(st.session_state["host_path"]):
-        st.info(f"Host already prepared: `{st.session_state['host_path']}`")
-        next_button(2, "Next → Prepare guest")
     log_expander("log_host")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 2 — Guest preparation
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _ketcher_html():
+    return """
+<style>
+#ketcher-wrap{width:100%;border:1px solid #c7ede2;border-radius:10px;overflow:hidden}
+#ketcher-wrap iframe{width:100%;height:500px;border:none;display:block}
+.ket-btn{margin-top:8px;padding:9px 24px;background:#1D9E75;color:#fff;border:none;
+  border-radius:7px;font-size:1rem;font-weight:600;cursor:pointer;width:100%}
+.ket-btn:hover{background:#0F6E56}
+#smiles-out{margin-top:8px;width:100%;padding:8px;border:1px solid #c7ede2;
+  border-radius:6px;font-size:.95rem;font-family:monospace;resize:vertical}
+</style>
+<div id="ketcher-wrap">
+  <iframe id="kframe"
+    src="https://lifescience.opensource.epam.com/KetcherDemo/index.html"
+    allow="clipboard-read; clipboard-write">
+  </iframe>
+</div>
+<button class="ket-btn" onclick="getSMILES()">\U0001f4cb Get SMILES from drawing</button>
+<textarea id="smiles-out" rows="2" placeholder="SMILES will appear here after clicking the button above\u2026" readonly></textarea>
+<p style="font-size:.85rem;color:#888;margin-top:4px">
+  Copy the SMILES above and paste it into the field below.
+</p>
+<script>
+function getSMILES() {
+  var frame = document.getElementById('kframe');
+  try {
+    frame.contentWindow.ketcher.getSmilesAsync().then(function(smi){
+      document.getElementById('smiles-out').value = smi;
+    }).catch(function(e){
+      document.getElementById('smiles-out').value = 'Error: ' + e;
+    });
+  } catch(e) {
+    document.getElementById('smiles-out').value =
+      'Could not read from Ketcher. Make sure a structure is drawn. (' + e + ')';
+  }
+}
+</script>
+"""
+
+
+def _charge_from_file(path):
+    """Try to read formal charge from a PDB or mol2 file via RDKit; return 0 on failure."""
+    try:
+        from rdkit import Chem
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".mol2":
+            mol = Chem.MolFromMol2File(path, removeHs=False)
+        else:
+            mol = Chem.MolFromPDBFile(path, removeHs=False)
+        if mol is not None:
+            return Chem.GetFormalCharge(mol)
+    except Exception:
+        pass
+    return 0
+
+
 def page_guest():
     render_stepper(2)
-    st.markdown('<div class="sec-header">🧪 Prepare guest molecule</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Provide your guest ligand by SMILES, file upload, or direct PDB.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-header">\U0001f9ea Prepare guest molecule</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Provide your guest ligand by SMILES, file upload, or draw with Ketcher.</div>', unsafe_allow_html=True)
 
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        input_type = st.radio(
-            "Input method",
-            ["SMILES", "File upload (.pdb/.mol2/.sdf)", "Draw (SMILES)"],
-            index=["SMILES", "File upload (.pdb/.mol2/.sdf)", "Draw (SMILES)"].index(
-                st.session_state.get("guest_input_type", "SMILES")
-            )
+    input_type = st.radio(
+        "Input method",
+        ["SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
+        horizontal=True,
+        index=["SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
+            st.session_state.get("guest_input_type", "SMILES")
+        ),
+        key="guest_input_radio",
+    )
+    st.session_state["guest_input_type"] = input_type
+
+    smiles_in     = ""
+    uploaded_file = None
+
+    # ── SMILES ────────────────────────────────────────────────────────────────
+    if input_type == "SMILES":
+
+        # Example guests
+        EXAMPLES = {
+            "Aspirin":      "CC(=O)OC1=CC=CC=C1C(=O)O",
+            "Ibuprofen":    "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+            "Naproxen":     "COc1ccc2cc(ccc2c1)C(C)C(=O)O",
+            "Caffeine":     "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
+            "Glucose":      "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+            "Testosterone": "O=C1CC[C@H]2[C@@H]3CCc4cc(O)cc[C@@]4(C)[C@H]3CC[C@@]12C",
+        }
+
+        st.markdown("**Quick examples** — click to load:")
+        ex_cols = st.columns(len(EXAMPLES))
+        for col, (name, smi) in zip(ex_cols, EXAMPLES.items()):
+            with col:
+                if st.button(name, key=f"ex_{name}", use_container_width=True):
+                    st.session_state["guest_smiles"] = smi
+                    st.rerun()
+
+        smiles_in = st.text_input(
+            "SMILES string",
+            value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
+            help="Paste any valid SMILES or click an example above",
+            key="guest_smiles_input",
         )
-        st.session_state["guest_input_type"] = input_type
+        if smiles_in:
+            st.caption(f"`{smiles_in}`")
 
-    with c2:
-        smiles_in     = ""
-        uploaded_file = None
+    # ── Ketcher draw ──────────────────────────────────────────────────────────
+    elif input_type == "Draw (Ketcher)":
+        st.markdown("**Draw your molecule, then click *Get SMILES* and paste into the box below.**")
+        st.components.v1.html(_ketcher_html(), height=640, scrolling=False)
+        smiles_in = st.text_input(
+            "Paste SMILES from Ketcher here",
+            value=st.session_state.get("guest_smiles", ""),
+            placeholder="Paste the SMILES copied from the editor above",
+            key="guest_ketcher_smiles",
+        )
 
-        if input_type == "SMILES":
-            smiles_in = st.text_input(
-                "SMILES string",
-                value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
-                help="Default: Aspirin"
-            )
-            if smiles_in:
-                st.caption(f"Entered: `{smiles_in}`")
-
-        elif input_type == "File upload (.pdb/.mol2/.sdf)":
-            uploaded_file = st.file_uploader(
-                "Upload molecule file",
-                type=["pdb", "mol2", "sdf"],
-                help="Upload a 3D structure file"
-            )
-
-        else:  # Draw
-            smiles_in = st.text_input(
-                "Draw by typing SMILES",
-                value=st.session_state.get("guest_smiles", ""),
-                help="Type SMILES and preview will appear",
-                placeholder="e.g. c1ccccc1 for benzene"
-            )
+    # ── File upload ───────────────────────────────────────────────────────────
+    else:
+        uploaded_file = st.file_uploader(
+            "Upload molecule file (.pdb or .mol2)",
+            type=["pdb", "mol2"],
+            help="PDB or Mol2 format only. Must contain 3D coordinates.",
+            key="guest_file_upload",
+        )
+        if uploaded_file:
+            st.caption(f"Uploaded: `{uploaded_file.name}`")
 
     st.divider()
 
-    c3, c4 = st.columns(2)
-    with c3:
-        output_name   = st.text_input("Guest residue name", value="guest", max_chars=4)
-        target_pH     = st.slider("Target pH", 2.0, 12.0, 7.4, 0.1)
-        auto_charge   = st.checkbox("Auto-detect charge (RDKit)", value=True)
-    with c4:
-        manual_charge = st.number_input("Manual charge override", -10, 10, 0,
-                                         disabled=auto_charge)
-        charge_method = st.selectbox("Charge method", ["bcc (AM1-BCC)", "gas (Gasteiger)"])
-        charge_flag   = "bcc" if charge_method.startswith("bcc") else "gas"
+    # ── Parameters ────────────────────────────────────────────────────────────
+    c1, c2 = st.columns(2)
+    with c1:
+        st.info("**Guest residue name:** `GST` (fixed)")
+        output_name = "GST"
 
+    with c2:
+        st.info("**Charge method:** AM1-BCC (GAFF2)")
+
+        # Charge options depend on input method
+        if input_type.startswith("File"):
+            charge_mode = st.radio(
+                "Charge",
+                ["Auto-detect from file", "Set manually"],
+                horizontal=True,
+                key="guest_charge_mode",
+            )
+            manual_charge = st.number_input(
+                "Manual charge",
+                -10, 10, 0,
+                disabled=(charge_mode == "Auto-detect from file"),
+                key="guest_manual_charge",
+            )
+        else:
+            charge_mode = st.radio(
+                "Charge",
+                ["Auto-detect (RDKit)", "Set manually"],
+                horizontal=True,
+                key="guest_charge_mode",
+            )
+            manual_charge = st.number_input(
+                "Manual charge",
+                -10, 10, 0,
+                disabled=(charge_mode != "Set manually"),
+                key="guest_manual_charge",
+            )
+
+    # ── Prepare ───────────────────────────────────────────────────────────────
     if st.button("▶ Prepare guest", type="primary"):
         log = ""
         with st.spinner("Preparing guest molecule…"):
 
-            # Handle file upload
+            # File upload path
             if input_type.startswith("File") and uploaded_file:
                 dest = wpath(uploaded_file.name)
                 with open(dest, "wb") as f:
                     f.write(uploaded_file.read())
-                sdf_tmp = dest + "_ob.sdf"
-                rc_ob, ob_out = core.run_cmd(["obabel", dest, "-O", sdf_tmp], cwd=WD())
-                log += ob_out
-                mol_in   = sdf_tmp if (rc_ob == 0 and os.path.exists(sdf_tmp)) else dest
+                mol_in    = dest
                 smiles_in = None
-            else:
-                mol_in = None
 
-            # Build 3D from SMILES
-            if smiles_in:
+                # Charge from file or manual
+                if charge_mode == "Auto-detect from file":
+                    detected = _charge_from_file(dest)
+                    log += f"Charge read from file: {detected}\n"
+                else:
+                    detected = manual_charge
+            else:
+                mol_in   = None
+                detected = 0
+
+            # SMILES / Ketcher path
+            if smiles_in and smiles_in.strip():
                 pdb_raw = wpath("guest_raw.pdb")
                 sdf_raw = wpath("guest_raw.sdf")
-                detected, err = core.smiles_to_3d_pdb(smiles_in, pdb_raw, sdf_raw)
+                detected, err = core.smiles_to_3d_pdb(smiles_in.strip(), pdb_raw, sdf_raw)
                 if err:
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
-                log += f"RDKit detected charge: {detected}\n"
-            else:
-                detected = 0
+                log   += f"RDKit detected charge: {detected}\n"
+                if charge_mode == "Set manually":
+                    detected = manual_charge
 
-            final_charge = detected if auto_charge else manual_charge
+            if mol_in is None:
+                st.error("❌ No molecule provided.")
+                st.stop()
 
+            final_charge = detected
+
+            # Convert to PDB for workspace copy
+            guest_pdb  = wpath(f"{output_name}.pdb")
             prep_out   = wpath(f"{output_name}.prep")
             frcmod_out = wpath(f"{output_name}.frcmod")
+
+            # Copy/convert to workspace PDB
+            if mol_in.endswith(".pdb"):
+                import shutil
+                shutil.copy(mol_in, guest_pdb)
+            else:
+                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
+
+            # Run antechamber with AM1-BCC
             ok, ac_log = core.run_antechamber(
                 mol_in, prep_out, frcmod_out, final_charge, WD(),
-                charge_method=charge_flag
+                charge_method="bcc"
             )
             log += ac_log
 
@@ -519,32 +772,23 @@ def page_guest():
                 log_expander("log_guest")
                 st.stop()
 
-            guest_pdb = wpath(f"{output_name}.pdb")
-            if mol_in.endswith(".pdb"):
-                import shutil
-                shutil.copy(mol_in, guest_pdb)
-            else:
-                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
-
             st.session_state["guest_path"]      = guest_pdb
             st.session_state["guest_smiles"]    = smiles_in or ""
             st.session_state["detected_charge"] = final_charge
             st.session_state["log_guest"]       = log
 
-        st.success(f"✅ Guest ready!  Charge: **{final_charge}**")
-
+        st.success(f"✅ Guest ready!   Charge: **{final_charge}**   Method: AM1-BCC")
         gp = st.session_state.get("guest_path")
         if gp and os.path.exists(gp):
             pdb = core.read_file(gp)
             st.components.v1.html(py3dmol_html(pdb, 680, 340), height=350)
+        next_button(3, "Next → Build complex & solvate", key_suffix="_new")
 
-        next_button(3, "Next → Build complex & solvate")
-
-    # Already done — show Next button
     if st.session_state.get("guest_path") and os.path.exists(st.session_state["guest_path"]):
         st.info(f"Guest already prepared: `{st.session_state['guest_path']}`")
-        next_button(3, "Next → Build complex & solvate")
+        next_button(3, "Next → Build complex & solvate", key_suffix="_done")
     log_expander("log_guest")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1308,9 +1552,12 @@ def page_download():
 # SIDEBAR — minimal nav + status
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## DFDD")
-    st.caption("Hengphasatporn et al., *JCIM* 2026")
-    st.caption("[DOI](https://doi.org/10.1021/acs.jcim.5c02852)")
+    st.markdown("## 🧬 DFDD")
+    st.markdown(
+        "Hengphasatporn et al., *JCIM* 2026  \n"
+        "Cite this: *J. Chem. Inf. Model.* 2026, **66**, 4, 1955–1963  \n"
+        "[https://doi.org/10.1021/acs.jcim.5c02852](https://doi.org/10.1021/acs.jcim.5c02852)"
+    )
 
     st.divider()
     st.markdown("**Jump to step**")
