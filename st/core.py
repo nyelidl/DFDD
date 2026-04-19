@@ -229,6 +229,70 @@ def _write_glycam_leap(host_type, pdb_fname, prep_fname, dat_fname, workdir):
 
 # ─── Guest Preparation ────────────────────────────────────────────────────────
 
+def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
+    """Adjust protonation state of a SMILES at the given pH using Dimorphite-DL.
+    Returns (protonated_smiles, changed, error).
+
+    - protonated_smiles: the adjusted SMILES (or input SMILES if nothing changed)
+    - changed: True if the SMILES differs from the input
+    - error: None on success, or an error string
+    """
+    smiles = (smiles or "").strip()
+    if not smiles:
+        return smiles, False, "Empty SMILES"
+
+    # Try dimorphite_dl (Python import); fall back to CLI if needed
+    try:
+        from dimorphite_dl import run_with_mol_list  # v2 API
+        try:
+            from rdkit import Chem
+        except ImportError:
+            return smiles, False, "RDKit required for protonation"
+
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return smiles, False, "Invalid SMILES for protonation"
+
+        protonated_mols = run_with_mol_list(
+            [mol],
+            min_ph=pH - pH_range,
+            max_ph=pH + pH_range,
+            pka_precision=1.0,
+        )
+        if not protonated_mols:
+            return smiles, False, None
+
+        # pick the first (most likely) protonation state
+        new_smi = Chem.MolToSmiles(protonated_mols[0])
+        return new_smi, (new_smi != smiles), None
+
+    except ImportError:
+        # try CLI fallback
+        pass
+    except Exception as e:
+        return smiles, False, f"dimorphite-dl error: {e}"
+
+    # CLI fallback
+    try:
+        res = subprocess.run(
+            ["dimorphite_dl", "--smiles", smiles,
+             "--min_ph", str(pH - pH_range),
+             "--max_ph", str(pH + pH_range)],
+            capture_output=True, text=True, timeout=30,
+        )
+        out = res.stdout.strip().splitlines()
+        # Keep first non-comment, non-empty line
+        for line in out:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                parts = line.split()
+                new_smi = parts[0]
+                return new_smi, (new_smi != smiles), None
+        return smiles, False, None
+    except Exception as e:
+        return smiles, False, f"protonation unavailable: {e}"
+
+
 def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
     """Convert SMILES → 3D PDB + SDF.
     Uses obabel for 3D coordinate generation (avoids RDKit EmbedMolecule
