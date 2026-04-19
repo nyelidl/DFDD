@@ -4,7 +4,7 @@ All computation is delegated to core.py
 """
 
 import streamlit as st
-import os, sys, json, time
+import os, sys, json
 
 # ── Always-available packages ─────────────────────────────────────────────────
 try:
@@ -156,6 +156,16 @@ def log_expander(key, label="📋 Log"):
         with st.expander(label, expanded=False):
             st.code(txt[-4000:])
 
+def next_button(next_step: int, label: str = "Next →"):
+    """Render a centred green Next button that advances the wizard."""
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
+    col = st.columns([2, 1, 2])[1]
+    with col:
+        if st.button(f"✅ {label}", key=f"next_to_{next_step}", type="primary",
+                     use_container_width=True):
+            go_step(next_step)
+
+
 def py3dmol_html(pdb_str, width=680, height=420):
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
@@ -209,6 +219,22 @@ def render_stepper(current):
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 0 — Auto-install on first load
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _mamba_available():
+    """Check if mamba is callable in the current shell PATH."""
+    rc, _ = core.run_cmd(["bash", "-lc", "which mamba"], timeout=10)
+    return rc == 0
+
+
+def _run_install_step(cmd, desc, pct, progress, log_area, log):
+    """Run one install command, update UI, return (log, ok)."""
+    progress.progress(pct, text=f"📦 {desc}…")
+    rc, out = core.run_cmd(cmd, cwd=WD(), timeout=1800)
+    log += f"\n{'='*40}\n{desc}\n{out}"
+    log_area.code(log[-4000:])
+    return log, rc == 0
+
+
 def page_install():
     render_stepper(0)
     st.markdown('<div class="sec-header">🔧 Setting up environment</div>', unsafe_allow_html=True)
@@ -216,50 +242,98 @@ def page_install():
 
     if st.session_state["install_done"]:
         st.success("✅ Environment ready!")
-        if st.button("Continue →", type="primary"):
-            go_step(1)
+        next_button(1, "Next → Select host")
         return
 
-    progress = st.progress(0, text="Starting installation…")
+    # ── Check whether condacolab / mamba are already present ─────────────────
+    mamba_ok = _mamba_available()
+
+    # Phase indicators
+    phases = st.empty()
+    progress = st.progress(0, text="Checking environment…")
     log_area = st.empty()
-
-    cmds = [
-        ([sys.executable, "-m", "pip", "install", "-q", "condacolab"], "condacolab", 10),
-        (["bash", "-lc",
-          "mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -8"],
-         "AmberTools + RDKit + xtb", 50),
-        (["bash", "-lc",
-          "mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -4"],
-         "OpenFF + NGLView", 75),
-        ([sys.executable, "-m", "pip", "install", "-q",
-          "py3Dmol", "netCDF4", "cftime", "deeptime",
-          "dimorphite_dl", "pkapredict", "PaCS-Q", "parmed"],
-         "Python packages", 95),
-    ]
-
     log = ""
-    all_ok = True
-    for cmd, desc, pct in cmds:
-        progress.progress(pct - 10, text=f"📦 Installing {desc}…")
-        rc, out = core.run_cmd(cmd, cwd=WD())
-        log += f"\n{'='*40}\n{desc}\n{out}"
-        log_area.code(log[-3000:])
-        if rc != 0:
-            st.error(f"❌ Failed: {desc}")
-            all_ok = False
-            break
 
-    progress.progress(100, text="Done!")
-    st.session_state["log_install"] = log
+    # ── Phase 1: install condacolab if mamba not found ────────────────────────
+    if not mamba_ok:
+        phases.info("**Phase 1/4** — Installing condacolab (Miniforge)…")
+        log, ok = _run_install_step(
+            [sys.executable, "-m", "pip", "install", "-q", "condacolab"],
+            "pip install condacolab", 5, progress, log_area, log
+        )
+        if not ok:
+            st.error("❌ pip install condacolab failed. Check your internet connection.")
+            st.session_state["log_install"] = log
+            log_expander("log_install"); return
 
-    if all_ok:
-        st.session_state["install_done"] = True
-        st.success("✅ All dependencies installed!")
-        time.sleep(1)
-        go_step(1)
-    else:
-        st.error("Installation failed. Check the log above and reload the page.")
-        log_expander("log_install")
+        # Call condacolab.install() — this installs Miniforge and sets up mamba.
+        # It triggers a kernel restart in Colab, so we catch SystemExit gracefully.
+        phases.info("**Phase 1/4** — Running condacolab.install() — kernel will restart…")
+        progress.progress(10, text="condacolab.install() — Colab will restart the kernel…")
+        try:
+            import condacolab
+            condacolab.install()          # triggers kernel restart — normal in Colab
+        except SystemExit:
+            pass                          # expected: Colab restarts kernel here
+        except Exception as e:
+            # Not in Colab / condacolab already set up — try to continue anyway
+            log += f"\ncondacolab.install() raised: {e}\n"
+            log_area.code(log[-4000:])
+
+        # After restart the page reloads; mamba should now be available.
+        # Show a "please wait / reload" message in case auto-reload is slow.
+        st.warning(
+            "⏳ Kernel is restarting to activate Miniforge. "
+            "The page will reload automatically in a few seconds. "
+            "If it does not, **refresh this tab manually** — "
+            "then the install will continue from here."
+        )
+        st.session_state["log_install"] = log
+        st.stop()
+
+    # ── Phase 2: mamba — AmberTools + RDKit + xtb ─────────────────────────────
+    phases.info("**Phase 2/4** — Installing AmberTools, RDKit, xtb via mamba…")
+    log, ok = _run_install_step(
+        ["bash", "-lc",
+         "mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -20"],
+        "AmberTools + RDKit + xtb", 15, progress, log_area, log
+    )
+    if not ok:
+        st.error("❌ mamba install (AmberTools/RDKit/xtb) failed — see log.")
+        st.session_state["log_install"] = log
+        log_expander("log_install"); return
+
+    # ── Phase 3: mamba — OpenFF + NGLView ────────────────────────────────────
+    phases.info("**Phase 3/4** — Installing OpenFF toolkit + NGLView…")
+    log, ok = _run_install_step(
+        ["bash", "-lc",
+         "mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -10"],
+        "OpenFF + NGLView", 65, progress, log_area, log
+    )
+    if not ok:
+        # Non-fatal — warn but continue
+        st.warning("⚠️ OpenFF/NGLView install had errors (non-fatal). Continuing…")
+
+    # ── Phase 4: pip — Python-only packages ──────────────────────────────────
+    phases.info("**Phase 4/4** — Installing Python packages via pip…")
+    log, ok = _run_install_step(
+        [sys.executable, "-m", "pip", "install", "-q",
+         "py3Dmol", "netCDF4", "cftime", "deeptime",
+         "dimorphite_dl", "pkapredict", "PaCS-Q", "parmed"],
+        "pip packages", 85, progress, log_area, log
+    )
+    if not ok:
+        st.error("❌ pip install of Python packages failed — see log.")
+        st.session_state["log_install"] = log
+        log_expander("log_install"); return
+
+    # ── Done ──────────────────────────────────────────────────────────────────
+    progress.progress(100, text="Installation complete!")
+    phases.empty()
+    st.session_state["log_install"]  = log
+    st.session_state["install_done"] = True
+    st.success("✅ All dependencies installed!")
+    next_button(1, "Next → Select host")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -331,14 +405,12 @@ def page_host():
                 pdb = core.read_file(hp)
                 st.components.v1.html(py3dmol_html(pdb, 680, 380), height=390)
 
-            time.sleep(1)
-            go_step(2)
+            next_button(2, "Next → Prepare guest")
 
-    # Already done?
+    # Already done — show Next button
     if st.session_state.get("host_path") and os.path.exists(st.session_state["host_path"]):
         st.info(f"Host already prepared: `{st.session_state['host_path']}`")
-        if st.button("Continue →"):
-            go_step(2)
+        next_button(2, "Next → Prepare guest")
     log_expander("log_host")
 
 
@@ -467,14 +539,12 @@ def page_guest():
             pdb = core.read_file(gp)
             st.components.v1.html(py3dmol_html(pdb, 680, 340), height=350)
 
-        time.sleep(1)
-        go_step(3)
+        next_button(3, "Next → Build complex & solvate")
 
-    # Already done?
+    # Already done — show Next button
     if st.session_state.get("guest_path") and os.path.exists(st.session_state["guest_path"]):
         st.info(f"Guest already prepared: `{st.session_state['guest_path']}`")
-        if st.button("Continue →"):
-            go_step(3)
+        next_button(3, "Next → Build complex & solvate")
     log_expander("log_guest")
 
 
@@ -571,13 +641,11 @@ def page_build():
             with col:
                 st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
 
-        time.sleep(1)
-        go_step(4)
+        next_button(4, "Next → Minimization & heating")
 
     if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
         st.info("Complex already built.")
-        if st.button("Continue →"):
-            go_step(4)
+        next_button(4, "Next → Minimization & heating")
 
     log_expander("log_tleap")
 
@@ -603,8 +671,7 @@ def page_minimize():
 
     if st.session_state.get("min_done") and os.path.exists(wpath("last_frame.rst7")):
         st.success(f"✅ Already minimized — `last_frame.rst7` ({core.file_mb(wpath('last_frame.rst7')):.2f} MB)")
-        if st.button("Continue →", type="primary"):
-            go_step(5)
+        next_button(5, "Next → LB-PaCS-MD")
         return
 
     if st.button("▶ Run minimization & heating", type="primary"):
@@ -616,7 +683,6 @@ def page_minimize():
         """, unsafe_allow_html=True)
 
         progress = st.progress(0, text="Starting OpenMM…")
-        log_area = st.empty()
 
         progress.progress(10, text="Minimizing energy…")
         ok, out = core.run_minimize_heat(
@@ -629,9 +695,8 @@ def page_minimize():
         if ok:
             progress.progress(100, text="Done!")
             st.session_state["min_done"] = True
-            st.success(f"✅ Minimization complete!  `last_frame.rst7` saved.")
-            time.sleep(1)
-            go_step(5)
+            st.success("✅ Minimization complete!  `last_frame.rst7` saved.")
+            next_button(5, "Next → LB-PaCS-MD")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ Minimization failed")
@@ -669,12 +734,10 @@ def page_pacsmd():
 
     if st.session_state.get("pacsmd_done") and os.path.exists(wpath("sum.nc")):
         st.success(f"✅ LB-PaCS-MD done — `sum.nc` ({core.file_mb(wpath('sum.nc')):.1f} MB)")
-        if st.button("Continue to analysis →", type="primary"):
-            go_step(6)
+        next_button(6, "Next → PaCS-MD analysis")
         return
 
     if st.button("▶ Run LB-PaCS-MD", type="primary"):
-        # Save params to session
         st.session_state.update({
             "pacsmd_cycles": cycle, "pacsmd_candi": candi,
             "pacsmd_sim_time": sim_time, "pacsmd_timestep": timestep,
@@ -706,8 +769,7 @@ def page_pacsmd():
             progress.progress(100, text="LB-PaCS-MD complete!")
             st.session_state["pacsmd_done"] = True
             st.success("✅ LB-PaCS-MD complete!")
-            time.sleep(1)
-            go_step(6)
+            next_button(6, "Next → PaCS-MD analysis")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ PaCS-Q failed")
@@ -844,13 +906,11 @@ def page_pacsmd_analysis():
                     st.error("❌ Extension failed")
                     log_expander("log_pacsmd")
         else:
-            if st.button("Continue to cMD →", type="primary"):
-                go_step(7)
+            next_button(7, "Next → Classical MD")
     else:
-        # Guest complexed — auto-proceed
+        # Guest complexed
         st.success("Guest is complexed. Proceeding to cMD.")
-        if st.button("Continue to cMD →", type="primary"):
-            go_step(7)
+        next_button(7, "Next → Classical MD")
 
     log_expander("log_cv")
 
@@ -865,8 +925,7 @@ def page_cmd():
 
     if st.session_state.get("cmd_done") and os.path.exists(wpath("md.dcd")):
         st.success(f"✅ cMD done — `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
-        if st.button("Continue →", type="primary"):
-            go_step(8)
+        next_button(8, "Next → Analysis & MM-PBSA")
         return
 
     c1, c2 = st.columns(2)
@@ -920,8 +979,7 @@ def page_cmd():
             progress.progress(100, text="cMD complete!")
             st.session_state["cmd_done"] = True
             st.success("✅ cMD complete!")
-            time.sleep(1)
-            go_step(8)
+            next_button(8, "Next → Analysis & MM-PBSA")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ cMD failed")
@@ -1066,8 +1124,7 @@ def page_analysis():
                 }, "#1D9E75"), use_container_width=True)
 
         st.divider()
-        if st.button("Continue →", type="primary"):
-            go_step(9)
+        next_button(9, "Next → DBFE")
 
     log_expander("log_mmpbsa")
 
@@ -1179,8 +1236,7 @@ def page_dbfe():
             st.session_state["dbfe_done"] = True
 
     st.divider()
-    if st.button("Continue to download →", type="primary"):
-        go_step(10)
+    next_button(10, "Next → Download results")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
