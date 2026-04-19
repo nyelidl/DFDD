@@ -539,44 +539,12 @@ def page_host():
 # STEP 2 — Guest preparation
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _ketcher_html():
-    return """
-<style>
-#ketcher-wrap{width:100%;border:1px solid #c7ede2;border-radius:10px;overflow:hidden}
-#ketcher-wrap iframe{width:100%;height:500px;border:none;display:block}
-.ket-btn{margin-top:8px;padding:9px 24px;background:#1D9E75;color:#fff;border:none;
-  border-radius:7px;font-size:1rem;font-weight:600;cursor:pointer;width:100%}
-.ket-btn:hover{background:#0F6E56}
-#smiles-out{margin-top:8px;width:100%;padding:8px;border:1px solid #c7ede2;
-  border-radius:6px;font-size:.95rem;font-family:monospace;resize:vertical}
-</style>
-<div id="ketcher-wrap">
-  <iframe id="kframe"
-    src="https://lifescience.opensource.epam.com/KetcherDemo/index.html"
-    allow="clipboard-read; clipboard-write">
-  </iframe>
-</div>
-<button class="ket-btn" onclick="getSMILES()">\U0001f4cb Get SMILES from drawing</button>
-<textarea id="smiles-out" rows="2" placeholder="SMILES will appear here after clicking the button above\u2026" readonly></textarea>
-<p style="font-size:.85rem;color:#888;margin-top:4px">
-  Copy the SMILES above and paste it into the field below.
-</p>
-<script>
-function getSMILES() {
-  var frame = document.getElementById('kframe');
-  try {
-    frame.contentWindow.ketcher.getSmilesAsync().then(function(smi){
-      document.getElementById('smiles-out').value = smi;
-    }).catch(function(e){
-      document.getElementById('smiles-out').value = 'Error: ' + e;
-    });
-  } catch(e) {
-    document.getElementById('smiles-out').value =
-      'Could not read from Ketcher. Make sure a structure is drawn. (' + e + ')';
-  }
-}
-</script>
-"""
+def _try_import_ketcher():
+    try:
+        from streamlit_ketcher import st_ketcher
+        return st_ketcher
+    except ImportError:
+        return None
 
 
 def _charge_from_file(path):
@@ -646,14 +614,30 @@ def page_guest():
 
     # ── Ketcher draw ──────────────────────────────────────────────────────────
     elif input_type == "Draw (Ketcher)":
-        st.markdown("**Draw your molecule, then click *Get SMILES* and paste into the box below.**")
-        st.components.v1.html(_ketcher_html(), height=640, scrolling=False)
-        smiles_in = st.text_input(
-            "Paste SMILES from Ketcher here",
-            value=st.session_state.get("guest_smiles", ""),
-            placeholder="Paste the SMILES copied from the editor above",
-            key="guest_ketcher_smiles",
-        )
+        st_ketcher = _try_import_ketcher()
+
+        if st_ketcher is None:
+            # Auto-install streamlit-ketcher if not present
+            with st.spinner("Installing streamlit-ketcher…"):
+                core.run_cmd(
+                    [sys.executable, "-m", "pip", "install", "-q", "streamlit-ketcher"],
+                    timeout=120
+                )
+            st.info("✅ streamlit-ketcher installed — please click **Draw (Ketcher)** again.")
+            st.stop()
+
+        st.markdown("**Draw your molecule below. SMILES updates automatically.**")
+        # Pre-load with last used SMILES if available
+        init_smiles = st.session_state.get("guest_smiles", "")
+        drawn_smiles = st_ketcher(init_smiles, height=500, key="ketcher_editor")
+
+        if drawn_smiles and drawn_smiles.strip():
+            smiles_in = drawn_smiles.strip()
+            st.session_state["guest_smiles"] = smiles_in
+            st.caption(f"Current SMILES: `{smiles_in}`")
+        else:
+            smiles_in = ""
+            st.caption("Draw a structure above — SMILES will appear here.")
 
     # ── File upload ───────────────────────────────────────────────────────────
     else:
