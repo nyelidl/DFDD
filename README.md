@@ -136,6 +136,13 @@ No local installation or coding experience required.
 
 ---
 
+## 🖥️ Run locally
+
+### Google Colab (web-based interface)
+Run locally on Google colab with web-based interface: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1yv5zkv3qPlwtdbp4nUzblpT8eJL75bPG?usp=sharing)
+
+---
+
 ## Note
 
 If you are interested in performing docking using **AutoDock Vina v1.2.7** for **protein–ligand** or **cyclodextrin–guest** systems, you may also find the following repository useful:
