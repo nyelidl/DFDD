@@ -51,76 +51,271 @@ st.set_page_config(
 # ─── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Global font size boost ───────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═════════════════════════════════════════════════════════════════════════ */
+:root {
+    --dfdd-primary:      #1D9E75;
+    --dfdd-primary-dark: #0F6E56;
+    --dfdd-primary-darker: #085041;
+    --dfdd-primary-tint: #E1F5EE;
+    --dfdd-primary-bg:   #f0faf6;
+    --dfdd-border:       #c7ede2;
+    --dfdd-text-body:    #2C3E50;
+    --dfdd-text-muted:   #6B7280;
+    --dfdd-text-sub:     #9CA3AF;
+    --dfdd-bg-subtle:    #F9FAFB;
+    --dfdd-accent-red:   #E24B4A;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═════════════════════════════════════════════════════════════════════════ */
 html, body, [class*="css"] {
     font-size: 17px !important;
+    color: var(--dfdd-text-body);
 }
-/* Streamlit main content text */
 .stMarkdown p, .stMarkdown li, .stMarkdown td, .stMarkdown th,
-.stText, .stCaption, label, .stSelectbox, .stNumberInput,
-.stRadio label, .stCheckbox label, .stTextInput input,
-.stSelectbox select, div[data-testid="stWidgetLabel"] {
+.stText, label, .stRadio label, .stCheckbox label,
+.stTextInput input, .stSelectbox select,
+div[data-testid="stWidgetLabel"] {
     font-size: 1rem !important;
 }
-/* Sidebar text */
-section[data-testid="stSidebar"] * {
-    font-size: 0.97rem !important;
+.stCaption, [data-testid="stCaptionContainer"] {
+    font-size: 0.88rem !important;
+    color: var(--dfdd-text-muted) !important;
 }
-/* Primary buttons — green */
+section[data-testid="stSidebar"] * { font-size: 0.95rem !important; }
+code, pre { font-size: 0.9rem !important; }
+h1, h2, h3 { color: var(--dfdd-primary-dark) !important; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ═════════════════════════════════════════════════════════════════════════ */
 button[kind="primary"], .stButton > button[kind="primary"] {
-    background-color: #1D9E75 !important;
-    border-color: #1D9E75 !important;
-    color: #ffffff !important;
+    background-color: var(--dfdd-primary) !important;
+    border-color: var(--dfdd-primary) !important;
+    color: #fff !important;
     font-size: 1rem !important;
+    font-weight: 600 !important;
+    padding: 0.55rem 1.4rem !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 1px 3px rgba(29,158,117,0.2) !important;
 }
 button[kind="primary"]:hover, .stButton > button[kind="primary"]:hover {
-    background-color: #0F6E56 !important;
-    border-color: #0F6E56 !important;
+    background-color: var(--dfdd-primary-dark) !important;
+    border-color: var(--dfdd-primary-dark) !important;
+    box-shadow: 0 2px 6px rgba(29,158,117,0.3) !important;
+    transform: translateY(-1px);
 }
 button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
-    background-color: #085041 !important;
-    border-color: #085041 !important;
+    background-color: var(--dfdd-primary-darker) !important;
+    border-color: var(--dfdd-primary-darker) !important;
+    transform: translateY(0);
 }
-/* Secondary buttons */
-button[kind="secondary"] { font-size: 1rem !important; }
-/* Code blocks */
-code, pre { font-size: 0.9rem !important; }
+button[kind="secondary"], .stButton > button[kind="secondary"] {
+    font-size: 0.95rem !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+}
+button[kind="secondary"]:hover {
+    border-color: var(--dfdd-primary) !important;
+    color: var(--dfdd-primary-dark) !important;
+}
 
-/* ── Progress stepper ─────────────────────────────────────────────────────── */
-.stepper{display:flex;align-items:center;gap:0;margin-bottom:2rem;overflow-x:auto;padding:0.5rem 0}
-.step-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:64px}
-.step-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:15px;font-weight:600;transition:all .3s}
-.step-done  .step-circle{background:#1D9E75;color:#fff}
-.step-active .step-circle{background:#1D9E75;color:#fff;box-shadow:0 0 0 4px #E1F5EE}
-.step-todo  .step-circle{background:#f0f0f0;color:#999}
-.step-label{font-size:12px;margin-top:5px;text-align:center;color:#666;max-width:72px}
-.step-line{flex:1;height:2px;background:#e0e0e0;margin:0 2px;margin-bottom:20px}
-.step-line.done{background:#1D9E75}
+/* ═════════════════════════════════════════════════════════════════════════
+   STEPPER
+   ═════════════════════════════════════════════════════════════════════════ */
+.stepper {
+    display: flex; align-items: center; gap: 0;
+    margin: 0 0 2rem 0;
+    padding: 1rem 0.5rem;
+    background: var(--dfdd-bg-subtle);
+    border-radius: 12px;
+    overflow-x: auto;
+}
+.step-item {
+    display: flex; flex-direction: column; align-items: center;
+    flex: 1; min-width: 64px;
+}
+.step-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600;
+    transition: all 0.25s ease;
+}
+.step-done .step-circle { background: var(--dfdd-primary); color: #fff; }
+.step-active .step-circle {
+    background: var(--dfdd-primary); color: #fff;
+    box-shadow: 0 0 0 5px var(--dfdd-primary-tint);
+    transform: scale(1.08);
+}
+.step-todo .step-circle { background: #E5E7EB; color: #9CA3AF; }
+.step-label {
+    font-size: 11px; margin-top: 6px;
+    text-align: center; color: var(--dfdd-text-muted); max-width: 72px;
+    line-height: 1.3;
+}
+.step-done .step-label, .step-active .step-label {
+    color: var(--dfdd-primary-dark); font-weight: 500;
+}
+.step-line {
+    flex: 1; height: 2px;
+    background: #E5E7EB; margin: 0 2px; margin-bottom: 22px;
+    transition: background 0.3s ease;
+}
+.step-line.done { background: var(--dfdd-primary); }
 
-/* ── Waiting card ─────────────────────────────────────────────────────────── */
-.wait-card{background:#f8fffe;border:1px solid #c7ede2;border-radius:12px;
-  padding:2rem;text-align:center;margin:1rem 0}
-.wait-title{font-size:1.6rem;font-weight:600;color:#0F6E56;margin-bottom:.5rem}
-.wait-sub{color:#555;font-size:1.1rem}
+/* ═════════════════════════════════════════════════════════════════════════
+   SECTION HEADERS
+   ═════════════════════════════════════════════════════════════════════════ */
+.sec-header {
+    font-size: 1.75rem; font-weight: 700;
+    color: var(--dfdd-primary-dark);
+    margin: 0 0 0.3rem 0;
+    letter-spacing: -0.01em;
+}
+.sec-sub {
+    color: var(--dfdd-text-muted); font-size: 1.02rem;
+    margin: 0 0 1.75rem 0; line-height: 1.5;
+}
 
-/* ── Section header ───────────────────────────────────────────────────────── */
-.sec-header{font-size:1.75rem;font-weight:700;color:#0F6E56;margin-bottom:.25rem}
-.sec-sub{color:#666;font-size:1.05rem;margin-bottom:1.5rem}
+/* ═════════════════════════════════════════════════════════════════════════
+   CARDS
+   ═════════════════════════════════════════════════════════════════════════ */
+.wait-card {
+    background: linear-gradient(135deg, #f8fffe 0%, #e8f7f1 100%);
+    border: 1px solid var(--dfdd-border);
+    border-radius: 14px;
+    padding: 2rem 2.5rem;
+    text-align: center;
+    margin: 1.25rem 0;
+    box-shadow: 0 2px 8px rgba(29,158,117,0.05);
+}
+.wait-title {
+    font-size: 1.5rem; font-weight: 600;
+    color: var(--dfdd-primary-dark);
+    margin-bottom: 0.6rem;
+}
+.wait-sub {
+    color: var(--dfdd-text-muted); font-size: 1.02rem;
+    line-height: 1.6;
+}
+.mol-card {
+    background: var(--dfdd-bg-subtle);
+    border: 1px solid #E5E7EB;
+    border-radius: 10px; padding: 1rem;
+}
+.choice-card {
+    border: 2px solid #E5E7EB; border-radius: 10px;
+    padding: 1.1rem; cursor: pointer;
+    transition: all 0.18s ease; background: #fff;
+    font-size: 1rem;
+}
+.choice-card:hover {
+    border-color: var(--dfdd-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(29,158,117,0.08);
+}
+.choice-card.selected {
+    border-color: var(--dfdd-primary);
+    background: var(--dfdd-primary-bg);
+    box-shadow: 0 1px 4px rgba(29,158,117,0.1);
+}
 
-/* ── Molecule card ────────────────────────────────────────────────────────── */
-.mol-card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem}
+/* ═════════════════════════════════════════════════════════════════════════
+   RESULT METRICS
+   ═════════════════════════════════════════════════════════════════════════ */
+.res-metric {
+    background: var(--dfdd-primary-bg);
+    border: 1px solid var(--dfdd-border);
+    border-radius: 12px;
+    padding: 1.3rem 1.6rem;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(29,158,117,0.06);
+}
+.res-value {
+    font-size: 2.1rem; font-weight: 700;
+    color: var(--dfdd-primary-dark);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+.res-label {
+    color: var(--dfdd-text-muted); font-size: 0.95rem;
+    margin-top: 0.4rem;
+}
 
-/* ── Choice card ──────────────────────────────────────────────────────────── */
-.choice-card{border:2px solid #e0e0e0;border-radius:10px;padding:1.1rem;cursor:pointer;
-  transition:all .2s;background:#fff;font-size:1rem}
-.choice-card.selected{border-color:#1D9E75;background:#f0faf6}
+/* ═════════════════════════════════════════════════════════════════════════
+   ALERTS / DIVIDERS
+   ═════════════════════════════════════════════════════════════════════════ */
+hr { margin: 1.5rem 0 !important; border-color: #E5E7EB !important; }
 
-/* ── Result metric ────────────────────────────────────────────────────────── */
-.res-metric{background:#f0faf6;border:1px solid #c7ede2;border-radius:10px;
-  padding:1.1rem 1.6rem;text-align:center}
-.res-value{font-size:2rem;font-weight:700;color:#0F6E56}
-.res-label{color:#555;font-size:1rem;margin-top:.3rem}
+div[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    border-left-width: 4px !important;
+}
+
+/* Info boxes in green tint */
+div[data-testid="stInfo"] {
+    background-color: var(--dfdd-primary-bg) !important;
+    border-color: var(--dfdd-border) !important;
+    color: var(--dfdd-primary-darker) !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   INPUTS
+   ═════════════════════════════════════════════════════════════════════════ */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stTextArea textarea {
+    border-radius: 8px !important;
+    border-color: #E5E7EB !important;
+    transition: border-color 0.15s ease !important;
+}
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stTextArea textarea:focus {
+    border-color: var(--dfdd-primary) !important;
+    box-shadow: 0 0 0 3px var(--dfdd-primary-tint) !important;
+}
+
+/* Horizontal radio button pills */
+div[data-baseweb="radio"] {
+    padding: 4px 2px !important;
+}
+
+/* File uploader dropzone */
+section[data-testid="stFileUploadDropzone"] {
+    border: 2px dashed #c7ede2 !important;
+    background: var(--dfdd-bg-subtle) !important;
+    border-radius: 10px !important;
+}
+section[data-testid="stFileUploadDropzone"]:hover {
+    border-color: var(--dfdd-primary) !important;
+    background: var(--dfdd-primary-bg) !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═════════════════════════════════════════════════════════════════════════ */
+section[data-testid="stSidebar"] {
+    background: #FAFBFC !important;
+    border-right: 1px solid #E5E7EB;
+}
+section[data-testid="stSidebar"] h2 {
+    font-size: 1.5rem !important;
+    color: var(--dfdd-primary-dark) !important;
+    margin-bottom: 0.5rem !important;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 1rem 0 !important;
+}
+
+/* Progress bars */
+div[data-testid="stProgress"] > div > div > div {
+    background: var(--dfdd-primary) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,6 +336,10 @@ DEFAULTS = {
     "guest_smiles":      "",
     "guest_path":        None,
     "detected_charge":   0,
+    "guest_pH":          7.4,
+    "guest_pH_range":    0.5,
+    "guest_apply_ph":    True,
+    "guest_smiles_protonated": "",
     # sim params (set in step 6 UI)
     "pacsmd_cycles":     40,
     "pacsmd_candi":      3,
@@ -193,46 +392,78 @@ def log_expander(key, label="📋 Log"):
 
 def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
     """Render a centred green Next button that advances the wizard."""
-    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-    col = st.columns([2, 1, 2])[1]
+    st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
+    col = st.columns([1, 2, 1])[1]
     with col:
         if st.button(label, key=f"next_to_{next_step}{key_suffix}", type="primary",
                      use_container_width=True):
             go_step(next_step)
 
 
-def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
+def section_header(title: str, subtitle: str = ""):
+    """Render a polished section header + optional subtitle."""
+    st.markdown(f'<div class="sec-header">{title}</div>', unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="sec-sub">{subtitle}</div>', unsafe_allow_html=True)
+
+
+def waiting_card(title: str, subtitle: str = ""):
+    """Render a prominent waiting card during long-running tasks."""
+    st.markdown(
+        f'''<div class="wait-card">
+            <div class="wait-title">{title}</div>
+            <div class="wait-sub">{subtitle}</div>
+        </div>''',
+        unsafe_allow_html=True,
+    )
+
+
+def py3dmol_html(pdb_str, width=680, height=420, side_view=False,
+                 show_surface=False):
     """Render a PDB string with 3Dmol.js.
-    side_view=True rotates the camera 90° around X so cyclodextrin
-    hosts appear as a side/cone view instead of top-down.
+    side_view=True   → rotate camera 90° for cyclodextrin side profile
+    show_surface=True → add translucent molecular surface on host
     """
-    rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
+    rotate  = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
+    surface = (
+        "v.addSurface($3Dmol.SurfaceType.MS, "
+        "{opacity:0.35, color:'#C7EDE2'}, {resn:['GST']}, undefined, undefined, true);"
+        if show_surface else ""
+    )
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-    <div id="v3d" style="width:{width}px;height:{height}px;position:relative;border-radius:10px;overflow:hidden"></div>
+    <div id="v3d" style="
+        width:{width}px; height:{height}px; position:relative;
+        border-radius:12px; overflow:hidden;
+        border:1px solid #E5E7EB; background:#FAFBFC;
+        box-shadow:0 1px 3px rgba(0,0,0,0.04);
+    "></div>
     <script>
-      var v = $3Dmol.createViewer(document.getElementById('v3d'),{{backgroundColor:'#f8f9fa'}});
+      var v = $3Dmol.createViewer(document.getElementById('v3d'),
+                                  {{backgroundColor:'#FAFBFC'}});
       v.addModel(`{pdb_str}`,'pdb');
       v.setStyle({{}},{{stick:{{colorscheme:'grayCarbon',radius:0.2}}}});
-      v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.25}}}});
+      v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.28}}}});
+      {surface}
       v.zoomTo();
       {rotate}
       v.render();
     </script>"""
 
+
 # ─── Step names for progress bar ──────────────────────────────────────────────
 STEP_LABELS = [
-    "Install",      # 0
-    "Host",         # 1
-    "Guest",        # 2
-    "Build+Solvate",# 3
-    "Min & Heat",   # 4
-    "LB-PaCS-MD",   # 5
-    "Analysis",     # 6
-    "cMD",          # 7
-    "MM-PBSA",      # 8
-    "DBFE",         # 9
-    "Download",     # 10
+    "Install",
+    "Host",
+    "Guest",
+    "Build & Solvate",
+    "Minimize",
+    "LB-PaCS-MD",
+    "Analysis",
+    "cMD",
+    "MM-PBSA",
+    "DBFE",
+    "Download",
 ]
 
 def render_stepper(current):
@@ -319,8 +550,7 @@ def _run_install_step(cmd, desc, pct, progress, log_area, log, conda_cmd=None):
 
 def page_install():
     render_stepper(0)
-    st.markdown('<div class="sec-header">🔧 Setting up environment</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Installing scientific packages. This runs automatically — please wait.</div>', unsafe_allow_html=True)
+    section_header("🔧 Setting up environment", "Installing scientific packages. This runs automatically — please wait.")
 
     # ── Already fully done this session ──────────────────────────────────────
     if st.session_state["install_done"]:
@@ -448,8 +678,7 @@ def _fetch_preview_pdb(url):
 
 def page_host():
     render_stepper(1)
-    st.markdown('<div class="sec-header">🏗️ Select host</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Choose the cyclodextrin host. The 3D structure loads automatically.</div>', unsafe_allow_html=True)
+    section_header("🏗️ Select host", "Choose the cyclodextrin host. The 3D structure loads automatically.")
 
     abbrevs = list(HOST_OPTIONS_MAP.keys())
 
@@ -572,8 +801,7 @@ def _charge_from_file(path):
 
 def page_guest():
     render_stepper(2)
-    st.markdown('<div class="sec-header">\U0001f9ea Prepare guest molecule</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Provide your guest ligand by SMILES, file upload, or draw with Ketcher.</div>', unsafe_allow_html=True)
+    section_header("\U0001f9ea Prepare guest molecule", "Provide your guest ligand by SMILES, file upload, or draw with Ketcher.")
 
     input_type = st.radio(
         "Input method",
@@ -659,6 +887,64 @@ def page_guest():
 
     st.divider()
 
+    # ── pH / protonation ──────────────────────────────────────────────────────
+    st.markdown("#### 🧫 Protonation state")
+
+    pc1, pc2, pc3 = st.columns([1.2, 1, 1.5])
+    with pc1:
+        apply_ph = st.checkbox(
+            "Adjust protonation at pH",
+            value=st.session_state.get("guest_apply_ph", True),
+            help="Applies only to SMILES/Ketcher input (not to uploaded 3D files).",
+            key="guest_apply_ph_chk",
+        )
+        st.session_state["guest_apply_ph"] = apply_ph
+
+    with pc2:
+        pH_val = st.slider(
+            "Target pH",
+            2.0, 12.0,
+            st.session_state.get("guest_pH", 7.4),
+            0.1,
+            disabled=not apply_ph,
+            key="guest_pH_slider",
+        )
+        st.session_state["guest_pH"] = pH_val
+
+    with pc3:
+        pH_range = st.slider(
+            "pH range (± around target)",
+            0.1, 2.0,
+            st.session_state.get("guest_pH_range", 0.5),
+            0.1,
+            disabled=not apply_ph,
+            help="Lower = strict protonation; higher = includes minor microspecies.",
+            key="guest_pH_range_slider",
+        )
+        st.session_state["guest_pH_range"] = pH_range
+
+    # Live protonation preview (SMILES / Ketcher only)
+    if apply_ph and smiles_in and smiles_in.strip() and not input_type.startswith("File"):
+        if st.button("🔬 Preview protonated SMILES", key="btn_preview_proton"):
+            with st.spinner("Calculating protonation states…"):
+                new_smi, changed, err = core.protonate_smiles_at_ph(
+                    smiles_in.strip(), pH=pH_val, pH_range=pH_range
+                )
+            if err:
+                st.warning(f"⚠️ Protonation unavailable: {err}")
+            else:
+                st.session_state["guest_smiles_protonated"] = new_smi
+                if changed:
+                    st.success(f"✅ Protonated form at pH {pH_val}: `{new_smi}`")
+                else:
+                    st.info(f"No change — SMILES already matches protonation at pH {pH_val}.")
+
+        # Show the most recent preview
+        if st.session_state.get("guest_smiles_protonated"):
+            st.caption(f"Last preview: `{st.session_state['guest_smiles_protonated']}`")
+
+    st.divider()
+
     # ── Parameters ────────────────────────────────────────────────────────────
     c1, c2 = st.columns(2)
     with c1:
@@ -721,15 +1007,36 @@ def page_guest():
 
             # SMILES / Ketcher path
             if smiles_in and smiles_in.strip():
+                smi_to_use = smiles_in.strip()
+
+                # Apply pH-based protonation
+                if st.session_state.get("guest_apply_ph", True):
+                    new_smi, changed, err = core.protonate_smiles_at_ph(
+                        smi_to_use,
+                        pH=st.session_state.get("guest_pH", 7.4),
+                        pH_range=st.session_state.get("guest_pH_range", 0.5),
+                    )
+                    if err:
+                        log += f"pH adjustment skipped: {err}\n"
+                    else:
+                        if changed:
+                            log += f"pH {st.session_state['guest_pH']}: {smi_to_use}  →  {new_smi}\n"
+                            st.info(f"Protonation adjusted at pH {st.session_state['guest_pH']}:  `{smi_to_use}`  →  `{new_smi}`")
+                        else:
+                            log += f"SMILES unchanged at pH {st.session_state['guest_pH']}\n"
+                        smi_to_use = new_smi
+
                 pdb_raw = wpath("guest_raw.pdb")
                 sdf_raw = wpath("guest_raw.sdf")
-                detected, err = core.smiles_to_3d_pdb(smiles_in.strip(), pdb_raw, sdf_raw,
+                detected, err = core.smiles_to_3d_pdb(smi_to_use, pdb_raw, sdf_raw,
                                                        workdir=WD())
                 if err:
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
                 log   += f"RDKit detected charge: {detected}\n"
+                # Persist the final SMILES used
+                st.session_state["guest_smiles_protonated"] = smi_to_use
                 if charge_mode == "Set manually":
                     detected = manual_charge
 
@@ -784,12 +1091,28 @@ def page_guest():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 3 — Build complex + solvation (steps 4+5 merged)
+# STEP 3 — Build complex + solvation (live interactive 3D preview)
 # ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(show_spinner=False)
+def _build_preview_cached(hp: str, gp: str, distance: float, _mtime_host: float, _mtime_guest: float):
+    """Cache the complex preview build per (host_path, guest_path, distance).
+    _mtime_* args bust the cache if the input files change.
+    """
+    import tempfile
+    tmp_pdb = os.path.join(tempfile.gettempdir(), f"_dfdd_preview_{distance:.1f}.pdb")
+    ok, msg = core.build_host_guest_complex(hp, gp, distance, tmp_pdb)
+    if not ok or not os.path.exists(tmp_pdb):
+        return None, msg
+    return core.read_file(tmp_pdb), msg
+
+
 def page_build():
     render_stepper(3)
-    st.markdown('<div class="sec-header">🔗 Build complex & solvate</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Place guest above host cavity, then generate topology and solvated box.</div>', unsafe_allow_html=True)
+    section_header(
+        "🔗 Build complex & solvate",
+        "Adjust the sliders — the 3D complex updates live. Click *Build topology* when you're happy with the geometry."
+    )
 
     hp = st.session_state.get("host_path")
     gp = st.session_state.get("guest_path")
@@ -800,89 +1123,158 @@ def page_build():
     with c2:
         st.info(f"**Guest:** `{os.path.basename(gp) if gp else '—'}`")
 
-    st.subheader("Complex geometry")
+    # ── Interactive controls ──────────────────────────────────────────────────
+    st.markdown("#### 📐 Complex geometry")
     distance = st.slider(
-        "Guest initial offset along cavity axis (Å) — negative = placed above opening",
-        -20, 20, -15
+        "Guest initial offset along cavity axis (Å)",
+        min_value=-25, max_value=25, value=st.session_state.get("build_distance", -15), step=1,
+        help="Negative = guest placed above the host opening. Typical: −15 to −20 Å.",
+        key="build_distance_slider",
     )
+    st.session_state["build_distance"] = distance
 
-    st.subheader("Solvation")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        water_type = st.selectbox("Water model", ["TIP3P", "OPC"])
-        box_buf    = st.slider("Box buffer (Å)", 5, 15, 5)
-    with col2:
-        unit_xy    = st.slider("Unit cell X/Y (Å)", 12, 25, 13)
-        unit_z     = st.slider("Unit cell Z (Å)", 30, 50, 35)
-    with col3:
-        translate_z = st.slider("Z-translation (Å)", -20, 20, 0)
+    st.markdown("#### 💧 Solvation")
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        water_type = st.selectbox(
+            "Water model",
+            ["TIP3P", "OPC"],
+            index=0 if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else 1,
+            key="build_water_sel",
+        )
+        st.session_state["build_water_type"] = water_type
+        box_buf = st.slider(
+            "Water padding (Å)",
+            min_value=4, max_value=25, value=st.session_state.get("build_box_buf", 5), step=1,
+            help="Distance from solute to edge of water box. Typical: 4–25 Å.",
+            key="build_box_buf_slider",
+        )
+        st.session_state["build_box_buf"] = box_buf
+    with sc2:
+        unit_xy = st.slider(
+            "Unit cell X/Y (Å)",
+            min_value=12, max_value=25, value=st.session_state.get("build_unit_xy", 13), step=1,
+            key="build_unit_xy_slider",
+        )
+        st.session_state["build_unit_xy"] = unit_xy
+        unit_z = st.slider(
+            "Unit cell Z (Å)",
+            min_value=30, max_value=50, value=st.session_state.get("build_unit_z", 35), step=1,
+            key="build_unit_z_slider",
+        )
+        st.session_state["build_unit_z"] = unit_z
+    with sc3:
+        translate_z = st.slider(
+            "Z-translation (Å)",
+            min_value=-20, max_value=20, value=st.session_state.get("build_translate_z", 0), step=1,
+            help="Shift complex along Z before solvation.",
+            key="build_translate_z_slider",
+        )
+        st.session_state["build_translate_z"] = translate_z
 
     water_ff  = "leaprc.water.tip3p" if water_type == "TIP3P" else "leaprc.water.opc"
     water_box = "TIP3PBOX"           if water_type == "TIP3P" else "OPCBOX"
 
-    if st.button("▶ Build & Solvate", type="primary"):
-        cx_out = wpath("complex.pdb")
+    st.divider()
 
-        # --- Build complex ---
-        with st.spinner("Building host–guest complex…"):
-            ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
-        st.session_state["log_complex"] = msg
+    # ── Live 3D preview ──────────────────────────────────────────────────────
+    st.markdown("#### 🔬 Live preview")
 
-        if not ok:
-            st.error(f"❌ Build failed: {msg}")
-            st.stop()
-        st.success("✅ Complex built")
+    if not (hp and gp and os.path.exists(hp) and os.path.exists(gp)):
+        st.warning("⚠️ Host or guest not prepared yet.")
+        return
 
-        # Show 3D
-        pdb = core.read_file(cx_out)
-        st.components.v1.html(py3dmol_html(pdb, 680, 380, side_view=True), height=390)
+    mtime_h = os.path.getmtime(hp)
+    mtime_g = os.path.getmtime(gp)
 
-        # --- Topology ---
-        with st.spinner("Running tleap (topology + solvation)…"):
-            ht  = st.session_state.get("host_type", "BCD_DFT")
-            hff = st.session_state.get("host_forcefield", "DFT")
-            if hff == "GLYCAM06":
-                core.insert_ter_records(cx_out)
+    with st.spinner("Rebuilding complex…"):
+        preview_pdb, msg = _build_preview_cached(hp, gp, float(distance), mtime_h, mtime_g)
 
-            script = core.write_tleap_script(
-                workdir=WD(),
-                host_forcefield=hff,
-                host_prep=st.session_state.get("host_prep", ""),
-                host_frcmod=st.session_state.get("host_frcmod", ""),
-                host_type=ht,
-                water_ff=water_ff, water_box=water_box,
-                box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
-                translate_z=translate_z,
-                cx_pdb=cx_out,
-                out_top=wpath("complex.top"),
-                out_crd=wpath("complex.crd"),
-                out_pdb=wpath("complex_leap.pdb"),
-            )
-            rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
-        st.session_state["log_tleap"] = out
+    if preview_pdb is None:
+        st.error(f"❌ Preview failed: {msg}")
+    else:
+        # Compute an approximate box outline to show the water padding envelope
+        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420, side_view=True), height=430)
+        st.caption(
+            f"Distance = **{distance} Å** · Water model = **{water_type}** · "
+            f"Padding = **{box_buf} Å** · Cell = **{unit_xy}×{unit_xy}×{unit_z} Å**"
+        )
 
-        if rc != 0:
-            st.error("❌ tleap failed")
-            log_expander("log_tleap")
-            st.stop()
+    st.divider()
 
-        st.session_state["build_done"] = True
-        st.session_state["topo_done"]  = True
-        st.success("✅ Topology & solvated box generated!")
+    # ── Commit: write complex.pdb + tleap topology ───────────────────────────
+    if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
+        st.success("✅ Topology already built.")
 
-        c1, c2, c3 = st.columns(3)
-        for col, fname in zip([c1,c2,c3], ["complex.top","complex.crd","complex_leap.pdb"]):
+        mc1, mc2, mc3 = st.columns(3)
+        for col, fname in zip([mc1, mc2, mc3],
+                              ["complex.top", "complex.crd", "complex_leap.pdb"]):
             p = wpath(fname)
             with col:
                 st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
+        next_button(4, "Next → Minimization & heating", key_suffix="_done")
 
-        next_button(4, "Next → Minimization & heating")
+    else:
+        if st.button("▶ Build topology & solvate", type="primary"):
+            cx_out = wpath("complex.pdb")
 
-    if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
-        st.info("Complex already built.")
-        next_button(4, "Next → Minimization & heating")
+            # ─── 1. Build real complex at current slider settings ────────
+            with st.spinner("Building host–guest complex…"):
+                ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
+            st.session_state["log_complex"] = msg
+
+            if not ok:
+                st.error(f"❌ Build failed: {msg}")
+                st.stop()
+            st.success("✅ Complex built")
+
+            pdb = core.read_file(cx_out)
+            st.components.v1.html(py3dmol_html(pdb, 680, 380, side_view=True), height=390)
+
+            # ─── 2. Run tleap ────────────────────────────────────────────
+            with st.spinner("Running tleap (topology + solvation)… this takes ~30 s"):
+                ht  = st.session_state.get("host_type", "BCD_DFT")
+                hff = st.session_state.get("host_forcefield", "DFT")
+                if hff == "GLYCAM06":
+                    core.insert_ter_records(cx_out)
+
+                script = core.write_tleap_script(
+                    workdir=WD(),
+                    host_forcefield=hff,
+                    host_prep=st.session_state.get("host_prep", ""),
+                    host_frcmod=st.session_state.get("host_frcmod", ""),
+                    host_type=ht,
+                    water_ff=water_ff, water_box=water_box,
+                    box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
+                    translate_z=translate_z,
+                    cx_pdb=cx_out,
+                    out_top=wpath("complex.top"),
+                    out_crd=wpath("complex.crd"),
+                    out_pdb=wpath("complex_leap.pdb"),
+                )
+                rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
+            st.session_state["log_tleap"] = out
+
+            if rc != 0:
+                st.error("❌ tleap failed")
+                log_expander("log_tleap")
+                st.stop()
+
+            st.session_state["build_done"] = True
+            st.session_state["topo_done"]  = True
+            st.success("✅ Topology & solvated box generated!")
+
+            mc1, mc2, mc3 = st.columns(3)
+            for col, fname in zip([mc1, mc2, mc3],
+                                  ["complex.top", "complex.crd", "complex_leap.pdb"]):
+                p = wpath(fname)
+                with col:
+                    st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
+
+            next_button(4, "Next → Minimization & heating", key_suffix="_built")
 
     log_expander("log_tleap")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -890,8 +1282,7 @@ def page_build():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_minimize():
     render_stepper(4)
-    st.markdown('<div class="sec-header">🔥 Minimization & heating</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Energy minimization, NVT heating 0→300 K, short equilibration.</div>', unsafe_allow_html=True)
+    section_header("🔥 Minimization & heating", "Energy minimization, NVT heating 0→300 K, short equilibration.")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -945,8 +1336,7 @@ def page_minimize():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd():
     render_stepper(5)
-    st.markdown('<div class="sec-header">🚀 LB-PaCS-MD sampling</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Configure and run the LB-PaCS-MD enhanced sampling cycles.</div>', unsafe_allow_html=True)
+    section_header("🚀 LB-PaCS-MD sampling", "Configure and run the LB-PaCS-MD enhanced sampling cycles.")
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -1018,7 +1408,7 @@ def page_pacsmd():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd_analysis():
     render_stepper(6)
-    st.markdown('<div class="sec-header">📊 PaCS-MD analysis</div>', unsafe_allow_html=True)
+    section_header("📊 PaCS-MD analysis")
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
@@ -1155,8 +1545,7 @@ def page_pacsmd_analysis():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_cmd():
     render_stepper(7)
-    st.markdown('<div class="sec-header">🔬 Classical MD (NPT)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">Run unbiased NPT molecular dynamics from the best PaCS-MD frame.</div>', unsafe_allow_html=True)
+    section_header("🔬 Classical MD (NPT)", "Run unbiased NPT molecular dynamics from the best PaCS-MD frame.")
 
     if st.session_state.get("cmd_done") and os.path.exists(wpath("md.dcd")):
         st.success(f"✅ cMD done — `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
@@ -1228,8 +1617,7 @@ def page_cmd():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_analysis():
     render_stepper(8)
-    st.markdown('<div class="sec-header">📈 Analysis & binding energy</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy — running automatically.</div>', unsafe_allow_html=True)
+    section_header("📈 Analysis & binding energy", "RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy — running automatically.")
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
@@ -1369,7 +1757,7 @@ def page_analysis():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_dbfe():
     render_stepper(9)
-    st.markdown('<div class="sec-header">🧮 DBFE — absolute binding free energy</div>', unsafe_allow_html=True)
+    section_header("🧮 DBFE — absolute binding free energy")
 
     # Ask once
     if not st.session_state.get("dbfe_asked"):
@@ -1479,8 +1867,7 @@ def page_dbfe():
 # ══════════════════════════════════════════════════════════════════════════════
 def page_download():
     render_stepper(10)
-    st.markdown('<div class="sec-header">📦 Download results</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sec-sub">All generated files are listed below.</div>', unsafe_allow_html=True)
+    section_header("📦 Download results", "All generated files are listed below.")
 
     FILE_DESC = {
         "complex.top":                   "Topology (solvated complex)",
