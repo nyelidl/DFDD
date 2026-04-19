@@ -238,8 +238,21 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None):
         if mol is None:
             return None, "Invalid SMILES"
         molH = Chem.AddHs(mol)
-        AllChem.EmbedMolecule(molH, AllChem.ETKDG())
-        AllChem.UFFOptimizeMolecule(molH)
+        # Try ETKDGv3 first, fall back to basic embed if params mismatch
+        try:
+            params = AllChem.ETKDGv3()
+            rc = AllChem.EmbedMolecule(molH, params)
+        except Exception:
+            rc = AllChem.EmbedMolecule(molH, randomSeed=42)
+        if rc != 0:
+            # Last resort: random coords
+            rc = AllChem.EmbedMolecule(molH, useRandomCoords=True, randomSeed=42)
+        if rc != 0:
+            return None, "3D embedding failed — try a different SMILES or use file upload"
+        try:
+            AllChem.UFFOptimizeMolecule(molH)
+        except Exception:
+            pass  # geometry optimisation is optional
         charge = Chem.GetFormalCharge(molH)
         Chem.MolToPDBFile(molH, output_pdb)
         if output_sdf:
