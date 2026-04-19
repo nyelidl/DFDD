@@ -201,7 +201,12 @@ def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
             go_step(next_step)
 
 
-def py3dmol_html(pdb_str, width=680, height=420):
+def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
+    """Render a PDB string with 3Dmol.js.
+    side_view=True rotates the camera 90° around X so cyclodextrin
+    hosts appear as a side/cone view instead of top-down.
+    """
+    rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
     <div id="v3d" style="width:{width}px;height:{height}px;position:relative;border-radius:10px;overflow:hidden"></div>
@@ -210,7 +215,9 @@ def py3dmol_html(pdb_str, width=680, height=420):
       v.addModel(`{pdb_str}`,'pdb');
       v.setStyle({{}},{{stick:{{colorscheme:'grayCarbon',radius:0.2}}}});
       v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.25}}}});
-      v.zoomTo(); v.render();
+      v.zoomTo();
+      {rotate}
+      v.render();
     </script>"""
 
 # ─── Step names for progress bar ──────────────────────────────────────────────
@@ -497,7 +504,7 @@ def page_host():
 
     if preview_pdb:
         st.markdown(preview_label)
-        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420), height=430)
+        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420, side_view=True), height=430)
     else:
         st.info("3D preview unavailable — check internet connection.")
 
@@ -827,7 +834,7 @@ def page_build():
 
         # Show 3D
         pdb = core.read_file(cx_out)
-        st.components.v1.html(py3dmol_html(pdb, 680, 380), height=390)
+        st.components.v1.html(py3dmol_html(pdb, 680, 380, side_view=True), height=390)
 
         # --- Topology ---
         with st.spinner("Running tleap (topology + solvation)…"):
