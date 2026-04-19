@@ -1,107 +1,137 @@
 """
-app.py — DFDD Streamlit UI
+app.py — DFDD Streamlit UI  (wizard / linear-flow rewrite)
 All computation is delegated to core.py
 """
 
 import streamlit as st
-import os
-import sys
-import json
+import os, sys, json, time
 
-# ── Always-available packages (listed in requirements.txt) ───────────────────
+# ── Always-available packages ─────────────────────────────────────────────────
 try:
     import pandas as pd
     _pandas_ok = True
 except ImportError:
-    _pandas_ok = False
-    pd = None
+    _pandas_ok = False; pd = None
 
 try:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     _plotly_ok = True
 except ImportError:
-    _plotly_ok = False
-    go = None
-    make_subplots = None
+    _plotly_ok = False; go = None; make_subplots = None
 
-# ── Heavy scientific packages (need conda / installed in Colab Step 1) ───────
-# The UI still loads even when these are absent; affected pages show a warning.
+try:
+    import numpy as np
+    _numpy_ok = True
+except ImportError:
+    _numpy_ok = False; np = None
+
 _openmm_ok = False
-_rdkit_ok  = False
-_mda_ok    = False
-
 try:
-    import openmm  # noqa: F401
-    _openmm_ok = True
+    import openmm; _openmm_ok = True
 except ImportError:
     pass
 
+_rdkit_ok = False
 try:
-    from rdkit import Chem  # noqa: F401
-    _rdkit_ok = True
-except ImportError:
-    pass
-
-try:
-    import MDAnalysis  # noqa: F401
-    _mda_ok = True
+    from rdkit import Chem; _rdkit_ok = True
 except ImportError:
     pass
 
 import core
 
-
-def _require_plotly():
-    """Show a clear error if plotly failed to import."""
-    if not _plotly_ok:
-        st.error("📦 `plotly` is not installed. Check that `requirements.txt` is present "
-                 "in the same directory as `app.py` and redeploy.")
-        st.stop()
-
-
-def _require_openmm():
-    if not _openmm_ok:
-        st.warning("⚠️ **OpenMM not found.** Install it via conda:  \n"
-                   "`mamba install -n base -c conda-forge -y openmm`  \n"
-                   "then restart the app.")
-        st.stop()
-
-
-def _require_rdkit():
-    if not _rdkit_ok:
-        st.warning("⚠️ **RDKit not found.** Install it via conda:  \n"
-                   "`mamba install -n base -c conda-forge -y rdkit`  \n"
-                   "then restart the app.")
-        st.stop()
-
-# ─── Page Config ──────────────────────────────────────────────────────────────
+# ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="DFDD — Dynamic Docking",
+    page_title="DFDD",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ─── Session State Defaults ───────────────────────────────────────────────────
+# ─── Global CSS ───────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+/* Progress stepper */
+.stepper{display:flex;align-items:center;gap:0;margin-bottom:2rem;overflow-x:auto;padding:0.5rem 0}
+.step-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:60px}
+.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:13px;font-weight:600;transition:all .3s}
+.step-done  .step-circle{background:#1D9E75;color:#fff}
+.step-active .step-circle{background:#1D9E75;color:#fff;box-shadow:0 0 0 4px #E1F5EE}
+.step-todo  .step-circle{background:#f0f0f0;color:#999}
+.step-label{font-size:10px;margin-top:4px;text-align:center;color:#666;max-width:64px}
+.step-line{flex:1;height:2px;background:#e0e0e0;margin:0 2px;margin-bottom:18px}
+.step-line.done{background:#1D9E75}
+
+/* Waiting card */
+.wait-card{background:#f8fffe;border:1px solid #c7ede2;border-radius:12px;
+  padding:2rem;text-align:center;margin:1rem 0}
+.wait-title{font-size:1.4rem;font-weight:600;color:#0F6E56;margin-bottom:.5rem}
+.wait-sub{color:#555;font-size:.95rem}
+
+/* Section header */
+.sec-header{font-size:1.5rem;font-weight:700;color:#0F6E56;margin-bottom:.25rem}
+.sec-sub{color:#666;margin-bottom:1.5rem}
+
+/* Molecule card */
+.mol-card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem}
+
+/* Choice card */
+.choice-card{border:2px solid #e0e0e0;border-radius:10px;padding:1rem;cursor:pointer;
+  transition:all .2s;background:#fff}
+.choice-card.selected{border-color:#1D9E75;background:#f0faf6}
+
+/* Result metric */
+.res-metric{background:#f0faf6;border:1px solid #c7ede2;border-radius:10px;
+  padding:1rem 1.5rem;text-align:center}
+.res-value{font-size:1.8rem;font-weight:700;color:#0F6E56}
+.res-label{color:#555;font-size:.85rem;margin-top:.25rem}
+</style>
+""", unsafe_allow_html=True)
+
+# ─── Session state defaults ────────────────────────────────────────────────────
 DEFAULTS = {
-    "workdir":          os.path.expanduser("~/dfdd_workspace"),
-    "host_path":        None,
-    "host_prep":        None,
-    "host_frcmod":      None,
-    "host_forcefield":  None,
-    "host_type":        None,
-    "guest_path":       None,
-    "guest_smiles":     None,
-    "detected_charge":  0,
-    "system_name":      "complex",
-    "pacsmd_cycles":    40,
-    "pacsmd_candi":     3,
+    "step":              0,        # current wizard step (0 = installing)
+    "install_done":      False,
+    "workdir":           os.path.expanduser("~/dfdd_workspace"),
+    # host
+    "host_option":       None,
+    "host_path":         None,
+    "host_prep":         None,
+    "host_frcmod":       None,
+    "host_forcefield":   None,
+    "host_type":         None,
+    # guest
+    "guest_input_type":  "SMILES",
+    "guest_smiles":      "",
+    "guest_path":        None,
+    "detected_charge":   0,
+    # sim params (set in step 6 UI)
+    "pacsmd_cycles":     40,
+    "pacsmd_candi":      3,
+    "pacsmd_sim_time":   10,
+    "pacsmd_timestep":   1,
+    "pacsmd_temp":       300.0,
+    "pacsmd_pressure":   1.0,
+    # flags
+    "build_done":        False,
+    "topo_done":         False,
+    "min_done":          False,
+    "pacsmd_done":       False,
+    "pacsmd_extended":   False,
+    "cmd_done":          False,
+    "mmpbsa_done":       False,
+    "dbfe_asked":        False,
+    "dbfe_want":         False,
+    "dbfe_done":         False,
     # logs
     "log_install": "", "log_host": "", "log_guest": "",
     "log_complex": "", "log_tleap": "", "log_min":   "",
     "log_pacsmd":  "", "log_cmd":   "", "log_cv":    "",
     "log_mmpbsa":  "",
+    # results
+    "gb_result":  None,
+    "pb_result":  None,
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -109,276 +139,282 @@ for k, v in DEFAULTS.items():
 
 os.makedirs(st.session_state["workdir"], exist_ok=True)
 
-
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def WD():
     return st.session_state["workdir"]
 
-
 def wpath(*parts):
     return os.path.join(WD(), *parts)
 
+def go_step(n):
+    st.session_state["step"] = n
+    st.rerun()
 
 def log_expander(key, label="📋 Log"):
     txt = st.session_state.get(key, "")
     if txt.strip():
-        with st.expander(label):
+        with st.expander(label, expanded=False):
             st.code(txt[-4000:])
 
-
-def py3dmol_html(pdb_str, width=700, height=460):
+def py3dmol_html(pdb_str, width=680, height=420):
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-    <div id="v3d" style="width:{width}px;height:{height}px;position:relative;"></div>
+    <div id="v3d" style="width:{width}px;height:{height}px;position:relative;border-radius:10px;overflow:hidden"></div>
     <script>
-      var v = $3Dmol.createViewer(document.getElementById('v3d'),{{backgroundColor:'white'}});
+      var v = $3Dmol.createViewer(document.getElementById('v3d'),{{backgroundColor:'#f8f9fa'}});
       v.addModel(`{pdb_str}`,'pdb');
       v.setStyle({{}},{{stick:{{colorscheme:'grayCarbon',radius:0.2}}}});
       v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.25}}}});
       v.zoomTo(); v.render();
     </script>"""
 
-
-def metric_files(*fnames):
-    cols = st.columns(len(fnames))
-    for col, fname in zip(cols, fnames):
-        p = wpath(fname)
-        with col:
-            st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
-
-
-# ─── Navigation ───────────────────────────────────────────────────────────────
-PAGES = [
-    "🏠  Overview",
-    "⚙️   1 · Environment",
-    "🏗️   2 · Host Preparation",
-    "🧪   3 · Guest Preparation",
-    "🔗   4 · Build Complex",
-    "💧   5 · Topology & Solvation",
-    "🔥   6 · Minimization & Heating",
-    "🚀   7 · LB-PaCS-MD",
-    "📊   8 · PaCS-MD Analysis",
-    "🔬   9 · Classical MD",
-    "📈  10 · cMD Analysis",
-    "⚡  11 · MM-PBSA/GBSA",
-    "🧮  12 · DBFE",
-    "📦  13 · Download Results",
+# ─── Step names for progress bar ──────────────────────────────────────────────
+STEP_LABELS = [
+    "Install",      # 0
+    "Host",         # 1
+    "Guest",        # 2
+    "Build+Solvate",# 3
+    "Min & Heat",   # 4
+    "LB-PaCS-MD",   # 5
+    "Analysis",     # 6
+    "cMD",          # 7
+    "MM-PBSA",      # 8
+    "DBFE",         # 9
+    "Download",     # 10
 ]
 
-with st.sidebar:
-    st.image("https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif", width=220)
-    st.markdown("## DFDD Workflow")
-    page = st.radio("Navigate", PAGES, label_visibility="collapsed")
+def render_stepper(current):
+    """Render a horizontal step progress bar."""
+    html = '<div class="stepper">'
+    for i, label in enumerate(STEP_LABELS):
+        if i < current:
+            cls = "step-done"
+            icon = "✓"
+        elif i == current:
+            cls = "step-active"
+            icon = str(i + 1)
+        else:
+            cls = "step-todo"
+            icon = str(i + 1)
 
-    st.markdown("---")
-    st.markdown(f"**Workspace**")
-    new_wd = st.text_input("Path", value=WD(), key="_wd")
-    if st.button("Set", key="_set_wd"):
-        os.makedirs(new_wd, exist_ok=True)
-        st.session_state["workdir"] = new_wd
-        st.rerun()
+        html += f'<div class="step-item {cls}"><div class="step-circle">{icon}</div><div class="step-label">{label}</div></div>'
+        if i < len(STEP_LABELS) - 1:
+            line_cls = "done" if i < current else ""
+            html += f'<div class="step-line {line_cls}"></div>'
 
-    # Status badges
-    st.markdown("---")
-    st.markdown("**Status**")
-    checks = [
-        ("Host",    st.session_state["host_path"] and os.path.exists(st.session_state["host_path"] or "")),
-        ("Guest",   st.session_state["guest_path"] and os.path.exists(st.session_state["guest_path"] or "")),
-        ("Complex", os.path.exists(wpath("complex.pdb"))),
-        ("Topology",os.path.exists(wpath("complex.top"))),
-        ("Minimized",os.path.exists(wpath("last_frame.rst7"))),
-        ("PaCS-MD", os.path.exists(wpath("sum.nc"))),
-        ("cMD",     os.path.exists(wpath("md.dcd"))),
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 0 — Auto-install on first load
+# ══════════════════════════════════════════════════════════════════════════════
+def page_install():
+    render_stepper(0)
+    st.markdown('<div class="sec-header">🔧 Setting up environment</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">This only runs once per session. Please wait…</div>', unsafe_allow_html=True)
+
+    if st.session_state["install_done"]:
+        st.success("✅ Environment ready!")
+        if st.button("Continue →", type="primary"):
+            go_step(1)
+        return
+
+    progress = st.progress(0, text="Starting installation…")
+    log_area = st.empty()
+
+    cmds = [
+        ([sys.executable, "-m", "pip", "install", "-q", "condacolab"], "condacolab", 10),
+        (["bash", "-lc",
+          "mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -8"],
+         "AmberTools + RDKit + xtb", 50),
+        (["bash", "-lc",
+          "mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -4"],
+         "OpenFF + NGLView", 75),
+        ([sys.executable, "-m", "pip", "install", "-q",
+          "py3Dmol", "netCDF4", "cftime", "deeptime",
+          "dimorphite_dl", "pkapredict", "PaCS-Q", "parmed"],
+         "Python packages", 95),
     ]
-    for label, ok in checks:
-        st.markdown(f"{'✅' if ok else '⬜'} {label}")
 
-    st.markdown("---")
-    st.caption("Hengphasatporn et al., *JCIM* 2026  \n[DOI](https://doi.org/10.1021/acs.jcim.5c02852)")
+    log = ""
+    all_ok = True
+    for cmd, desc, pct in cmds:
+        progress.progress(pct - 10, text=f"📦 Installing {desc}…")
+        rc, out = core.run_cmd(cmd, cwd=WD())
+        log += f"\n{'='*40}\n{desc}\n{out}"
+        log_area.code(log[-3000:])
+        if rc != 0:
+            st.error(f"❌ Failed: {desc}")
+            all_ok = False
+            break
 
+    progress.progress(100, text="Done!")
+    st.session_state["log_install"] = log
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE: Overview
-# ══════════════════════════════════════════════════════════════════════════════
-if page == "🏠  Overview":
-    st.title("🧬 DFDD — Fully Dynamic Docking")
-    st.markdown("**v1.4.2** | Hengphasatporn & Duan | University of Tsukuba, Japan")
-    st.divider()
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("""
-### What is DFDD?
-LB-PaCS-MD enhanced sampling for host–guest binding  
-without requiring a fixed initial pose.
-
-**Ligand preparation**
-- AM1-BCC charges (GAFF2) via AmberTools
-- pH-aware protonation via pKaNET
-
-**Host support**
-- Native β-CD · DM-β-CD · M-β-CD · HP-β-CD · 6-tetra-HP-β-CD
-
-**Free-energy estimates**
-- MM-GBSA · MM-PBSA · DBFE (with ΔG_TR)
-""")
-    with c2:
-        st.markdown("""
-### Typical Runtime (Colab GPU)
-
-| Step | Time |
-|------|------|
-| System prep | ~1 min |
-| Min + Heating | ~1 min |
-| LB-PaCS-MD (40 cycles) | ~12 min |
-| LB-PaCS-MD analysis | ~3 min |
-| cMD (10 ns) | ~15 min |
-| DBFE post-processing | ~10 min |
-""")
-
-    st.info("👈 Use the sidebar to navigate steps **in order**.")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 1: Environment
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "⚙️   1 · Environment":
-    st.title("⚙️ Environment Check")
-
-    st.markdown("### 🔍 Verify installed tools")
-    if st.button("Check tools"):
-        tools = core.check_tools()
-        for tool, path in tools.items():
-            if path:
-                st.success(f"✓ `{tool}` → `{path}`")
-            else:
-                st.error(f"✗ `{tool}` not found")
-
-    st.divider()
-    st.markdown("### 📦 Install (Colab / first-time)")
-    st.warning("Only needed once per Colab session. Assumes Miniforge is already installed.")
-
-    if st.button("▶ Install all dependencies", type="primary"):
-        cmds = [
-            ([sys.executable, "-m", "pip", "install", "-q", "condacolab"], "condacolab"),
-            (["bash", "-lc",
-              "mamba install -n base -c conda-forge -y ambertools openbabel rdkit xtb 2>&1 | tail -8"],
-             "AmberTools + RDKit + xtb"),
-            (["bash", "-lc",
-              "mamba install -n base -c conda-forge -y openff-toolkit nglview 2>&1 | tail -4"],
-             "OpenFF + NGLView"),
-            ([sys.executable, "-m", "pip", "install", "-q",
-              "py3Dmol", "netCDF4", "cftime", "deeptime",
-              "dimorphite_dl", "pkapredict", "PaCS-Q", "parmed"],
-             "Python packages"),
-        ]
-        log = ""
-        for cmd, desc in cmds:
-            with st.spinner(f"📦 {desc}..."):
-                rc, out = core.run_cmd(cmd, cwd=WD())
-                log += f"\n{'='*40}\n{desc}\n{out}"
-                if rc == 0:
-                    st.success(f"✓ {desc}")
-                else:
-                    st.error(f"✗ {desc} (code {rc})")
-        st.session_state["log_install"] = log
-
-    log_expander("log_install", "📋 Install log")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 2: Host Preparation
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "🏗️   2 · Host Preparation":
-    st.title("🏗️ Host Preparation")
-
-    HOST_OPTIONS = ["Default β-CD (DFT)"] + list(core.GLYCAM_HOST_CONFIGS.keys())
-    host_option = st.selectbox("Select host", HOST_OPTIONS)
-
-    if host_option == "Default β-CD (DFT)":
-        st.info("Downloads DFT-derived parameters from `github.com/nyelidl/host-guest`.")
+    if all_ok:
+        st.session_state["install_done"] = True
+        st.success("✅ All dependencies installed!")
+        time.sleep(1)
+        go_step(1)
     else:
-        cfg = core.GLYCAM_HOST_CONFIGS[host_option]
-        st.info(f"Type: **{cfg['type']}**  |  Template PDB: `{cfg['pdb']}`  |  GLYCAM-06 force field")
+        st.error("Installation failed. Check the log above and reload the page.")
+        log_expander("log_install")
 
-    if st.button("▶ Prepare Host", type="primary"):
-        with st.spinner("Preparing host..."):
-            if host_option == "Default β-CD (DFT)":
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 1 — Select host
+# ══════════════════════════════════════════════════════════════════════════════
+def page_host():
+    render_stepper(1)
+    st.markdown('<div class="sec-header">🏗️ Select host</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Choose the cyclodextrin host for your simulation.</div>', unsafe_allow_html=True)
+
+    HOST_OPTIONS = {
+        "Default β-CD (DFT parameters)": "DFT",
+        "Native β-CD (GLYCAM)": "Native β-CD (GLYCAM)",
+        "Dimethylated β-CD (DM-β-CD)": "Dimethylated β-CD (GLYCAM)",
+        "Methylated β-CD (M-β-CD)": "Methylated β-CD (GLYCAM)",
+        "6-tetra HP-β-CD": "6-tetra HP β-CD (GLYCAM)",
+    }
+
+    HOST_DESCRIPTIONS = {
+        "Default β-CD (DFT parameters)": "DFT-derived charges. Recommended for most users.",
+        "Native β-CD (GLYCAM)": "GLYCAM-06 force field. 7 glucose units.",
+        "Dimethylated β-CD (DM-β-CD)": "GLYCAM-06 with O2/O6 methylation.",
+        "Methylated β-CD (M-β-CD)": "GLYCAM-06 with O6 methylation.",
+        "6-tetra HP-β-CD": "GLYCAM-06 with 4 hydroxypropyl groups.",
+    }
+
+    selected = st.session_state.get("host_option") or list(HOST_OPTIONS.keys())[0]
+
+    cols = st.columns(2)
+    new_selection = selected
+    for i, (name, _) in enumerate(HOST_OPTIONS.items()):
+        col = cols[i % 2]
+        with col:
+            is_sel = (name == new_selection)
+            card_cls = "choice-card selected" if is_sel else "choice-card"
+            st.markdown(
+                f'<div class="{card_cls}" style="margin-bottom:10px">'
+                f'<strong>{"✅ " if is_sel else ""}{name}</strong><br>'
+                f'<span style="color:#666;font-size:.85rem">{HOST_DESCRIPTIONS[name]}</span>'
+                f'</div>', unsafe_allow_html=True)
+            if st.button("Select" if not is_sel else "Selected ✓",
+                         key=f"host_btn_{i}",
+                         type="primary" if is_sel else "secondary"):
+                new_selection = name
+                st.session_state["host_option"] = name
+
+    st.session_state["host_option"] = new_selection
+    st.divider()
+
+    if st.button("▶ Prepare host", type="primary"):
+        host_key = HOST_OPTIONS[new_selection]
+        with st.spinner(f"Preparing {new_selection}…"):
+            if host_key == "DFT":
                 result, log, err = core.prepare_host_dft(WD())
             else:
-                result, log, err = core.prepare_host_glycam(host_option, WD())
-
+                result, log, err = core.prepare_host_glycam(host_key, WD())
         st.session_state["log_host"] = log
 
         if err:
-            st.error(err)
+            st.error(f"❌ {err}")
+            log_expander("log_host")
         else:
             for k, v in result.items():
                 st.session_state[k] = v
             st.success(f"✅ Host ready: `{result['host_path']}`")
 
-    # Display
-    hp = st.session_state.get("host_path")
-    if hp and os.path.exists(hp):
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            st.info(f"""
-**Type:** `{st.session_state['host_type']}`  
-**PDB:** `{hp}`  
-**Force field:** `{st.session_state['host_forcefield']}`  
-**PREP:** `{st.session_state['host_prep']}`  
-**FRCMOD:** `{st.session_state['host_frcmod']}`
-""")
-        with c2:
-            pdb = core.read_file(hp)
-            st.components.v1.html(py3dmol_html(pdb, 430, 360), height=370)
+            hp = st.session_state.get("host_path")
+            if hp and os.path.exists(hp):
+                pdb = core.read_file(hp)
+                st.components.v1.html(py3dmol_html(pdb, 680, 380), height=390)
 
+            time.sleep(1)
+            go_step(2)
+
+    # Already done?
+    if st.session_state.get("host_path") and os.path.exists(st.session_state["host_path"]):
+        st.info(f"Host already prepared: `{st.session_state['host_path']}`")
+        if st.button("Continue →"):
+            go_step(2)
     log_expander("log_host")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 3: Guest Preparation
+# STEP 2 — Guest preparation
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧪   3 · Guest Preparation":
-    st.title("🧪 Guest Preparation")
+def page_guest():
+    render_stepper(2)
+    st.markdown('<div class="sec-header">🧪 Prepare guest molecule</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Provide your guest ligand by SMILES, file upload, or direct PDB.</div>', unsafe_allow_html=True)
 
-    input_type  = st.radio("Input type", ["SMILES", "File upload"], horizontal=True)
-    output_name = st.text_input("Guest name (residue prefix)", value="guest")
-    target_pH   = st.slider("Target pH (for charge detection)", 2.0, 12.0, 7.4, 0.1)
-
-    smiles_in     = ""
-    uploaded_file = None
-    if input_type == "SMILES":
-        smiles_in = st.text_input("SMILES", value="CC(=O)OC1=CC=CC=C1C(=O)O",
-                                   help="Default: Aspirin")
-    else:
-        uploaded_file = st.file_uploader("Upload (.pdb / .mol2 / .sdf)",
-                                          type=["pdb", "mol2", "sdf"])
-
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns([1, 2])
     with c1:
-        auto_charge = st.checkbox("Auto-detect charge via RDKit", value=True)
-    with c2:
-        manual_charge = st.number_input("Manual charge override", -10, 10, 0,
-                                        disabled=auto_charge)
-    charge_method = st.selectbox("Charge method", ["bcc (AM1-BCC)", "gas (Gasteiger)"])
-    charge_flag   = "bcc" if charge_method.startswith("bcc") else "gas"
+        input_type = st.radio(
+            "Input method",
+            ["SMILES", "File upload (.pdb/.mol2/.sdf)", "Draw (SMILES)"],
+            index=["SMILES", "File upload (.pdb/.mol2/.sdf)", "Draw (SMILES)"].index(
+                st.session_state.get("guest_input_type", "SMILES")
+            )
+        )
+        st.session_state["guest_input_type"] = input_type
 
-    if st.button("▶ Prepare Guest", type="primary"):
+    with c2:
+        smiles_in     = ""
+        uploaded_file = None
+
+        if input_type == "SMILES":
+            smiles_in = st.text_input(
+                "SMILES string",
+                value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
+                help="Default: Aspirin"
+            )
+            if smiles_in:
+                st.caption(f"Entered: `{smiles_in}`")
+
+        elif input_type == "File upload (.pdb/.mol2/.sdf)":
+            uploaded_file = st.file_uploader(
+                "Upload molecule file",
+                type=["pdb", "mol2", "sdf"],
+                help="Upload a 3D structure file"
+            )
+
+        else:  # Draw
+            smiles_in = st.text_input(
+                "Draw by typing SMILES",
+                value=st.session_state.get("guest_smiles", ""),
+                help="Type SMILES and preview will appear",
+                placeholder="e.g. c1ccccc1 for benzene"
+            )
+
+    st.divider()
+
+    c3, c4 = st.columns(2)
+    with c3:
+        output_name   = st.text_input("Guest residue name", value="guest", max_chars=4)
+        target_pH     = st.slider("Target pH", 2.0, 12.0, 7.4, 0.1)
+        auto_charge   = st.checkbox("Auto-detect charge (RDKit)", value=True)
+    with c4:
+        manual_charge = st.number_input("Manual charge override", -10, 10, 0,
+                                         disabled=auto_charge)
+        charge_method = st.selectbox("Charge method", ["bcc (AM1-BCC)", "gas (Gasteiger)"])
+        charge_flag   = "bcc" if charge_method.startswith("bcc") else "gas"
+
+    if st.button("▶ Prepare guest", type="primary"):
         log = ""
-        with st.spinner("Preparing guest..."):
+        with st.spinner("Preparing guest molecule…"):
 
             # Handle file upload
-            if input_type == "File upload" and uploaded_file:
-                ext  = os.path.splitext(uploaded_file.name)[1].lower()
+            if input_type.startswith("File") and uploaded_file:
                 dest = wpath(uploaded_file.name)
                 with open(dest, "wb") as f:
                     f.write(uploaded_file.read())
-                # Convert to SDF via obabel
                 sdf_tmp = dest + "_ob.sdf"
                 rc_ob, ob_out = core.run_cmd(["obabel", dest, "-O", sdf_tmp], cwd=WD())
                 log += ob_out
-                mol_in = sdf_tmp if (rc_ob == 0 and os.path.exists(sdf_tmp)) else dest
+                mol_in   = sdf_tmp if (rc_ob == 0 and os.path.exists(sdf_tmp)) else dest
                 smiles_in = None
             else:
                 mol_in = None
@@ -389,15 +425,15 @@ elif page == "🧪   3 · Guest Preparation":
                 sdf_raw = wpath("guest_raw.sdf")
                 detected, err = core.smiles_to_3d_pdb(smiles_in, pdb_raw, sdf_raw)
                 if err:
-                    st.error(f"RDKit error: {err}"); st.stop()
+                    st.error(f"❌ RDKit error: {err}")
+                    st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
-                log += f"RDKit charge: {detected}\n"
+                log += f"RDKit detected charge: {detected}\n"
             else:
                 detected = 0
 
             final_charge = detected if auto_charge else manual_charge
 
-            # Antechamber
             prep_out   = wpath(f"{output_name}.prep")
             frcmod_out = wpath(f"{output_name}.frcmod")
             ok, ac_log = core.run_antechamber(
@@ -407,582 +443,681 @@ elif page == "🧪   3 · Guest Preparation":
             log += ac_log
 
             if not ok:
-                st.error("Antechamber failed"); st.session_state["log_guest"] = log
+                st.error("❌ Antechamber failed")
+                st.session_state["log_guest"] = log
+                log_expander("log_guest")
                 st.stop()
 
-            # Guest PDB
             guest_pdb = wpath(f"{output_name}.pdb")
             if mol_in.endswith(".pdb"):
                 import shutil
                 shutil.copy(mol_in, guest_pdb)
             else:
-                rc_ob2, _ = core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
+                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
 
             st.session_state["guest_path"]      = guest_pdb
             st.session_state["guest_smiles"]    = smiles_in or ""
             st.session_state["detected_charge"] = final_charge
             st.session_state["log_guest"]       = log
 
-        st.success(f"✅ Guest ready: `{guest_pdb}`")
-        st.info(f"Charge: **{final_charge}**  |  PREP: `{prep_out}`  |  FRCMOD: `{frcmod_out}`")
+        st.success(f"✅ Guest ready!  Charge: **{final_charge}**")
 
-    gp = st.session_state.get("guest_path")
-    if gp and os.path.exists(gp):
-        pdb = core.read_file(gp)
-        st.components.v1.html(py3dmol_html(pdb, 450, 340), height=350)
+        gp = st.session_state.get("guest_path")
+        if gp and os.path.exists(gp):
+            pdb = core.read_file(gp)
+            st.components.v1.html(py3dmol_html(pdb, 680, 340), height=350)
 
+        time.sleep(1)
+        go_step(3)
+
+    # Already done?
+    if st.session_state.get("guest_path") and os.path.exists(st.session_state["guest_path"]):
+        st.info(f"Guest already prepared: `{st.session_state['guest_path']}`")
+        if st.button("Continue →"):
+            go_step(3)
     log_expander("log_guest")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 4: Build Complex
+# STEP 3 — Build complex + solvation (steps 4+5 merged)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔗   4 · Build Complex":
-    st.title("🔗 Build Host–Guest Complex")
+def page_build():
+    render_stepper(3)
+    st.markdown('<div class="sec-header">🔗 Build complex & solvate</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Place guest above host cavity, then generate topology and solvated box.</div>', unsafe_allow_html=True)
 
     hp = st.session_state.get("host_path")
     gp = st.session_state.get("guest_path")
-    if not (hp and os.path.exists(hp)):
-        st.warning("⚠️ Complete Step 2 first."); st.stop()
-    if not (gp and os.path.exists(gp)):
-        st.warning("⚠️ Complete Step 3 first."); st.stop()
 
-    st.info(f"Host: `{hp}`  |  Guest: `{gp}`")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.info(f"**Host:** `{os.path.basename(hp) if hp else '—'}`")
+    with c2:
+        st.info(f"**Guest:** `{os.path.basename(gp) if gp else '—'}`")
+
+    st.subheader("Complex geometry")
     distance = st.slider(
-        "Guest initial offset along cavity axis (Å)  "
-        "— negative = guest placed above host opening",
+        "Guest initial offset along cavity axis (Å) — negative = placed above opening",
         -20, 20, -15
     )
 
-    if st.button("▶ Build Complex", type="primary"):
-        cx_out = wpath("complex.pdb")
-        with st.spinner("Building complex..."):
-            ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
-        st.session_state["log_complex"] = msg
-        if ok:
-            st.success(f"✅ {msg}")
-        else:
-            st.error(f"Failed: {msg}")
-
-    cx_path = wpath("complex.pdb")
-    if os.path.exists(cx_path):
-        pdb = core.read_file(cx_path)
-        st.markdown("**3D view — host (gray) + guest (cyan)**")
-        st.components.v1.html(py3dmol_html(pdb, 680, 460), height=470)
-
-    log_expander("log_complex")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 5: Topology & Solvation
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "💧   5 · Topology & Solvation":
-    st.title("💧 Topology & Solvation (tleap)")
-
-    if not os.path.exists(wpath("complex.pdb")):
-        st.warning("⚠️ Complete Step 4 first."); st.stop()
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        water_type  = st.selectbox("Water model", ["TIP3P", "OPC"])
-        box_buf     = st.slider("Box buffer (Å)", 5, 15, 5)
-    with c2:
-        unit_xy     = st.slider("Unit cell X/Y (Å)", 12, 25, 13)
-        unit_z      = st.slider("Unit cell Z (Å)", 30, 50, 35)
-    with c3:
+    st.subheader("Solvation")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        water_type = st.selectbox("Water model", ["TIP3P", "OPC"])
+        box_buf    = st.slider("Box buffer (Å)", 5, 15, 5)
+    with col2:
+        unit_xy    = st.slider("Unit cell X/Y (Å)", 12, 25, 13)
+        unit_z     = st.slider("Unit cell Z (Å)", 30, 50, 35)
+    with col3:
         translate_z = st.slider("Z-translation (Å)", -20, 20, 0)
 
     water_ff  = "leaprc.water.tip3p" if water_type == "TIP3P" else "leaprc.water.opc"
     water_box = "TIP3PBOX"           if water_type == "TIP3P" else "OPCBOX"
 
-    with st.expander("ℹ️ Parameter guide"):
-        st.markdown("""
-| Parameter | Default | When to change |
-|-----------|---------|----------------|
-| Box buffer | 5 Å | ↑ 10 Å for pull/APR sims |
-| Unit cell Z | 35 Å | ↑ 40–50 Å for long pull |
-| Z translation | 0 | 10 Å to offset complex toward +z |
-""")
+    if st.button("▶ Build & Solvate", type="primary"):
+        cx_out = wpath("complex.pdb")
 
-    if st.button("▶ Generate Topology", type="primary"):
-        cx_pdb = wpath("complex.pdb")
-        ht = st.session_state.get("host_type", "BCD_DFT")
-        hff = st.session_state.get("host_forcefield", "DFT")
-        if hff == "GLYCAM06":
-            core.insert_ter_records(cx_pdb)
+        # --- Build complex ---
+        with st.spinner("Building host–guest complex…"):
+            ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
+        st.session_state["log_complex"] = msg
 
-        script = core.write_tleap_script(
-            workdir=WD(),
-            host_forcefield=hff,
-            host_prep=st.session_state.get("host_prep", ""),
-            host_frcmod=st.session_state.get("host_frcmod", ""),
-            host_type=ht,
-            water_ff=water_ff, water_box=water_box,
-            box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
-            translate_z=translate_z,
-            cx_pdb=cx_pdb,
-            out_top=wpath("complex.top"),
-            out_crd=wpath("complex.crd"),
-            out_pdb=wpath("complex_leap.pdb"),
-        )
-        with st.spinner("Running tleap..."):
+        if not ok:
+            st.error(f"❌ Build failed: {msg}")
+            st.stop()
+        st.success("✅ Complex built")
+
+        # Show 3D
+        pdb = core.read_file(cx_out)
+        st.components.v1.html(py3dmol_html(pdb, 680, 380), height=390)
+
+        # --- Topology ---
+        with st.spinner("Running tleap (topology + solvation)…"):
+            ht  = st.session_state.get("host_type", "BCD_DFT")
+            hff = st.session_state.get("host_forcefield", "DFT")
+            if hff == "GLYCAM06":
+                core.insert_ter_records(cx_out)
+
+            script = core.write_tleap_script(
+                workdir=WD(),
+                host_forcefield=hff,
+                host_prep=st.session_state.get("host_prep", ""),
+                host_frcmod=st.session_state.get("host_frcmod", ""),
+                host_type=ht,
+                water_ff=water_ff, water_box=water_box,
+                box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
+                translate_z=translate_z,
+                cx_pdb=cx_out,
+                out_top=wpath("complex.top"),
+                out_crd=wpath("complex.crd"),
+                out_pdb=wpath("complex_leap.pdb"),
+            )
             rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
         st.session_state["log_tleap"] = out
-        if rc != 0:
-            st.error("tleap failed"); log_expander("log_tleap"); st.stop()
-        st.success("✅ Topology generated!")
 
-    if os.path.exists(wpath("complex.top")):
-        metric_files("complex.top", "complex.crd", "complex_leap.pdb")
+        if rc != 0:
+            st.error("❌ tleap failed")
+            log_expander("log_tleap")
+            st.stop()
+
+        st.session_state["build_done"] = True
+        st.session_state["topo_done"]  = True
+        st.success("✅ Topology & solvated box generated!")
+
+        c1, c2, c3 = st.columns(3)
+        for col, fname in zip([c1,c2,c3], ["complex.top","complex.crd","complex_leap.pdb"]):
+            p = wpath(fname)
+            with col:
+                st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
+
+        time.sleep(1)
+        go_step(4)
+
+    if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
+        st.info("Complex already built.")
+        if st.button("Continue →"):
+            go_step(4)
 
     log_expander("log_tleap")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 6: Minimization & Heating
+# STEP 4 — Minimization & Heating  (waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔥   6 · Minimization & Heating":
-    st.title("🔥 Minimization & Heating")
-
-    if not os.path.exists(wpath("complex.top")):
-        st.warning("⚠️ Complete Step 5 first."); st.stop()
+def page_minimize():
+    render_stepper(4)
+    st.markdown('<div class="sec-header">🔥 Minimization & heating</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Energy minimization, NVT heating 0→300 K, short equilibration.</div>', unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
         min_iters  = st.number_input("Max minimization steps", 100, 50000, 5000)
-        heat_steps = st.number_input("Steps per heating stage (6 stages)", 1000, 50000, 10000)
+        heat_steps = st.number_input("Steps per heating stage (×6)", 1000, 50000, 10000)
     with c2:
-        nvt_steps  = st.number_input("NVT equilibration steps", 10000, 500000, 50000,
-                                     help="50 000 steps = 100 ps at dt=2 fs")
-        prod_steps = st.number_input("Restrained production steps", 10000, 500000, 100000,
-                                     help="100 000 steps = 200 ps")
+        nvt_steps  = st.number_input("NVT steps", 10000, 500000, 50000)
+        prod_steps = st.number_input("Restrained production steps", 10000, 500000, 100000)
 
-    st.info(f"Total time: "
-            f"{(heat_steps*6 + nvt_steps + prod_steps)*2/1e6:.2f} ns")
+    total_ns = (heat_steps * 6 + nvt_steps + prod_steps) * 2 / 1e6
+    st.info(f"Estimated time: **{total_ns:.2f} ns**  (~1–2 min on GPU)")
 
-    if st.button("▶ Run Minimization & Heating", type="primary"):
-        with st.spinner("Running OpenMM minimization + heating (~1–2 min)..."):
-            ok, out = core.run_minimize_heat(
-                WD(),
-                wpath("complex.top"),
-                wpath("complex.crd"),
-                wpath("last_frame.rst7"),
-                min_iters=min_iters,
-                heat_steps=heat_steps,
-                nvt_steps=nvt_steps,
-                prod_steps=prod_steps,
-            )
+    if st.session_state.get("min_done") and os.path.exists(wpath("last_frame.rst7")):
+        st.success(f"✅ Already minimized — `last_frame.rst7` ({core.file_mb(wpath('last_frame.rst7')):.2f} MB)")
+        if st.button("Continue →", type="primary"):
+            go_step(5)
+        return
+
+    if st.button("▶ Run minimization & heating", type="primary"):
+        st.markdown("""
+        <div class="wait-card">
+            <div class="wait-title">⏳ Running OpenMM minimization + heating</div>
+            <div class="wait-sub">This takes ~1–2 minutes on GPU. Please don't close this tab.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        progress = st.progress(0, text="Starting OpenMM…")
+        log_area = st.empty()
+
+        progress.progress(10, text="Minimizing energy…")
+        ok, out = core.run_minimize_heat(
+            WD(), wpath("complex.top"), wpath("complex.crd"), wpath("last_frame.rst7"),
+            min_iters=min_iters, heat_steps=heat_steps,
+            nvt_steps=nvt_steps, prod_steps=prod_steps,
+        )
         st.session_state["log_min"] = out
-        if ok:
-            st.success("✅ Done. `last_frame.rst7` saved.")
-        else:
-            st.error("Failed"); log_expander("log_min"); st.stop()
 
-    rst7 = wpath("last_frame.rst7")
-    if os.path.exists(rst7):
-        st.success(f"✓ `last_frame.rst7` exists ({core.file_mb(rst7):.2f} MB)")
+        if ok:
+            progress.progress(100, text="Done!")
+            st.session_state["min_done"] = True
+            st.success(f"✅ Minimization complete!  `last_frame.rst7` saved.")
+            time.sleep(1)
+            go_step(5)
+        else:
+            progress.progress(100, text="Failed")
+            st.error("❌ Minimization failed")
+            log_expander("log_min")
 
     log_expander("log_min")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 7: LB-PaCS-MD
+# STEP 5 — LB-PaCS-MD  (config + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🚀   7 · LB-PaCS-MD":
-    st.title("🚀 LB-PaCS-MD Enhanced Sampling")
-
-    rst7 = wpath("last_frame.rst7")
-    if not os.path.exists(rst7):
-        st.warning("⚠️ Complete Step 6 first."); st.stop()
+def page_pacsmd():
+    render_stepper(5)
+    st.markdown('<div class="sec-header">🚀 LB-PaCS-MD sampling</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Configure and run the LB-PaCS-MD enhanced sampling cycles.</div>', unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        cycle    = st.slider("Cycles", 2, 100, 40)
-        candi    = st.slider("Candidates / cycle", 2, 10, 3)
+        cycle    = st.slider("Cycles", 2, 100,
+                             st.session_state.get("pacsmd_cycles", 40), key="sl_cycle")
+        candi    = st.slider("Candidates / cycle", 2, 10,
+                             st.session_state.get("pacsmd_candi", 3), key="sl_candi")
     with c2:
-        sim_time = st.slider("Simulation time / cycle (ps)", 1, 100, 10)
-        timestep = st.slider("Time step (fs)", 1, 4, 1)
+        sim_time = st.slider("Sim time / cycle (ps)", 1, 100,
+                             st.session_state.get("pacsmd_sim_time", 10), key="sl_time")
+        timestep = st.slider("Time step (fs)", 1, 4,
+                             st.session_state.get("pacsmd_timestep", 1), key="sl_ts")
     with c3:
-        temperature = st.number_input("Temperature (K)", value=300.0)
-        pressure    = st.number_input("Pressure (bar)", value=1.0)
-
-    host_type = st.session_state.get("host_type", "BCD_DFT")
-    host_sel  = core.PACSMD_HOST_SEL.get(host_type, "resid 1-7")
-    guest_sel = "resname GST"
+        temperature = st.number_input("Temperature (K)", value=float(st.session_state.get("pacsmd_temp", 300.0)))
+        pressure    = st.number_input("Pressure (bar)",  value=float(st.session_state.get("pacsmd_pressure", 1.0)))
 
     steps_cycle = int(sim_time / (timestep / 1000))
-    st.info(
-        f"Host sel: `{host_sel}`  |  Guest sel: `{guest_sel}`  |  "
-        f"Steps/cycle: **{steps_cycle}**  |  "
-        f"Total: **{sim_time * cycle / 1000:.2f} ns**"
-    )
+    total_ns    = sim_time * cycle / 1000
+    st.info(f"Steps / cycle: **{steps_cycle:,}**  |  Total: **{total_ns:.2f} ns**")
+
+    if st.session_state.get("pacsmd_done") and os.path.exists(wpath("sum.nc")):
+        st.success(f"✅ LB-PaCS-MD done — `sum.nc` ({core.file_mb(wpath('sum.nc')):.1f} MB)")
+        if st.button("Continue to analysis →", type="primary"):
+            go_step(6)
+        return
 
     if st.button("▶ Run LB-PaCS-MD", type="primary"):
-        core.write_pacsmd_config(
-            WD(), temperature, pressure, timestep, 1.0, steps_cycle, 100
-        )
-        with st.spinner(f"Running {cycle} cycles ({sim_time*cycle/1000:.2f} ns)..."):
-            rc, out = core.run_pacsmd(WD(), rst7, cycle, candi, host_sel, guest_sel)
+        # Save params to session
+        st.session_state.update({
+            "pacsmd_cycles": cycle, "pacsmd_candi": candi,
+            "pacsmd_sim_time": sim_time, "pacsmd_timestep": timestep,
+            "pacsmd_temp": temperature, "pacsmd_pressure": pressure,
+        })
 
-        st.session_state["log_pacsmd"] = out
+        host_type = st.session_state.get("host_type", "BCD_DFT")
+        host_sel  = core.PACSMD_HOST_SEL.get(host_type, "resid 1-7")
+        guest_sel = "resname GST"
+
+        st.markdown("""
+        <div class="wait-card">
+            <div class="wait-title">🚀 Running LB-PaCS-MD</div>
+            <div class="wait-sub">Enhanced sampling in progress. Each cycle selects candidates closest to the host cavity.<br>
+            This takes ~12 min (40 cycles, Colab GPU). Please keep this tab open.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        progress = st.progress(0, text=f"Starting {cycle} LB-PaCS-MD cycles…")
+
+        core.write_pacsmd_config(WD(), temperature, pressure, timestep, 1.0, steps_cycle, 100)
+        rc, out = core.run_pacsmd(WD(), wpath("last_frame.rst7"), cycle, candi, host_sel, guest_sel)
+
+        st.session_state["log_pacsmd"]    = out
         st.session_state["pacsmd_cycles"] = cycle
         st.session_state["pacsmd_candi"]  = candi
 
         if rc == 0:
+            progress.progress(100, text="LB-PaCS-MD complete!")
+            st.session_state["pacsmd_done"] = True
             st.success("✅ LB-PaCS-MD complete!")
+            time.sleep(1)
+            go_step(6)
         else:
-            st.error("PaCS-Q failed"); log_expander("log_pacsmd"); st.stop()
-
-    st.divider()
-    st.markdown("### 🔄 Extend Simulation")
-    ext_cycle = st.slider("Extend to total cycle", 5, 200, 70)
-    if st.button("▶ Extend"):
-        core.write_pacsmd_config(
-            WD(), temperature, pressure, timestep, 1.0, steps_cycle, 100
-        )
-        with st.spinner("Extending..."):
-            rc, out = core.run_pacsmd(
-                WD(), rst7,
-                ext_cycle,
-                st.session_state.get("pacsmd_candi", candi),
-                host_sel, guest_sel, rerun=True
-            )
-        st.session_state["log_pacsmd"] += "\n" + out
-        if rc == 0:
-            st.success(f"✅ Extended to {ext_cycle} cycles!")
-        else:
-            st.error("Extension failed")
-
-    if os.path.exists(wpath("sum.nc")):
-        st.success(f"✓ `sum.nc` ({core.file_mb(wpath('sum.nc')):.1f} MB)")
+            progress.progress(100, text="Failed")
+            st.error("❌ PaCS-Q failed")
+            log_expander("log_pacsmd")
 
     log_expander("log_pacsmd")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 8: PaCS-MD Analysis
+# STEP 6 — PaCS-MD analysis + optional extend
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊   8 · PaCS-MD Analysis":
-    st.title("📊 PaCS-MD Analysis")
-    _require_plotly()
-
-    if not os.path.exists(wpath("sum.nc")):
-        st.warning("⚠️ Complete Step 7 first."); st.stop()
-
-    # Distance profile
-    dis_dat = wpath("dis_plot.dat")
-    st.markdown("### 📉 Distance profile (COM distance vs cycle)")
-    if os.path.exists(dis_dat):
-        import numpy as np
-        dis = np.loadtxt(dis_dat, usecols=0)
-        fig = go.Figure(go.Scatter(
-            x=list(range(1, len(dis)+1)), y=dis.tolist(),
-            mode="lines", line=dict(color="#4C78A8", width=2)
-        ))
-        fig.update_layout(
-            xaxis_title="Cycle", yaxis_title="COM Distance (Å)",
-            title="LB-PaCS-MD Distance Profile", height=380
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        last_d = dis[-1]
-        if last_d < 5:
-            st.success(f"🎉 Guest complexed (distance = {last_d:.1f} Å)")
-        elif last_d < 10:
-            st.info(f"Guest approaching cavity ({last_d:.1f} Å)")
-        else:
-            st.warning(f"Guest not yet complexed ({last_d:.1f} Å) — extend simulation")
-    else:
-        st.info("`dis_plot.dat` not found. Generated automatically by pacs_q_md.")
-
-    st.divider()
-    st.markdown("### 🔬 2D Free Energy Landscape (CV analysis via cpptraj)")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        target_cycle = st.number_input(
-            "Total cycles to analyse",
-            1, 200, st.session_state.get("pacsmd_cycles", 40)
-        )
-    with c2:
-        candi_n = st.number_input(
-            "Candidates per cycle",
-            1, 20, st.session_state.get("pacsmd_candi", 3)
-        )
+def page_pacsmd_analysis():
+    render_stepper(6)
+    st.markdown('<div class="sec-header">📊 PaCS-MD analysis</div>', unsafe_allow_html=True)
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
 
-    if st.button("▶ Run CV Analysis (cpptraj)"):
-        with st.spinner("Running cpptraj..."):
+    # --- Auto-run CV analysis if not done yet ---
+    if not os.path.exists(wpath("dis.dat")) or not os.path.exists(wpath("rg.dat")):
+        with st.spinner("Running cpptraj CV analysis…"):
             rc, out = core.run_cpptraj_cv(
                 WD(), wpath("complex.top"),
-                int(target_cycle), int(candi_n),
+                st.session_state.get("pacsmd_cycles", 40),
+                st.session_state.get("pacsmd_candi", 3),
                 host_mask, ":GST"
             )
         st.session_state["log_cv"] = out
         if rc != 0:
-            st.error("cpptraj failed"); log_expander("log_cv"); st.stop()
-        st.success("✅ CV analysis complete!")
+            st.error("❌ cpptraj failed")
+            log_expander("log_cv")
+            st.stop()
 
-    dis_path = wpath("dis.dat")
+    # --- Distance profile ---
+    dis_dat = wpath("dis_plot.dat")
+    last_d  = None
+
+    if os.path.exists(dis_dat) and _numpy_ok:
+        dis = np.loadtxt(dis_dat, usecols=0)
+        last_d = float(dis[-1])
+
+        if _plotly_ok:
+            fig = go.Figure(go.Scatter(
+                x=list(range(1, len(dis) + 1)), y=dis.tolist(),
+                mode="lines+markers",
+                line=dict(color="#1D9E75", width=2),
+                marker=dict(size=4),
+            ))
+            fig.add_hline(y=5, line_dash="dot", line_color="#E24B4A",
+                          annotation_text="5 Å threshold")
+            fig.update_layout(
+                xaxis_title="Cycle", yaxis_title="COM Distance (Å)",
+                title="Host–Guest COM Distance Profile",
+                height=380, plot_bgcolor="white",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        if last_d < 5:
+            st.success(f"🎉 Guest complexed! Final distance = **{last_d:.1f} Å**")
+        elif last_d < 10:
+            st.info(f"Guest approaching cavity — distance = **{last_d:.1f} Å**")
+        else:
+            st.warning(f"Guest not yet complexed — distance = **{last_d:.1f} Å**")
+    else:
+        st.info("`dis_plot.dat` not found — generated automatically after PaCS-Q finishes.")
+
+    # --- 2D FEL ---
     rg_path  = wpath("rg.dat")
-    if os.path.exists(dis_path) and os.path.exists(rg_path):
-        import numpy as np
-        dis_arr = np.loadtxt(dis_path, comments=["#", "@"], usecols=1)
-        rg_arr  = np.loadtxt(rg_path,  comments=["#", "@"], usecols=2)
+    dis_path = wpath("dis.dat")
+    if os.path.exists(dis_path) and os.path.exists(rg_path) and _plotly_ok and _numpy_ok:
+        with st.expander("📈 2D Free Energy Landscape"):
+            dis_arr = np.loadtxt(dis_path, comments=["#","@"], usecols=1)
+            rg_arr  = np.loadtxt(rg_path,  comments=["#","@"], usecols=2)
+            fig2d = go.Figure(go.Histogram2dContour(
+                x=dis_arr, y=rg_arr, colorscale="Teal",
+                contours_coloring="fill", ncontours=20,
+            ))
+            fig2d.update_layout(
+                xaxis_title="Host–Guest Distance (Å)", yaxis_title="Host Rg (Å)",
+                title="2D Free Energy Landscape", height=440
+            )
+            st.plotly_chart(fig2d, use_container_width=True)
 
-        fig2d = go.Figure(go.Histogram2dContour(
-            x=dis_arr, y=rg_arr,
-            colorscale="Jet",
-            contours_coloring="fill",
-            ncontours=20,
-        ))
-        fig2d.update_layout(
-            xaxis_title="Host–Guest Distance (Å)",
-            yaxis_title="Host Rg (Å)",
-            title="2D Free Energy Landscape",
-            height=460
+    # --- Extend? ---
+    st.divider()
+    if last_d is None or last_d >= 5:
+        st.subheader("🔄 Extend simulation?")
+        want_extend = st.radio(
+            "Guest has not fully complexed. Do you want to extend the simulation?",
+            ["Yes, extend", "No, continue to cMD"],
+            key="extend_radio"
         )
-        st.plotly_chart(fig2d, use_container_width=True)
+        if want_extend == "Yes, extend":
+            ext_cycle = st.number_input(
+                "Extend to total cycles",
+                min_value=st.session_state.get("pacsmd_cycles", 40) + 5,
+                max_value=300,
+                value=st.session_state.get("pacsmd_cycles", 40) + 30,
+            )
+            if st.button("▶ Extend LB-PaCS-MD", type="primary"):
+                host_type = st.session_state.get("host_type", "BCD_DFT")
+                host_sel  = core.PACSMD_HOST_SEL.get(host_type, "resid 1-7")
+                ts        = st.session_state.get("pacsmd_timestep", 1)
+                st_c      = st.session_state.get("pacsmd_sim_time", 10)
+                steps_c   = int(st_c / (ts / 1000))
+
+                st.markdown("""
+                <div class="wait-card">
+                    <div class="wait-title">🔄 Extending LB-PaCS-MD…</div>
+                    <div class="wait-sub">Running additional cycles. Please wait.</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                core.write_pacsmd_config(
+                    WD(),
+                    st.session_state.get("pacsmd_temp", 300.0),
+                    st.session_state.get("pacsmd_pressure", 1.0),
+                    ts, 1.0, steps_c, 100
+                )
+                rc, out = core.run_pacsmd(
+                    WD(), wpath("last_frame.rst7"),
+                    int(ext_cycle),
+                    st.session_state.get("pacsmd_candi", 3),
+                    host_sel, "resname GST", rerun=True
+                )
+                st.session_state["log_pacsmd"] += "\n" + out
+                st.session_state["pacsmd_cycles"] = int(ext_cycle)
+
+                if rc == 0:
+                    st.session_state["pacsmd_extended"] = True
+                    st.success(f"✅ Extended to {ext_cycle} cycles!")
+                    st.rerun()
+                else:
+                    st.error("❌ Extension failed")
+                    log_expander("log_pacsmd")
+        else:
+            if st.button("Continue to cMD →", type="primary"):
+                go_step(7)
+    else:
+        # Guest complexed — auto-proceed
+        st.success("Guest is complexed. Proceeding to cMD.")
+        if st.button("Continue to cMD →", type="primary"):
+            go_step(7)
 
     log_expander("log_cv")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 9: Classical MD
+# STEP 7 — Classical MD  (ask length + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔬   9 · Classical MD":
-    st.title("🔬 Classical MD (NPT)")
+def page_cmd():
+    render_stepper(7)
+    st.markdown('<div class="sec-header">🔬 Classical MD (NPT)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">Run unbiased NPT molecular dynamics from the best PaCS-MD frame.</div>', unsafe_allow_html=True)
 
-    sum_nc = wpath("sum.nc")
-    if not os.path.exists(sum_nc):
-        st.warning("⚠️ Complete Step 7 first."); st.stop()
+    if st.session_state.get("cmd_done") and os.path.exists(wpath("md.dcd")):
+        st.success(f"✅ cMD done — `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
+        if st.button("Continue →", type="primary"):
+            go_step(8)
+        return
 
     c1, c2 = st.columns(2)
     with c1:
-        length_ns   = st.number_input("Length (ns)", 0.1, 100.0, 2.0)
+        length_ns   = st.number_input("Simulation length (ns)", 0.1, 100.0, 2.0, step=0.5)
         temperature = st.number_input("Temperature (K)", value=300.0)
-        pressure    = st.number_input("Pressure (bar)", value=1.0)
     with c2:
-        report_int  = st.number_input("Report interval (steps)", 1000, 50000, 5000)
-        traj_int    = st.number_input("Trajectory interval (steps)", 1000, 50000, 5000)
+        pressure    = st.number_input("Pressure (bar)", value=1.0)
+        report_int  = st.number_input("Reporter interval (steps)", 1000, 50000, 5000)
 
-    st.info(f"{length_ns} ns  ≈  {int(length_ns*1e6/2):,} steps at dt=2 fs")
+    steps_est = int(length_ns * 1e6 / 2)
+    st.info(f"{length_ns} ns ≈ **{steps_est:,}** steps at dt=2 fs")
 
     if st.button("▶ Run cMD", type="primary"):
-        with st.spinner("Extracting last PaCS-MD frame..."):
-            core.extract_last_rst_from_pacsmd(
-                WD(), wpath("complex.top"), sum_nc
-            )
+        st.markdown(f"""
+        <div class="wait-card">
+            <div class="wait-title">🔬 Running {length_ns} ns cMD</div>
+            <div class="wait-sub">
+                NPT simulation in progress.<br>
+                Estimated time: ~{length_ns*7:.0f}–{length_ns*15:.0f} min on Colab GPU.<br>
+                Please keep this tab open.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        progress = st.progress(0, text="Extracting last PaCS-MD frame…")
+
+        with st.spinner("Extracting last frame…"):
+            core.extract_last_rst_from_pacsmd(WD(), wpath("complex.top"), wpath("sum.nc"))
+
         rst = wpath("last.rst")
         if not os.path.exists(rst):
-            st.error("`last.rst` not created"); st.stop()
+            st.error("❌ `last.rst` not created — check sum.nc exists")
+            st.stop()
 
-        with st.spinner(f"Running {length_ns} ns cMD..."):
-            ok, out = core.run_cmd_simulation(
-                WD(),
-                wpath("complex.top"), rst,
-                wpath("md.dcd"),
-                length_ns=length_ns,
-                temperature=temperature,
-                pressure=pressure,
-                traj_int=int(traj_int),
-                report_int=int(report_int),
-            )
+        progress.progress(5, text=f"Running {length_ns} ns cMD…")
+
+        ok, out = core.run_cmd_simulation(
+            WD(),
+            wpath("complex.top"), rst,
+            wpath("md.dcd"),
+            length_ns=length_ns,
+            temperature=temperature,
+            pressure=pressure,
+            traj_int=int(report_int),
+            report_int=int(report_int),
+        )
         st.session_state["log_cmd"] = out
-        if ok:
-            st.success("✅ cMD complete!")
-        else:
-            st.error("cMD failed"); log_expander("log_cmd"); st.stop()
 
-    if os.path.exists(wpath("md.dcd")):
-        st.success(f"✓ `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
+        if ok:
+            progress.progress(100, text="cMD complete!")
+            st.session_state["cmd_done"] = True
+            st.success("✅ cMD complete!")
+            time.sleep(1)
+            go_step(8)
+        else:
+            progress.progress(100, text="Failed")
+            st.error("❌ cMD failed")
+            log_expander("log_cmd")
 
     log_expander("log_cmd")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 10: cMD Analysis
+# STEP 8 — cMD Analysis + MM-PBSA/GBSA (auto-run all)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📈  10 · cMD Analysis":
-    st.title("📈 cMD Analysis — RMSD · Rg · Distance")
-
-    dcd = wpath("md.dcd")
-    if not os.path.exists(dcd):
-        st.warning("⚠️ Complete Step 9 first."); st.stop()
+def page_analysis():
+    render_stepper(8)
+    st.markdown('<div class="sec-header">📈 Analysis & binding energy</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy — running automatically.</div>', unsafe_allow_html=True)
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
 
-    st.info(f"Host mask: `{host_mask}`  |  Guest mask: `:GST`")
-
-    if st.button("▶ Run cpptraj Analysis"):
-        with st.spinner("Analysing..."):
+    # --- Auto-run cpptraj if needed ---
+    if not os.path.exists(wpath("rmsd.dat")):
+        with st.spinner("Running cpptraj analysis (RMSD, Rg, distance)…"):
             rc, out = core.run_cpptraj_cmd_analysis(
-                WD(), wpath("complex.top"), dcd,
-                wpath("complex.crd"),
-                host_mask, ":GST"
+                WD(), wpath("complex.top"), wpath("md.dcd"),
+                wpath("complex.crd"), host_mask, ":GST"
             )
         if rc != 0:
-            st.error("cpptraj failed"); st.code(out[-2000:]); st.stop()
-        st.success("✅ Analysis complete!")
+            st.error("❌ cpptraj failed"); st.code(out[-2000:]); st.stop()
+        st.success("✅ Trajectory analysis done")
 
-    # Plots
-    _require_plotly()
-    plot_cfg = [
-        ("rmsd.dat", 1, "RMSD (Å)",    "RMSD over time"),
-        ("rg.dat",   2, "Rg (Å)",       "Radius of Gyration"),
-        ("dis.dat",  1, "Distance (Å)", "Host–Guest COM Distance"),
-    ]
-    import numpy as np
-    charts = []
-    for fname, col_idx, ylabel, title in plot_cfg:
-        fpath = wpath(fname)
-        if os.path.exists(fpath):
-            try:
-                data = np.loadtxt(fpath, comments=["#", "@"])
-                charts.append((data[:, 0], data[:, col_idx], ylabel, title))
-            except Exception:
-                pass
+    # --- Plots ---
+    if _plotly_ok and _numpy_ok:
+        plot_cfg = [
+            ("rmsd.dat", 1, "RMSD (Å)",     "RMSD over time"),
+            ("rg.dat",   2, "Rg (Å)",        "Radius of Gyration"),
+            ("dis.dat",  1, "Distance (Å)",  "Host–Guest COM Distance"),
+        ]
+        charts = []
+        for fname, col_idx, ylabel, title in plot_cfg:
+            fpath = wpath(fname)
+            if os.path.exists(fpath):
+                try:
+                    data = np.loadtxt(fpath, comments=["#","@"])
+                    charts.append((data[:, 0], data[:, col_idx], ylabel, title))
+                except Exception:
+                    pass
 
-    if charts:
-        fig = make_subplots(
-            rows=len(charts), cols=1,
-            subplot_titles=[c[3] for c in charts],
-            vertical_spacing=0.08,
-        )
-        colors = ["#4C78A8", "#F58518", "#E45756"]
-        for i, (x, y, ylabel, _) in enumerate(charts, 1):
-            fig.add_trace(
-                go.Scatter(x=x.tolist(), y=y.tolist(), mode="lines",
-                           line=dict(color=colors[i-1], width=1.5)),
-                row=i, col=1
+        if charts:
+            colors = ["#1D9E75", "#D85A30", "#378ADD"]
+            fig = make_subplots(
+                rows=len(charts), cols=1,
+                subplot_titles=[c[3] for c in charts],
+                vertical_spacing=0.07,
             )
-            fig.update_yaxes(title_text=ylabel, row=i, col=1)
-            fig.update_xaxes(title_text="Frame", row=i, col=1)
+            for i, (x, y, ylabel, _) in enumerate(charts, 1):
+                fig.add_trace(
+                    go.Scatter(x=x.tolist(), y=y.tolist(), mode="lines",
+                               line=dict(color=colors[i-1], width=1.5)),
+                    row=i, col=1
+                )
+                fig.update_yaxes(title_text=ylabel, row=i, col=1)
+                fig.update_xaxes(title_text="Frame", row=i, col=1)
+            fig.update_layout(height=300 * len(charts), showlegend=False,
+                              plot_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
 
-        fig.update_layout(height=320*len(charts), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+    st.divider()
+
+    # --- Auto-run MM-PBSA if not done ---
+    if not st.session_state.get("mmpbsa_done"):
+        st.subheader("⚡ MM-PBSA/GBSA binding energy")
+        c1, c2 = st.columns(2)
+        with c1:
+            n_frames = st.number_input("Last N frames to analyse", 5, 100, 10)
+            igb_val  = st.selectbox("GB model (igb)", ["2", "5", "1", "7", "8"])
+        with c2:
+            salt_conc = st.text_input("Salt concentration (M)", "0")
+            do_pb     = st.checkbox("Also run MM-PBSA", value=True)
+
+        if st.button("▶ Run MM-PBSA/GBSA", type="primary"):
+            top = wpath("complex.top")
+            with st.spinner("Running ante-MMPBSA + MMPBSA.py…"):
+                ok, log, gb, pb = core.run_mmpbsa(
+                    WD(), top, wpath("md.dcd"), n_frames,
+                    igb_val, salt_conc, do_pb, label="cMD"
+                )
+            st.session_state["log_mmpbsa"] = log
+            st.session_state["gb_result"]  = gb
+            st.session_state["pb_result"]  = pb
+
+            if not ok:
+                st.error("❌ MMPBSA.py failed"); log_expander("log_mmpbsa"); st.stop()
+
+            st.session_state["mmpbsa_done"] = True
+            st.rerun()
     else:
-        st.info("Run the analysis above to see plots.")
+        # Show results
+        gb = st.session_state.get("gb_result")
+        pb = st.session_state.get("pb_result")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 11: MM-PBSA/GBSA
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "⚡  11 · MM-PBSA/GBSA":
-    st.title("⚡ MM-PBSA/GBSA Binding Energy")
-
-    top = wpath("complex.top")
-    traj_options = {}
-    for label, fname in [("LB-PaCS-MD (sum.nc)", "sum.nc"), ("cMD (md.dcd)", "md.dcd")]:
-        if os.path.exists(wpath(fname)):
-            traj_options[label] = wpath(fname)
-
-    if not traj_options:
-        st.warning("⚠️ No trajectory files found. Complete Steps 7 or 9."); st.stop()
-
-    traj_label = st.selectbox("Trajectory source", list(traj_options.keys()))
-    traj_file  = traj_options[traj_label]
-    run_label  = "LB" if "sum" in traj_label else "cMD"
-
-    c1, c2 = st.columns(2)
-    with c1:
-        n_frames  = st.slider("Last N frames to analyse", 5, 100, 10)
-        igb_val   = st.selectbox("GB model (igb)", ["2", "5", "1", "7", "8"])
-    with c2:
-        salt_conc = st.text_input("Salt concentration (M)", "0")
-        do_pb     = st.checkbox("Also run MM-PBSA", value=True)
-
-    if st.button("▶ Run MM-PBSA/GBSA", type="primary"):
-        with st.spinner("Running ante-MMPBSA + MMPBSA.py..."):
-            ok, log, gb, pb = core.run_mmpbsa(
-                WD(), top, traj_file, n_frames,
-                igb_val, salt_conc, do_pb, label=run_label
-            )
-        st.session_state["log_mmpbsa"] = log
-
-        if not ok:
-            st.error("MMPBSA.py failed"); log_expander("log_mmpbsa"); st.stop()
-
-        st.success("✅ Analysis complete!")
-
-        # Results metrics
+        st.subheader("⚡ MM-PBSA/GBSA results")
         c1, c2 = st.columns(2)
         with c1:
             if gb:
-                st.metric("ΔG (MM-GBSA)", f"{gb[0]:.2f} ± {gb[1]:.2f} kcal/mol")
+                st.markdown(
+                    f'<div class="res-metric"><div class="res-value">{gb[0]:.2f} kcal/mol</div>'
+                    f'<div class="res-label">ΔG (MM-GBSA)  ±{gb[1]:.2f}</div></div>',
+                    unsafe_allow_html=True
+                )
         with c2:
             if pb:
-                st.metric("ΔG (MM-PBSA)", f"{pb[0]:.2f} ± {pb[1]:.2f} kcal/mol")
+                st.markdown(
+                    f'<div class="res-metric"><div class="res-value">{pb[0]:.2f} kcal/mol</div>'
+                    f'<div class="res-label">ΔG (MM-PBSA)  ±{pb[1]:.2f}</div></div>',
+                    unsafe_allow_html=True
+                )
 
-        # Bar chart — energy decomposition
+        # Energy decomposition bar chart
         if _plotly_ok:
-            dat_path = wpath(f"FINAL_RESULTS_MMPBSA_{run_label}.dat")
+            dat_path = wpath("FINAL_RESULTS_MMPBSA_cMD.dat")
             gb_d, pb_d = core.parse_mmpbsa_components(dat_path)
-        else:
-            gb_d, pb_d = {}, {}
 
-        def _bar_chart(title, components, colors):
-            labels = list(components.keys())
-            vals   = [v if v is not None else 0.0 for v in components.values()]
-            fig = go.Figure(go.Bar(
-                x=labels, y=vals,
-                marker_color=colors[:len(labels)],
-                text=[f"{v:.2f}" for v in vals],
-                textposition="outside",
-            ))
-            fig.add_hline(y=0, line_width=1, line_dash="dot")
-            fig.update_layout(title=title, height=380, yaxis_title="kcal/mol")
-            return fig
+            def _bar(title, comps, color):
+                labels = list(comps.keys())
+                vals   = [v if v is not None else 0.0 for v in comps.values()]
+                fig = go.Figure(go.Bar(
+                    x=labels, y=vals,
+                    marker_color=[color if v <= 0 else "#E24B4A" for v in vals],
+                    text=[f"{v:.2f}" for v in vals],
+                    textposition="outside",
+                ))
+                fig.add_hline(y=0, line_width=1, line_dash="dot")
+                fig.update_layout(title=title, height=360,
+                                  yaxis_title="kcal/mol", plot_bgcolor="white")
+                return fig
 
-        colors = ["#2ca02c","#d62728","#1f77b4","#aec7e8","#000000"]
+            if any(v is not None for v in gb_d.values()):
+                st.plotly_chart(_bar("MM-GBSA components", {
+                    "ΔEVDW": gb_d["VDWAALS"], "ΔEele": gb_d["EEL"],
+                    "ΔEGB": gb_d["EGB"], "ΔESURF": gb_d["ESURF"],
+                    "ΔG total": gb_d["DELTA TOTAL"],
+                }, "#1D9E75"), use_container_width=True)
 
-        if any(v is not None for v in gb_d.values()):
-            gb_plot = {
-                "ΔEVDW": gb_d["VDWAALS"], "ΔEele": gb_d["EEL"],
-                "ΔEGB": gb_d["EGB"], "ΔESURF": gb_d["ESURF"],
-                "ΔG total": gb_d["DELTA TOTAL"],
-            }
-            st.plotly_chart(_bar_chart("MM-GBSA Components", gb_plot, colors),
-                            use_container_width=True)
-
-        if do_pb and any(v is not None for v in pb_d.values()):
-            pb_plot = {
-                "ΔEVDW": pb_d["VDWAALS"], "ΔEele": pb_d["EEL"],
-                "ΔEPB": pb_d["EPB"],
-                "ΔEnp": pb_d["ESURF"] or pb_d["ENPOLAR"],
-                "ΔG total": pb_d["DELTA TOTAL"],
-            }
-            st.plotly_chart(_bar_chart("MM-PBSA Components", pb_plot, colors),
-                            use_container_width=True)
+        st.divider()
+        if st.button("Continue →", type="primary"):
+            go_step(9)
 
     log_expander("log_mmpbsa")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 12: DBFE
+# STEP 9 — DBFE (ask first)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧮  12 · DBFE":
-    st.title("🧮 DBFE — Absolute Binding Free Energy")
+def page_dbfe():
+    render_stepper(9)
+    st.markdown('<div class="sec-header">🧮 DBFE — absolute binding free energy</div>', unsafe_allow_html=True)
 
+    # Ask once
+    if not st.session_state.get("dbfe_asked"):
+        st.markdown("""
+        **DBFE** uses the BAR estimator with a translational/rotational entropy correction (ΔG_TR),
+        giving an absolute binding free energy — unlike MM-PBSA/GBSA.
+
+        It requires additional computation (~10 min).
+        """)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("✅ Yes, run DBFE", type="primary", use_container_width=True):
+                st.session_state["dbfe_asked"] = True
+                st.session_state["dbfe_want"]  = True
+                st.rerun()
+        with c2:
+            if st.button("⏭ Skip, go to download", use_container_width=True):
+                st.session_state["dbfe_asked"] = True
+                st.session_state["dbfe_want"]  = False
+                go_step(10)
+        return
+
+    if not st.session_state.get("dbfe_want"):
+        go_step(10)
+        return
+
+    # --- Run DBFE ---
     st.markdown("""
-**Thermodynamic cycle:**
-```
-ΔG_bind = ΔG_inter  +  ΔG_std_state  −  ΔG_sym
-```
-Unlike MM-PBSA/GBSA, DBFE includes the translational + rotational entropy correction (ΔG_TR).
+    **Thermodynamic cycle:**
+    ```
+    ΔG_bind = ΔG_inter + ΔG_std_state − ΔG_sym
+    ```
+    """)
 
-**References:**  
-- arXiv: [2603.12253](https://arxiv.org/abs/2603.12253)  
-- GitHub: [molecularmodelinglab/dbfe](https://github.com/molecularmodelinglab/dbfe)
-""")
-
-    tab1, tab2, tab3 = st.tabs(["Step 1: Install", "Step 2: Prepare Trajectories", "Step 3: Run DBFE"])
+    tab1, tab2, tab3 = st.tabs(["Step 1: Install", "Step 2: Prepare", "Step 3: Compute"])
 
     with tab1:
         if st.button("📦 Install DBFE package"):
-            with st.spinner("Installing..."):
+            with st.spinner("Installing…"):
                 rc, out = core.run_cmd([
                     sys.executable, "-m", "pip", "install", "-q",
                     "git+https://github.com/molecularmodelinglab/dbfe.git",
@@ -1003,18 +1138,15 @@ Unlike MM-PBSA/GBSA, DBFE includes the translational + rotational entropy correc
             igb_folder = st.selectbox("MM-PBSA igb folder", ["2","5","1","7","8"])
             temp_K     = st.number_input("Temperature (K)", value=300)
 
-        if st.button("▶ Prepare DBFE Trajectories"):
-            st.info("DBFE trajectory preparation requires the full DBFE package. "
-                    "Check that Step 1 is complete, then run `python run_dbfe.py` "
-                    "from the workspace directory.")
+        if st.button("▶ Prepare DBFE trajectories"):
             py = os.path.join(WD(), "run_dbfe_prep.py")
             with open(py, "w") as f:
-                f.write(f"# Auto-generated DBFE prep script\n"
-                        f"import os; os.chdir('{WD()}')\n"
+                f.write(f"import os; os.chdir('{WD()}')\n"
                         f"use_lb={use_lb}\nuse_cmd={use_cmd2}\n"
                         f"indep_md_ns={indep_ns}\ntemperature_K={temp_K}\n"
                         f"igb_folder='{igb_folder}'\n"
                         f"print('DBFE prep — edit and run this script manually.')\n")
+            st.info("Prep script written. Check log.")
             st.code(core.read_file(py))
 
     with tab3:
@@ -1023,7 +1155,6 @@ Unlike MM-PBSA/GBSA, DBFE includes the translational + rotational entropy correc
         max_pairs = st.number_input("Max BAR frame pairs", value=2000)
 
         if st.button("▶ Compute DBFE"):
-            st.info("Running DBFE via Python subprocess...")
             py = os.path.join(WD(), "run_dbfe_bar.py")
             with open(py, "w") as f:
                 f.write(f"import os; os.chdir('{WD()}')\n"
@@ -1032,52 +1163,62 @@ Unlike MM-PBSA/GBSA, DBFE includes the translational + rotational entropy correc
             rc, out = core.run_cmd([sys.executable, py], cwd=WD())
             st.code(out)
 
-        # Show existing DBFE results
         res_path = wpath("DBFE_results.json")
         if os.path.exists(res_path):
             st.success("✅ DBFE results found!")
             results = json.loads(core.read_file(res_path))
-            for r in results:
-                st.metric(
-                    f"ΔG_bind ({r.get('source','?')})",
-                    f"{r.get('dG_bind', 0):.2f} kcal/mol"
-                )
+            cols = st.columns(len(results)) if results else []
+            for col, r in zip(cols, results):
+                with col:
+                    st.markdown(
+                        f'<div class="res-metric">'
+                        f'<div class="res-value">{r.get("dG_bind", 0):.2f}</div>'
+                        f'<div class="res-label">ΔG_bind ({r.get("source","?")})<br>kcal/mol</div>'
+                        f'</div>', unsafe_allow_html=True
+                    )
+            st.session_state["dbfe_done"] = True
+
+    st.divider()
+    if st.button("Continue to download →", type="primary"):
+        go_step(10)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 13: Download Results
+# STEP 10 — Download results
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📦  13 · Download Results":
-    st.title("📦 Download Results")
+def page_download():
+    render_stepper(10)
+    st.markdown('<div class="sec-header">📦 Download results</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-sub">All generated files are listed below.</div>', unsafe_allow_html=True)
 
     FILE_DESC = {
-        "complex.top":         "Topology (solvated complex)",
-        "complex.crd":         "Coordinates (solvated complex)",
-        "complex.pdb":         "Complex PDB (dry)",
-        "complex_leap.pdb":    "Complex PDB (solvated)",
-        "host.pdb":            "Host PDB",
-        "guest.pdb":           "Guest PDB",
-        "guest.prep":          "Guest PREP (AmberTools)",
-        "guest.frcmod":        "Guest FRCMOD",
-        "last_frame.rst7":     "Restart after heating",
-        "sum.nc":              "LB-PaCS-MD trajectory (NetCDF)",
-        "md.dcd":              "cMD trajectory (DCD)",
-        "md-cMD.dcd":          "cMD processed trajectory",
-        "dis_plot.dat":        "PaCS-MD distance vs cycle",
-        "dis.dat":             "Host–guest COM distance",
-        "rg.dat":              "Host radius of gyration",
-        "rmsd.dat":            "RMSD data",
-        "FINAL_RESULTS_MMPBSA_LB.dat":  "MM-PBSA results (LB-PaCS-MD)",
-        "FINAL_RESULTS_MMPBSA_cMD.dat": "MM-PBSA results (cMD)",
-        "DBFE_results.json":   "DBFE results",
+        "complex.top":                   "Topology (solvated complex)",
+        "complex.crd":                   "Coordinates (solvated complex)",
+        "complex.pdb":                   "Complex PDB (dry)",
+        "complex_leap.pdb":              "Complex PDB (solvated)",
+        "host.pdb":                      "Host PDB",
+        "guest.pdb":                     "Guest PDB",
+        "guest.prep":                    "Guest PREP (AmberTools)",
+        "guest.frcmod":                  "Guest FRCMOD",
+        "last_frame.rst7":               "Restart after heating",
+        "sum.nc":                        "LB-PaCS-MD trajectory (NetCDF)",
+        "md.dcd":                        "cMD trajectory (DCD)",
+        "md-cMD.dcd":                    "cMD processed trajectory",
+        "dis_plot.dat":                  "PaCS-MD distance vs cycle",
+        "dis.dat":                       "Host–guest COM distance",
+        "rg.dat":                        "Host radius of gyration",
+        "rmsd.dat":                      "RMSD data",
+        "FINAL_RESULTS_MMPBSA_LB.dat":   "MM-PBSA results (LB-PaCS-MD)",
+        "FINAL_RESULTS_MMPBSA_cMD.dat":  "MM-PBSA results (cMD)",
+        "DBFE_results.json":             "DBFE results",
     }
 
-    found = {k: wpath(k) for k in FILE_DESC if os.path.exists(wpath(k))}
+    found   = {k: wpath(k) for k in FILE_DESC if os.path.exists(wpath(k))}
     missing = [k for k in FILE_DESC if k not in found]
 
-    st.markdown(f"**{len(found)} / {len(FILE_DESC)} files available**")
+    st.metric("Files ready", f"{len(found)} / {len(FILE_DESC)}")
+    st.divider()
 
-    # Individual downloads
     for fname, path in found.items():
         c1, c2, c3 = st.columns([4, 1, 1])
         with c1:
@@ -1094,9 +1235,9 @@ elif page == "📦  13 · Download Results":
                 st.caption(f"- {m}")
 
     st.divider()
-    st.markdown("### 🗜️ Download Everything as ZIP")
+    st.subheader("🗜️ Download everything as ZIP")
     if st.button("Create ZIP bundle"):
-        with st.spinner("Zipping..."):
+        with st.spinner("Zipping…"):
             zip_path, added = core.create_results_zip(WD())
         st.success(f"ZIP ready: {len(added)} files, {core.file_mb(zip_path):.1f} MB")
         with open(zip_path, "rb") as f:
@@ -1106,3 +1247,78 @@ elif page == "📦  13 · Download Results":
                 file_name="DFDD_results.zip",
                 mime="application/zip",
             )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SIDEBAR — minimal nav + status
+# ══════════════════════════════════════════════════════════════════════════════
+with st.sidebar:
+    try:
+        st.image("https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif", width=180)
+    except Exception:
+        pass
+    st.markdown("## DFDD")
+    st.caption("Hengphasatporn et al., *JCIM* 2026")
+    st.caption("[DOI](https://doi.org/10.1021/acs.jcim.5c02852)")
+
+    st.divider()
+    st.markdown("**Jump to step**")
+    step_map = {
+        "0 · Install":          0,
+        "1 · Host":             1,
+        "2 · Guest":            2,
+        "3 · Build & Solvate":  3,
+        "4 · Minimize":         4,
+        "5 · LB-PaCS-MD":       5,
+        "6 · PaCS-MD Analysis": 6,
+        "7 · cMD":              7,
+        "8 · Analysis + PBSA":  8,
+        "9 · DBFE":             9,
+        "10 · Download":        10,
+    }
+    for label, idx in step_map.items():
+        is_cur = st.session_state["step"] == idx
+        if st.button(label, key=f"nav_{idx}",
+                     type="primary" if is_cur else "secondary",
+                     use_container_width=True):
+            go_step(idx)
+
+    st.divider()
+    st.markdown("**Status**")
+    checks = [
+        ("Host",     st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or "")),
+        ("Guest",    st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or "")),
+        ("Complex",  os.path.exists(wpath("complex.pdb"))),
+        ("Topology", os.path.exists(wpath("complex.top"))),
+        ("Minimized",os.path.exists(wpath("last_frame.rst7"))),
+        ("PaCS-MD",  os.path.exists(wpath("sum.nc"))),
+        ("cMD",      os.path.exists(wpath("md.dcd"))),
+        ("MM-PBSA",  st.session_state.get("mmpbsa_done", False)),
+    ]
+    for label, ok in checks:
+        st.markdown(f"{'✅' if ok else '⬜'} {label}")
+
+    st.divider()
+    new_wd = st.text_input("Workspace path", value=WD(), key="_wd_in")
+    if st.button("Set workspace"):
+        os.makedirs(new_wd, exist_ok=True)
+        st.session_state["workdir"] = new_wd
+        st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN ROUTER
+# ══════════════════════════════════════════════════════════════════════════════
+step = st.session_state["step"]
+
+if   step == 0:  page_install()
+elif step == 1:  page_host()
+elif step == 2:  page_guest()
+elif step == 3:  page_build()
+elif step == 4:  page_minimize()
+elif step == 5:  page_pacsmd()
+elif step == 6:  page_pacsmd_analysis()
+elif step == 7:  page_cmd()
+elif step == 8:  page_analysis()
+elif step == 9:  page_dbfe()
+elif step == 10: page_download()
