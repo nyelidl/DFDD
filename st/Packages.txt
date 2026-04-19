@@ -1,0 +1,25 @@
+# DFDD — System-level packages
+# Used by Streamlit Cloud (apt-get) and useful as reference for Colab/local setup.
+# On Streamlit Cloud this file is read automatically.
+# On local/Colab: sudo apt-get install -y $(cat packages.txt | grep -v '^#' | tr '\n' ' ')
+
+# ── AmberTools (installed via conda; listed here for reference) ───
+# ambertools              # antechamber, tleap, parmchk2, cpptraj, MMPBSA.py
+
+# ── Format conversion ─────────────────────────────────────────────
+openbabel
+
+# ── Build tools (needed to compile some Python extensions) ────────
+build-essential
+libssl-dev
+libffi-dev
+
+# ── Git (for cloning host-guest repo) ─────────────────────────────
+git
+
+# ── HDF5 / NetCDF (for trajectory I/O) ───────────────────────────
+libhdf5-dev
+libnetcdf-dev
+
+# ── OpenCL runtime (for GPU-accelerated OpenMM on Linux) ──────────
+ocl-icd-opencl-dev
