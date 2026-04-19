@@ -1309,8 +1309,6 @@ def page_download():
 # SIDEBAR — minimal nav + status
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    except Exception:
-        pass
     st.markdown("## DFDD")
     st.caption("Hengphasatporn et al., *JCIM* 2026")
     st.caption("[DOI](https://doi.org/10.1021/acs.jcim.5c02852)")
