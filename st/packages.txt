@@ -1,0 +1,5 @@
+openbabel
+build-essential
+git
+libhdf5-dev
+libnetcdf-dev
