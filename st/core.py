@@ -234,33 +234,33 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None):
     try:
         from rdkit import Chem
         from rdkit.Chem import AllChem
+        from rdkit.Chem import rdDistGeom
 
         mol = Chem.MolFromSmiles(smiles.strip())
         if mol is None:
             return None, "Invalid SMILES"
         molH = Chem.AddHs(mol)
 
-        # Use positional args only: EmbedMolecule(mol, maxAttempts, randomSeed)
-        # This is the only call signature that works across all RDKit builds
-        # including conda-forge versions with Boost.Python ABI issues.
-        rc = AllChem.EmbedMolecule(molH, 0, 42)
+        # Build params via rdDistGeom.EmbedParameters() — the base class
+        # constructor works on all conda-forge RDKit builds unlike ETKDG()/ETKDGv3()
+        ps = rdDistGeom.EmbedParameters()
+        ps.randomSeed      = 42
+        ps.useRandomCoords = False
+        rc = rdDistGeom.EmbedMolecule(molH, ps)
+
         if rc != 0:
-            # Retry with random coords (positional: maxAttempts=0, randomSeed=42,
-            # clearConfs=True, useRandomCoords=True encoded via params object workaround)
-            try:
-                ps = AllChem.EmbedParameters()
-                ps.useRandomCoords = True
-                ps.randomSeed = 42
-                rc = AllChem.EmbedMolecule(molH, ps)
-            except Exception:
-                rc = AllChem.EmbedMolecule(molH, 0, 0)   # randomSeed=0 as last resort
+            ps2 = rdDistGeom.EmbedParameters()
+            ps2.randomSeed      = 42
+            ps2.useRandomCoords = True
+            rc = rdDistGeom.EmbedMolecule(molH, ps2)
+
         if rc != 0:
             return None, "3D embedding failed — try a different SMILES or upload a file"
 
         try:
             AllChem.UFFOptimizeMolecule(molH)
         except Exception:
-            pass  # optimisation is optional
+            pass
 
         charge = Chem.GetFormalCharge(molH)
         Chem.MolToPDBFile(molH, output_pdb)
