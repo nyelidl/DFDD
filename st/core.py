@@ -229,49 +229,65 @@ def _write_glycam_leap(host_type, pdb_fname, prep_fname, dat_fname, workdir):
 
 # ─── Guest Preparation ────────────────────────────────────────────────────────
 
-def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None):
-    """Convert SMILES → 3D PDB + SDF using RDKit. Returns (charge, error)."""
+def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
+    """Convert SMILES → 3D PDB + SDF.
+    Uses obabel for 3D coordinate generation (avoids RDKit EmbedMolecule
+    ABI issues on conda-forge builds).  RDKit is used only for charge detection.
+    Returns (charge, error).
+    """
+    import tempfile, subprocess as _sp
+
+    smiles = smiles.strip()
+    if not smiles:
+        return None, "Empty SMILES"
+
+    cwd = workdir or os.path.dirname(output_pdb) or "."
+
+    # ── Step 1: obabel SMILES → 3D SDF ───────────────────────────────────────
+    sdf_out = output_sdf or output_pdb + "_tmp.sdf"
+    try:
+        result = _sp.run(
+            ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out,
+             "--gen3d", "--minimize", "--ff", "MMFF94", "-h"],
+            capture_output=True, text=True, timeout=120, cwd=cwd
+        )
+        if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+            # Fallback: gen3d without minimize
+            result = _sp.run(
+                ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out, "--gen3d", "-h"],
+                capture_output=True, text=True, timeout=120, cwd=cwd
+            )
+    except FileNotFoundError:
+        return None, "obabel not found — complete Step 1 (environment setup) first"
+    except Exception as e:
+        return None, f"obabel error: {e}"
+
+    if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+        return None, "obabel could not generate 3D structure — check SMILES"
+
+    # ── Step 2: obabel SDF → PDB ──────────────────────────────────────────────
+    try:
+        _sp.run(
+            ["obabel", sdf_out, "-opdb", "-O", output_pdb],
+            capture_output=True, text=True, timeout=60, cwd=cwd
+        )
+    except Exception as e:
+        return None, f"obabel SDF→PDB error: {e}"
+
+    if not os.path.exists(output_pdb):
+        return None, "obabel could not write PDB file"
+
+    # ── Step 3: RDKit for formal charge only (no EmbedMolecule) ──────────────
+    charge = 0
     try:
         from rdkit import Chem
-        from rdkit.Chem import AllChem
-        from rdkit.Chem import rdDistGeom
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is not None:
+            charge = Chem.GetFormalCharge(mol)
+    except Exception:
+        pass
 
-        mol = Chem.MolFromSmiles(smiles.strip())
-        if mol is None:
-            return None, "Invalid SMILES"
-        molH = Chem.AddHs(mol)
-
-        # Build params via rdDistGeom.EmbedParameters() — the base class
-        # constructor works on all conda-forge RDKit builds unlike ETKDG()/ETKDGv3()
-        ps = rdDistGeom.EmbedParameters()
-        ps.randomSeed      = 42
-        ps.useRandomCoords = False
-        rc = rdDistGeom.EmbedMolecule(molH, ps)
-
-        if rc != 0:
-            ps2 = rdDistGeom.EmbedParameters()
-            ps2.randomSeed      = 42
-            ps2.useRandomCoords = True
-            rc = rdDistGeom.EmbedMolecule(molH, ps2)
-
-        if rc != 0:
-            return None, "3D embedding failed — try a different SMILES or upload a file"
-
-        try:
-            AllChem.UFFOptimizeMolecule(molH)
-        except Exception:
-            pass
-
-        charge = Chem.GetFormalCharge(molH)
-        Chem.MolToPDBFile(molH, output_pdb)
-        if output_sdf:
-            w = Chem.SDWriter(output_sdf)
-            w.write(molH)
-            w.close()
-        return charge, None
-
-    except Exception as e:
-        return None, str(e)
+    return charge, None
 
 
 def run_antechamber(mol_in, prep_out, frcmod_out, charge, workdir,
