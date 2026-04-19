@@ -234,25 +234,30 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None):
     try:
         from rdkit import Chem
         from rdkit.Chem import AllChem
+
         mol = Chem.MolFromSmiles(smiles.strip())
         if mol is None:
             return None, "Invalid SMILES"
         molH = Chem.AddHs(mol)
-        # Try ETKDGv3 first, fall back to basic embed if params mismatch
-        try:
-            params = AllChem.ETKDGv3()
-            rc = AllChem.EmbedMolecule(molH, params)
-        except Exception:
-            rc = AllChem.EmbedMolecule(molH, randomSeed=42)
+
+        # Never pass a params object — conda-forge RDKit has an ABI mismatch
+        # with ETKDGv3()/ETKDG() across some builds.  Keyword-only calls are safe.
+        rc = AllChem.EmbedMolecule(
+            molH,
+            useExpTorsionAnglePrefs=True,
+            useBasicKnowledge=True,
+            randomSeed=42,
+        )
         if rc != 0:
-            # Last resort: random coords
             rc = AllChem.EmbedMolecule(molH, useRandomCoords=True, randomSeed=42)
         if rc != 0:
-            return None, "3D embedding failed — try a different SMILES or use file upload"
+            return None, "3D embedding failed — try a different SMILES or upload a file"
+
         try:
             AllChem.UFFOptimizeMolecule(molH)
         except Exception:
-            pass  # geometry optimisation is optional
+            pass  # optimisation is optional
+
         charge = Chem.GetFormalCharge(molH)
         Chem.MolToPDBFile(molH, output_pdb)
         if output_sdf:
@@ -260,6 +265,7 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None):
             w.write(molH)
             w.close()
         return charge, None
+
     except Exception as e:
         return None, str(e)
 
