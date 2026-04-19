@@ -723,7 +723,8 @@ def page_guest():
             if smiles_in and smiles_in.strip():
                 pdb_raw = wpath("guest_raw.pdb")
                 sdf_raw = wpath("guest_raw.sdf")
-                detected, err = core.smiles_to_3d_pdb(smiles_in.strip(), pdb_raw, sdf_raw)
+                detected, err = core.smiles_to_3d_pdb(smiles_in.strip(), pdb_raw, sdf_raw,
+                                                       workdir=WD())
                 if err:
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
