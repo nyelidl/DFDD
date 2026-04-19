@@ -1309,8 +1309,6 @@ def page_download():
 # SIDEBAR — minimal nav + status
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    try:
-        st.image("https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif", width=180)
     except Exception:
         pass
     st.markdown("## DFDD")
