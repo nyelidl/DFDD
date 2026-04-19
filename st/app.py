@@ -7,11 +7,73 @@ import streamlit as st
 import os
 import sys
 import json
-import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+# ── Always-available packages (listed in requirements.txt) ───────────────────
+try:
+    import pandas as pd
+    _pandas_ok = True
+except ImportError:
+    _pandas_ok = False
+    pd = None
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    _plotly_ok = True
+except ImportError:
+    _plotly_ok = False
+    go = None
+    make_subplots = None
+
+# ── Heavy scientific packages (need conda / installed in Colab Step 1) ───────
+# The UI still loads even when these are absent; affected pages show a warning.
+_openmm_ok = False
+_rdkit_ok  = False
+_mda_ok    = False
+
+try:
+    import openmm  # noqa: F401
+    _openmm_ok = True
+except ImportError:
+    pass
+
+try:
+    from rdkit import Chem  # noqa: F401
+    _rdkit_ok = True
+except ImportError:
+    pass
+
+try:
+    import MDAnalysis  # noqa: F401
+    _mda_ok = True
+except ImportError:
+    pass
 
 import core
+
+
+def _require_plotly():
+    """Show a clear error if plotly failed to import."""
+    if not _plotly_ok:
+        st.error("📦 `plotly` is not installed. Check that `requirements.txt` is present "
+                 "in the same directory as `app.py` and redeploy.")
+        st.stop()
+
+
+def _require_openmm():
+    if not _openmm_ok:
+        st.warning("⚠️ **OpenMM not found.** Install it via conda:  \n"
+                   "`mamba install -n base -c conda-forge -y openmm`  \n"
+                   "then restart the app.")
+        st.stop()
+
+
+def _require_rdkit():
+    if not _rdkit_ok:
+        st.warning("⚠️ **RDKit not found.** Install it via conda:  \n"
+                   "`mamba install -n base -c conda-forge -y rdkit`  \n"
+                   "then restart the app.")
+        st.stop()
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -602,6 +664,7 @@ elif page == "🚀   7 · LB-PaCS-MD":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "📊   8 · PaCS-MD Analysis":
     st.title("📊 PaCS-MD Analysis")
+    _require_plotly()
 
     if not os.path.exists(wpath("sum.nc")):
         st.warning("⚠️ Complete Step 7 first."); st.stop()
@@ -610,10 +673,10 @@ elif page == "📊   8 · PaCS-MD Analysis":
     dis_dat = wpath("dis_plot.dat")
     st.markdown("### 📉 Distance profile (COM distance vs cycle)")
     if os.path.exists(dis_dat):
-        df = pd.read_csv(dis_dat, sep=r"\s+", header=None)
-        dis = df.iloc[:, 0].values
+        import numpy as np
+        dis = np.loadtxt(dis_dat, usecols=0)
         fig = go.Figure(go.Scatter(
-            x=list(range(1, len(dis)+1)), y=dis,
+            x=list(range(1, len(dis)+1)), y=dis.tolist(),
             mode="lines", line=dict(color="#4C78A8", width=2)
         ))
         fig.update_layout(
@@ -664,10 +727,9 @@ elif page == "📊   8 · PaCS-MD Analysis":
     dis_path = wpath("dis.dat")
     rg_path  = wpath("rg.dat")
     if os.path.exists(dis_path) and os.path.exists(rg_path):
-        dis_df = pd.read_csv(dis_path, sep=r"\s+", comment="#")
-        rg_df  = pd.read_csv(rg_path,  sep=r"\s+", comment="#")
-        dis_arr = dis_df.iloc[:, 1].values
-        rg_arr  = rg_df.iloc[:, 2].values
+        import numpy as np
+        dis_arr = np.loadtxt(dis_path, comments=["#", "@"], usecols=1)
+        rg_arr  = np.loadtxt(rg_path,  comments=["#", "@"], usecols=2)
 
         fig2d = go.Figure(go.Histogram2dContour(
             x=dis_arr, y=rg_arr,
@@ -766,17 +828,22 @@ elif page == "📈  10 · cMD Analysis":
         st.success("✅ Analysis complete!")
 
     # Plots
+    _require_plotly()
     plot_cfg = [
-        ("rmsd.dat", 1, "RMSD (Å)",        "RMSD over time"),
-        ("rg.dat",   2, "Rg (Å)",           "Radius of Gyration"),
-        ("dis.dat",  1, "Distance (Å)",     "Host–Guest COM Distance"),
+        ("rmsd.dat", 1, "RMSD (Å)",    "RMSD over time"),
+        ("rg.dat",   2, "Rg (Å)",       "Radius of Gyration"),
+        ("dis.dat",  1, "Distance (Å)", "Host–Guest COM Distance"),
     ]
+    import numpy as np
     charts = []
     for fname, col_idx, ylabel, title in plot_cfg:
         fpath = wpath(fname)
         if os.path.exists(fpath):
-            df = pd.read_csv(fpath, sep=r"\s+", comment="#")
-            charts.append((df.iloc[:,0].values, df.iloc[:,col_idx].values, ylabel, title))
+            try:
+                data = np.loadtxt(fpath, comments=["#", "@"])
+                charts.append((data[:, 0], data[:, col_idx], ylabel, title))
+            except Exception:
+                pass
 
     if charts:
         fig = make_subplots(
@@ -787,7 +854,7 @@ elif page == "📈  10 · cMD Analysis":
         colors = ["#4C78A8", "#F58518", "#E45756"]
         for i, (x, y, ylabel, _) in enumerate(charts, 1):
             fig.add_trace(
-                go.Scatter(x=x, y=y, mode="lines",
+                go.Scatter(x=x.tolist(), y=y.tolist(), mode="lines",
                            line=dict(color=colors[i-1], width=1.5)),
                 row=i, col=1
             )
@@ -850,8 +917,11 @@ elif page == "⚡  11 · MM-PBSA/GBSA":
                 st.metric("ΔG (MM-PBSA)", f"{pb[0]:.2f} ± {pb[1]:.2f} kcal/mol")
 
         # Bar chart — energy decomposition
-        dat_path = wpath(f"FINAL_RESULTS_MMPBSA_{run_label}.dat")
-        gb_d, pb_d = core.parse_mmpbsa_components(dat_path)
+        if _plotly_ok:
+            dat_path = wpath(f"FINAL_RESULTS_MMPBSA_{run_label}.dat")
+            gb_d, pb_d = core.parse_mmpbsa_components(dat_path)
+        else:
+            gb_d, pb_d = {}, {}
 
         def _bar_chart(title, components, colors):
             labels = list(components.keys())
