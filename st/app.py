@@ -1158,15 +1158,41 @@ def page_guest():
                 log_expander("log_guest")
                 st.stop()
 
-            # Write guest PDB from antechamber (correct residue name + atom names)
-            # antechamber can write PDB directly — atom names will match the prep file
-            ok_pdb, pdb_log = core.antechamber_write_pdb(mol_in, guest_pdb, output_name, WD())
-            log += pdb_log
-            if not ok_pdb:
-                # fallback: try obabel then rename residue
-                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
-                core.fix_pdb_residue_name(guest_pdb, output_name)
-                log += "Guest PDB written via obabel (residue name patched)\n"
+            # Write guest PDB with correct residue name matching the prep file.
+            # antechamber -fo pdb is tried first (gives correct atom names),
+            # then obabel with residue name patch as fallback.
+            _pdb_ok = False
+            ext_in  = os.path.splitext(mol_in)[1].lower()
+            fi_flag = "mdl" if ext_in == ".sdf" else "pdb"
+
+            rc_pdb, out_pdb = core.run_cmd(
+                ["antechamber",
+                 "-i", mol_in, "-fi", fi_flag,
+                 "-o", guest_pdb, "-fo", "pdb",
+                 "-rn", output_name, "-at", "gaff2", "-dr", "no"],
+                cwd=WD(), timeout=120
+            )
+            log += f"=== antechamber PDB ===\n{out_pdb}\n"
+            if rc_pdb == 0 and os.path.exists(guest_pdb) and os.path.getsize(guest_pdb) > 10:
+                _pdb_ok = True
+
+            if not _pdb_ok:
+                # Fallback: obabel then patch residue name
+                core.run_cmd(["obabel", mol_in, "-O", guest_pdb, "-h"], cwd=WD())
+                log += "Guest PDB written via obabel (patching residue name)\n"
+                # Patch MOL/LIG/UNK → output_name in the PDB
+                _bad = {"MOL","LIG","UNL","UNK","LGN","DRG","CPD","HET"}
+                if os.path.exists(guest_pdb):
+                    _lines = []
+                    with open(guest_pdb) as _f:
+                        for _ln in _f:
+                            if _ln.startswith(("ATOM","HETATM")):
+                                _rn = _ln[17:20].strip()
+                                if _rn in _bad or (_rn and _rn != output_name):
+                                    _ln = _ln[:17] + output_name[:3].ljust(3) + _ln[20:]
+                            _lines.append(_ln)
+                    with open(guest_pdb, "w") as _f:
+                        _f.writelines(_lines)
 
             st.session_state["guest_path"]      = guest_pdb
             st.session_state["guest_prep"]       = prep_out
