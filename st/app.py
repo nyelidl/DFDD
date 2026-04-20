@@ -335,6 +335,8 @@ DEFAULTS = {
     "guest_input_type":  "SMILES",
     "guest_smiles":      "",
     "guest_path":        None,
+    "guest_prep":        None,
+    "guest_frcmod":      None,
     "detected_charge":   0,
     "guest_pH":          7.4,
     "guest_pH_range":    0.5,
@@ -998,7 +1000,7 @@ def page_guest():
     # Live protonation preview (SMILES / Ketcher only)
     if apply_ph and smiles_in and smiles_in.strip() and not input_type.startswith("File"):
         if st.button("🔬 Preview protonated SMILES", key="btn_preview_proton"):
-            with st.spinner("Calculating protonation states…"):
+            with st.spinner("Scoring protonation states via Henderson–Hasselbalch…"):
                 new_smi, changed, err = core.protonate_smiles_at_ph(
                     smiles_in.strip(), pH=pH_val, pH_range=pH_range
                 )
@@ -1006,14 +1008,34 @@ def page_guest():
                 st.warning(f"⚠️ Protonation unavailable: {err}")
             else:
                 st.session_state["guest_smiles_protonated"] = new_smi
-                if changed:
-                    st.success(f"✅ Protonated form at pH {pH_val}: `{new_smi}`")
-                else:
-                    st.info(f"No change — SMILES already matches protonation at pH {pH_val}.")
+                # Compute formal charge on result
+                charge_str = ""
+                try:
+                    from rdkit import Chem
+                    m = Chem.MolFromSmiles(new_smi)
+                    if m:
+                        fc = sum(a.GetFormalCharge() for a in m.GetAtoms())
+                        charge_str = f"  |  Charge: **{fc:+d}**"
+                except Exception:
+                    pass
 
-        # Show the most recent preview
+                if changed:
+                    st.success(
+                        f"✅ Rank-1 microstate at pH {pH_val}:  "
+                        f"`{new_smi}`{charge_str}"
+                    )
+                    st.caption(
+                        f"Input: `{smiles_in.strip()}` → selected by HH score "
+                        f"(pKaNET-style ranking)"
+                    )
+                else:
+                    st.info(
+                        f"No protonation change at pH {pH_val} — "
+                        f"input already matches rank-1 state.{charge_str}"
+                    )
+
         if st.session_state.get("guest_smiles_protonated"):
-            st.caption(f"Last preview: `{st.session_state['guest_smiles_protonated']}`")
+            st.caption(f"Selected microstate: `{st.session_state['guest_smiles_protonated']}`")
 
     st.divider()
 
@@ -1123,14 +1145,7 @@ def page_guest():
             prep_out   = wpath(f"{output_name}.prep")
             frcmod_out = wpath(f"{output_name}.frcmod")
 
-            # Copy/convert to workspace PDB
-            if mol_in.endswith(".pdb"):
-                import shutil
-                shutil.copy(mol_in, guest_pdb)
-            else:
-                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
-
-            # Run antechamber with AM1-BCC
+            # Run antechamber with AM1-BCC (writes prep file with correct atom names)
             ok, ac_log = core.run_antechamber(
                 mol_in, prep_out, frcmod_out, final_charge, WD(),
                 charge_method="bcc"
@@ -1143,10 +1158,22 @@ def page_guest():
                 log_expander("log_guest")
                 st.stop()
 
+            # Write guest PDB from antechamber (correct residue name + atom names)
+            # antechamber can write PDB directly — atom names will match the prep file
+            ok_pdb, pdb_log = core.antechamber_write_pdb(mol_in, guest_pdb, output_name, WD())
+            log += pdb_log
+            if not ok_pdb:
+                # fallback: try obabel then rename residue
+                core.run_cmd(["obabel", mol_in, "-O", guest_pdb], cwd=WD())
+                core.fix_pdb_residue_name(guest_pdb, output_name)
+                log += "Guest PDB written via obabel (residue name patched)\n"
+
             st.session_state["guest_path"]      = guest_pdb
-            st.session_state["guest_smiles"]    = smiles_in or ""
-            st.session_state["detected_charge"] = final_charge
-            st.session_state["log_guest"]       = log
+            st.session_state["guest_prep"]       = prep_out
+            st.session_state["guest_frcmod"]     = frcmod_out
+            st.session_state["guest_smiles"]     = smiles_in or ""
+            st.session_state["detected_charge"]  = final_charge
+            st.session_state["log_guest"]        = log
 
         st.success(f"✅ Guest ready!   Charge: **{final_charge}**   Method: AM1-BCC")
         gp = st.session_state.get("guest_path")
@@ -1283,7 +1310,7 @@ def page_build():
     with left:
         distance = st.slider(
             "Z offset (Ang)",
-            min_value=-25, max_value=5,
+            min_value=-20, max_value=20,
             value=st.session_state.get("build_distance", -15),
             step=1,
             key="build_dist_sl",
@@ -1291,7 +1318,7 @@ def page_build():
         st.session_state["build_distance"] = distance
 
         # Visual Z indicator bar
-        pct = int((distance + 25) / 30 * 100)
+        pct = int((distance + 20) / 40 * 100)  # map -20..+20 → 0..100%
         st.markdown(f"""
 <div style="margin:1rem auto;width:36px;height:240px;background:#E5E7EB;
      border-radius:18px;position:relative;overflow:hidden;">
@@ -1390,6 +1417,8 @@ def page_build():
                 translate_z=translate_z, cx_pdb=cx_out,
                 out_top=wpath("complex.top"), out_crd=wpath("complex.crd"),
                 out_pdb=wpath("complex_leap.pdb"),
+                guest_prep=st.session_state.get("guest_prep"),
+                guest_frcmod=st.session_state.get("guest_frcmod"),
             )
             rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
         st.session_state["log_tleap"] = out
