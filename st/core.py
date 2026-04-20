@@ -229,68 +229,246 @@ def _write_glycam_leap(host_type, pdb_fname, prep_fname, dat_fname, workdir):
 
 # ─── Guest Preparation ────────────────────────────────────────────────────────
 
-def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
-    """Adjust protonation state of a SMILES at the given pH using Dimorphite-DL.
-    Returns (protonated_smiles, changed, error).
+# ── Ionisable site SMARTS (subset of pKaNET, covers common drug-like groups) ─
+_ION_SITES = [
+    # label,              SMARTS,                                   heuristic_pKa, type
+    ("sulfonic_acid",     "[SX4](=O)(=O)[OX2H1]",                  1.0,  "acid"),
+    ("carboxylic_acid",   "[CX3](=O)[OX2H1]",                      4.5,  "acid"),
+    ("tetrazole",         "c1nn[nH]n1",                             4.9,  "acid"),
+    ("phosphonate",       "[PX4](=O)([OX2H1])[OX2H1,OX1-]",        6.5,  "acid"),
+    ("thiol_arom",        "c[SX2H1]",                               6.5,  "acid"),
+    ("imidazole_NH",      "c1cn[nH]c1",                             6.0,  "acid"),
+    ("phenol_EWG",        "[OX2H1][c;R]:[c;R][$([NX3](=O)=O),$([CX3]=O),$(C#N)]",
+                                                                    7.2,  "acid"),
+    ("sulfonamide_NH",    "[SX4](=O)(=O)[NX3;H1]",                 10.1, "acid"),
+    ("phenol",            "c[OX2H1]",                              10.0, "acid"),
+    ("thiol_aliph",       "[CX4][SX2H1]",                          10.5, "acid"),
+    ("amide_NH",          "[CX3](=O)[NX3;H1,H2;!$([N]~N)]",       15.0, "acid"),
+    ("aniline",           "c[NX3;H1,H2;!$(N~[!#6])]",              4.6,  "base"),
+    ("pyridine_like",     "[$([nX2]1:[c,n]:c:[c,n]:c1),$([nX2]:c:n)]",
+                                                                    5.2,  "base"),
+    ("aliphatic_amine",   "[NX3;H1,H2;!$(NC=O);!$(N~[!#6;!H]);!$([nH])]",
+                                                                    9.5,  "base"),
+    ("amidine",           "[CX3](=[NX2;H0,H1])[NX3;H1,H2]",       12.4, "base"),
+    ("guanidine",         "[NX3][CX3](=[NX2])[NX3]",              13.0, "base"),
+]
 
-    - protonated_smiles: the adjusted SMILES (or input SMILES if nothing changed)
-    - changed: True if the SMILES differs from the input
-    - error: None on success, or an error string
+_ION_COMPILED = []
+for _lbl, _sma, _pka, _typ in _ION_SITES:
+    _p = None
+    try:
+        from rdkit import Chem as _C
+        _p = _C.MolFromSmarts(_sma)
+    except Exception:
+        pass
+    if _p is not None:
+        _ION_COMPILED.append((_lbl, _p, _pka, _typ))
+
+
+def _find_ion_sites(mol):
+    """Return list of {label, heuristic_pka, site_type} for a molecule."""
+    seen = set()
+    sites = []
+    for lbl, pat, pka, stype in _ION_COMPILED:
+        try:
+            for match in mol.GetSubstructMatches(pat):
+                k = frozenset(match)
+                if k not in seen:
+                    seen.add(k)
+                    sites.append({"label": lbl, "heuristic_pka": pka, "site_type": stype})
+        except Exception:
+            pass
+    return sites
+
+
+def _hh_score(smiles, sites, pH, ref_mol=None):
+    """Henderson–Hasselbalch score: reward/penalise charge state vs pKa at pH.
+    Higher = more likely. Also penalises aromatic ring loss vs ref.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import rdMolDescriptors
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return -999.0
+    except Exception:
+        return -999.0
+
+    # Formal charge map
+    fc_map = {a.GetIdx(): a.GetFormalCharge() for a in mol.GetAtoms()}
+    net_charge = sum(fc_map.values())
+
+    score = 0.0
+
+    # Per-site HH consistency
+    for site in sites:
+        pka  = site["heuristic_pka"]
+        stype = site["site_type"]
+        dpH  = abs(pH - pka)
+        if stype == "acid":
+            f_dep = 1.0 / (1.0 + 10.0 ** (pka - pH))   # fraction deprotonated
+            expect_neg = f_dep > 0.5
+            has_neg = net_charge < 0
+            decisive = f_dep >= 0.65 or f_dep <= 0.35
+            mul = 1.6 if decisive else 1.0
+            if expect_neg and has_neg:
+                score += min(1.5, dpH * 0.55 * mul) + 0.15
+            elif expect_neg and not has_neg:
+                score -= min(1.5, dpH * 0.45 * mul) + 0.15
+            else:
+                score += 0.1
+        else:  # base
+            f_prot = 1.0 / (1.0 + 10.0 ** (pH - pka))  # fraction protonated
+            expect_pos = f_prot > 0.5
+            has_pos = net_charge > 0
+            decisive = f_prot >= 0.65 or f_prot <= 0.35
+            mul = 1.6 if decisive else 1.0
+            if expect_pos and has_pos:
+                score += min(1.5, dpH * 0.55 * mul) + 0.15
+            elif expect_pos and not has_pos:
+                score -= min(1.5, dpH * 0.45 * mul) + 0.15
+            else:
+                score += 0.1
+
+    # Penalise aromatic ring loss vs input
+    if ref_mol is not None:
+        try:
+            from rdkit.Chem import rdMolDescriptors
+            lost = max(0, rdMolDescriptors.CalcNumAromaticRings(ref_mol)
+                          - rdMolDescriptors.CalcNumAromaticRings(mol))
+            score -= 8.0 * lost
+        except Exception:
+            pass
+
+    # Small penalty for high net charge
+    score -= 0.12 * max(0, abs(net_charge) - 1)
+
+    return score
+
+
+def _dimorphite_enumerate(smiles, ph_min, ph_max):
+    """Call dimorphite-dl via Python API or CLI. Returns list of canonical SMILES."""
+    try:
+        from rdkit import Chem
+    except ImportError:
+        return [smiles]
+
+    results = []
+
+    # ── Python API (multiple possible signatures) ────────────────────────────
+    try:
+        from dimorphite_dl import protonate_smiles as _dim_fn
+        import inspect
+        kwarg_variants = [
+            {"ph_min": ph_min, "ph_max": ph_max, "precision": 1.0, "max_variants": 128},
+            {"min_ph": ph_min, "max_ph": ph_max, "pka_precision": 1.0, "max_variants": 128},
+            {"ph_min": ph_min, "ph_max": ph_max},
+            {"min_ph": ph_min, "max_ph": ph_max},
+        ]
+        raw = []
+        for kw in kwarg_variants:
+            try:
+                r = _dim_fn(smiles, **kw)
+                raw = [r] if isinstance(r, str) else list(r or [])
+                if raw:
+                    break
+            except TypeError:
+                continue
+        if not raw:
+            # Introspect signature
+            sig = inspect.signature(_dim_fn)
+            kw = {}
+            for name in sig.parameters:
+                lo = name.lower()
+                if   lo in {"ph_min", "min_ph"}:           kw[name] = ph_min
+                elif lo in {"ph_max", "max_ph"}:           kw[name] = ph_max
+                elif lo in {"precision", "pka_precision"}: kw[name] = 1.0
+                elif lo == "max_variants":                 kw[name] = 128
+            r = _dim_fn(smiles, **kw)
+            raw = [r] if isinstance(r, str) else list(r or [])
+        results = [s for s in raw if s and s.strip()]
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # ── CLI fallback ─────────────────────────────────────────────────────────
+    if not results:
+        try:
+            res = subprocess.run(
+                ["dimorphite_dl", "--smiles", smiles,
+                 "--min_ph", str(ph_min), "--max_ph", str(ph_max)],
+                capture_output=True, text=True, timeout=60,
+            )
+            for line in res.stdout.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    results.append(line.split()[0])
+        except Exception:
+            pass
+
+    # Deduplicate and canonicalise
+    seen = set()
+    out  = []
+    for smi in [smiles] + results:          # always include original
+        try:
+            from rdkit import Chem
+            can = Chem.MolToSmiles(Chem.MolFromSmiles(smi))
+            if can and can not in seen:
+                seen.add(can); out.append(can)
+        except Exception:
+            if smi not in seen:
+                seen.add(smi); out.append(smi)
+    return out or [smiles]
+
+
+def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
+    """Select the best protonation state at the given pH using a
+    Henderson–Hasselbalch scorer identical to pKaNET rank-1 logic.
+
+    Returns (best_smiles, changed, error).
     """
     smiles = (smiles or "").strip()
     if not smiles:
         return smiles, False, "Empty SMILES"
 
-    # Try dimorphite_dl (Python import); fall back to CLI if needed
     try:
-        from dimorphite_dl import run_with_mol_list  # v2 API
-        try:
-            from rdkit import Chem
-        except ImportError:
-            return smiles, False, "RDKit required for protonation"
-
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return smiles, False, "Invalid SMILES for protonation"
-
-        protonated_mols = run_with_mol_list(
-            [mol],
-            min_ph=pH - pH_range,
-            max_ph=pH + pH_range,
-            pka_precision=1.0,
-        )
-        if not protonated_mols:
-            return smiles, False, None
-
-        # pick the first (most likely) protonation state
-        new_smi = Chem.MolToSmiles(protonated_mols[0])
-        return new_smi, (new_smi != smiles), None
-
+        from rdkit import Chem
+        ref_mol = Chem.MolFromSmiles(smiles)
+        if ref_mol is None:
+            return smiles, False, "Invalid SMILES"
     except ImportError:
-        # try CLI fallback
-        pass
-    except Exception as e:
-        return smiles, False, f"dimorphite-dl error: {e}"
+        return smiles, False, "RDKit not available"
 
-    # CLI fallback
-    try:
-        res = subprocess.run(
-            ["dimorphite_dl", "--smiles", smiles,
-             "--min_ph", str(pH - pH_range),
-             "--max_ph", str(pH + pH_range)],
-            capture_output=True, text=True, timeout=30,
-        )
-        out = res.stdout.strip().splitlines()
-        # Keep first non-comment, non-empty line
-        for line in out:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                parts = line.split()
-                new_smi = parts[0]
-                return new_smi, (new_smi != smiles), None
+    ph_min = max(0.0,  pH - pH_range)
+    ph_max = min(14.0, pH + pH_range)
+
+    # Enumerate protonation states
+    candidates = _dimorphite_enumerate(smiles, ph_min, ph_max)
+
+    # Find ionisable sites on the reference molecule
+    sites = _find_ion_sites(ref_mol)
+
+    # Score each candidate and pick rank-1
+    scored = []
+    for smi in candidates:
+        sc = _hh_score(smi, sites, pH, ref_mol=ref_mol)
+        scored.append((sc, smi))
+
+    if not scored:
         return smiles, False, None
-    except Exception as e:
-        return smiles, False, f"protonation unavailable: {e}"
+
+    scored.sort(key=lambda x: -x[0])
+    best_smi = scored[0][1]
+
+    try:
+        from rdkit import Chem
+        input_can = Chem.MolToSmiles(ref_mol)
+        changed   = (best_smi != input_can)
+    except Exception:
+        changed = (best_smi != smiles)
+
+    return best_smi, changed, None
 
 
 def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
@@ -382,6 +560,62 @@ def run_antechamber(mol_in, prep_out, frcmod_out, charge, workdir,
     return (rc2 == 0), log
 
 
+def antechamber_write_pdb(mol_in, pdb_out, residue_name, workdir):
+    """Use antechamber to write a PDB with correct residue name and atom names
+    that exactly match the prep file. This avoids the MOL/GST split in tleap.
+    Returns (ok, log).
+    """
+    log = ""
+    ext = os.path.splitext(mol_in)[1].lower()
+    fi_flag = "mdl" if ext == ".sdf" else "pdb"
+
+    # antechamber -fo pdb writes a PDB with proper residue name + GAFF2 atom names
+    rc, out = run_cmd(
+        ["antechamber",
+         "-i", mol_in, "-fi", fi_flag,
+         "-o", pdb_out, "-fo", "pdb",
+         "-rn", residue_name, "-at", "gaff2",
+         "-dr", "no"],   # -dr no = don't rename, keep as-is
+        cwd=workdir, timeout=120
+    )
+    log += f"=== antechamber PDB ===\n{out}\n"
+    if rc == 0 and os.path.exists(pdb_out) and os.path.getsize(pdb_out) > 10:
+        return True, log
+
+    # antechamber -fo pdb may not be available in all versions
+    # Try obabel + patch residue name
+    rc2, out2 = run_cmd(
+        ["obabel", mol_in, "-O", pdb_out, "-h"],
+        cwd=workdir, timeout=60
+    )
+    log += f"=== obabel PDB fallback ===\n{out2}\n"
+    if rc2 == 0 and os.path.exists(pdb_out):
+        fix_pdb_residue_name(pdb_out, residue_name)
+        log += f"Residue name patched to {residue_name}\n"
+        return True, log
+
+    return False, log
+
+
+def fix_pdb_residue_name(pdb_path, residue_name):
+    """Replace any residue name (MOL, LIG, UNL, UNK, etc.) in a PDB file
+    with the given residue_name (e.g. GST). Edits in-place.
+    """
+    _bad_names = {"MOL", "LIG", "UNL", "UNK", "LGN", "DRG", "CPD", "HET"}
+    lines_out = []
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith(("ATOM", "HETATM")):
+                resn = line[17:20].strip()
+                if resn in _bad_names or (resn and resn != residue_name and len(resn) <= 3):
+                    # Pad/truncate residue name to 3 chars, right-padded
+                    rn3 = residue_name[:3].ljust(3)
+                    line = line[:17] + rn3 + line[20:]
+            lines_out.append(line)
+    with open(pdb_path, "w") as f:
+        f.writelines(lines_out)
+
+
 # ─── Complex Building ─────────────────────────────────────────────────────────
 
 def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
@@ -438,12 +672,47 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
 def write_tleap_script(
     workdir, host_forcefield, host_prep, host_frcmod, host_type,
     water_ff, water_box, box_buf, unit_xy, unit_z, translate_z,
-    cx_pdb, out_top, out_crd, out_pdb
+    cx_pdb, out_top, out_crd, out_pdb,
+    guest_prep=None, guest_frcmod=None,
 ):
-    """Write tleap input script; return path to script."""
+    """Write tleap input script; return path to script.
+
+    guest_prep / guest_frcmod — explicit paths.  If None, auto-detect:
+    scans workdir for any .prep and .frcmod file that is NOT a host file.
+    This avoids the hardcoded 'guest.prep' name that fails when antechamber
+    writes 'GST.prep' (or any other residue name).
+    """
     script = os.path.join(workdir, "tleap_complex.in")
-    guest_prep   = os.path.join(workdir, "guest.prep")
-    guest_frcmod = os.path.join(workdir, "guest.frcmod")
+
+    # ── Auto-detect guest parameter files if not supplied ────────────────────
+    def _find_guest_file(ext):
+        """Return the first .prep/.frcmod in workdir that isn't a host file."""
+        host_stems = {"BCD", "gBCD", "gDMBCD", "gMBCD", "g6tetraHPBCD",
+                      "Glycam_06tk", "Glycam_06g-1", "host"}
+        for fname in sorted(os.listdir(workdir)):
+            if not fname.lower().endswith(ext):
+                continue
+            stem = os.path.splitext(fname)[0]
+            if stem in host_stems:
+                continue
+            # Skip the host frcmod that was passed in explicitly
+            if host_frcmod and os.path.basename(host_frcmod) == fname:
+                continue
+            if host_prep and os.path.basename(host_prep) == fname:
+                continue
+            return os.path.join(workdir, fname)
+        return None
+
+    if guest_prep is None:
+        guest_prep = _find_guest_file(".prep")
+    if guest_frcmod is None:
+        guest_frcmod = _find_guest_file(".frcmod")
+
+    # Hard fallback — keep old behaviour if detection fails
+    if guest_prep is None:
+        guest_prep   = os.path.join(workdir, "guest.prep")
+    if guest_frcmod is None:
+        guest_frcmod = os.path.join(workdir, "guest.frcmod")
 
     with open(script, "w") as f:
         if host_forcefield == "DFT":
