@@ -420,34 +420,51 @@ def waiting_card(title: str, subtitle: str = ""):
 
 
 def py3dmol_html_fmt(mol_str, fmt="sdf", width=680, height=420, side_view=False):
-    """Render any molecule format (sdf/pdb/mol2) with 3Dmol.js.
-    Shows explicit hydrogens as thin white sticks distinct from heavy atoms.
-    Fully interactive: rotate (left-drag), zoom (scroll), pan (right-drag).
-    """
+    """Render any molecule format with 3Dmol.js + click-to-inspect atoms."""
     rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-    <div id="vfmt" style="
-        width:{width}px; height:{height}px; position:relative;
-        border-radius:12px; overflow:hidden;
-        border:1px solid #E5E7EB; background:#FAFBFC;
-    "></div>
+    <div style="position:relative;width:{width}px;height:{height}px;">
+      <div id="vfmt" style="
+          width:100%;height:100%;border-radius:12px;overflow:hidden;
+          border:1px solid #E5E7EB;background:#FAFBFC;"></div>
+      <div id="vfmt-info" style="
+          display:none;position:absolute;top:10px;left:12px;
+          background:rgba(15,110,86,0.92);color:#fff;
+          font-size:12px;font-family:monospace;padding:6px 12px;
+          border-radius:8px;pointer-events:none;line-height:1.6;
+          box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
+      <div style="position:absolute;bottom:10px;left:12px;font-size:11px;color:#888;
+           background:rgba(255,255,255,0.82);padding:2px 8px;border-radius:5px;
+           pointer-events:none;">
+        Left-drag: rotate &nbsp;·&nbsp; Scroll: zoom &nbsp;·&nbsp; Click atom: info
+      </div>
+    </div>
     <script>
       var v = $3Dmol.createViewer(document.getElementById('vfmt'),
                                   {{backgroundColor:'#FAFBFC'}});
       v.addModel(`{mol_str}`,'{fmt}');
-      v.setStyle({{elem:'H'}},{{stick:{{color:'#CCCCCC',radius:0.08}}}});
-      v.setStyle({{elem:'C'}},{{stick:{{color:'#404040',radius:0.18}}}});
-      v.setStyle({{elem:'N'}},{{stick:{{color:'#4466CC',radius:0.18}}}});
-      v.setStyle({{elem:'O'}},{{stick:{{color:'#CC3333',radius:0.18}}}});
-      v.setStyle({{elem:'S'}},{{stick:{{color:'#CCAA00',radius:0.18}}}});
-      v.setStyle({{elem:'P'}},{{stick:{{color:'#FF8800',radius:0.18}}}});
-      v.setStyle({{elem:'F'}},{{stick:{{color:'#33BB33',radius:0.15}}}});
-      v.setStyle({{elem:'Cl'}},{{stick:{{color:'#22AA22',radius:0.20}}}});
-      v.setStyle({{elem:'Br'}},{{stick:{{color:'#882200',radius:0.22}}}});
+      v.setStyle({{}}, {{stick:{{colorscheme:'Jmol', radius:0.15}}}});
+      v.addStyle({{elem:'H'}}, {{stick:{{colorscheme:'Jmol', radius:0.06}}}});
       v.addSurface($3Dmol.SurfaceType.VDW,
-                  {{opacity:0.08, color:'#1D9E75'}},
-                  {{not:{{elem:'H'}}}});
+                   {{opacity:0.07, colorscheme:'Jmol'}},
+                   {{not:{{elem:'H'}}}});
+      var infoBox = document.getElementById('vfmt-info');
+      v.setClickable({{}}, true, function(atom) {{
+        var lines = [
+          'Element: ' + (atom.elem || '?'),
+          'Atom:    ' + (atom.atom || '?'),
+          'Residue: ' + (atom.resn || '?') + ' ' + (atom.resi || ''),
+          'Coords:  (' +
+            (atom.x ? atom.x.toFixed(2) : '?') + ', ' +
+            (atom.y ? atom.y.toFixed(2) : '?') + ', ' +
+            (atom.z ? atom.z.toFixed(2) : '?') + ')'
+        ];
+        infoBox.innerHTML = lines.join('<br>');
+        infoBox.style.display = 'block';
+        setTimeout(function(){{ infoBox.style.display='none'; }}, 4000);
+        v.render();
+      }});
       v.zoomTo();
       {rotate}
       v.render();
@@ -455,25 +472,51 @@ def py3dmol_html_fmt(mol_str, fmt="sdf", width=680, height=420, side_view=False)
 
 
 def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
-    """Render a PDB string with 3Dmol.js (gray sticks, cyan guest residue).
-    side_view=True → rotate 90° around X for cyclodextrin side profile.
-    Fully interactive: rotate (left-drag), zoom (scroll), pan (right-drag).
-    """
+    """Render a PDB with 3Dmol.js. Jmol colors; guest GST cyan. Click atom for info."""
     rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-    <div id="v3d" style="
-        width:{width}px; height:{height}px; position:relative;
-        border-radius:12px; overflow:hidden;
-        border:1px solid #E5E7EB; background:#FAFBFC;
-        box-shadow:0 1px 3px rgba(0,0,0,0.04);
-    "></div>
+    <div style="position:relative;width:{width}px;height:{height}px;">
+      <div id="v3d" style="
+          width:100%;height:100%;border-radius:12px;overflow:hidden;
+          border:1px solid #E5E7EB;background:#FAFBFC;
+          box-shadow:0 1px 3px rgba(0,0,0,0.04);"></div>
+      <div id="v3d-info" style="
+          display:none;position:absolute;top:10px;left:12px;
+          background:rgba(15,110,86,0.92);color:#fff;
+          font-size:12px;font-family:monospace;padding:6px 12px;
+          border-radius:8px;pointer-events:none;line-height:1.6;
+          box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
+      <div style="position:absolute;bottom:10px;left:12px;font-size:11px;color:#888;
+           background:rgba(255,255,255,0.82);padding:2px 8px;border-radius:5px;
+           pointer-events:none;">
+        Left-drag: rotate &nbsp;·&nbsp; Scroll: zoom &nbsp;·&nbsp; Click atom: info
+      </div>
+    </div>
     <script>
       var v = $3Dmol.createViewer(document.getElementById('v3d'),
                                   {{backgroundColor:'#FAFBFC'}});
       v.addModel(`{pdb_str}`,'pdb');
-      v.setStyle({{}},{{stick:{{colorscheme:'grayCarbon',radius:0.2}}}});
-      v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.28}}}});
+      v.setStyle({{}}, {{stick:{{colorscheme:'Jmol', radius:0.15}}}});
+      v.addStyle({{resn:'GST'}}, {{stick:{{colorscheme:'cyanCarbon', radius:0.22}}}});
+      v.addStyle({{resn:'GST'}}, {{sphere:{{colorscheme:'cyanCarbon', radius:0.14}}}});
+      var infoBox = document.getElementById('v3d-info');
+      v.setClickable({{}}, true, function(atom) {{
+        var tag = atom.resn === 'GST' ? ' [guest]' : ' [host]';
+        var lines = [
+          'Element: ' + (atom.elem  || '?') + tag,
+          'Atom:    ' + (atom.atom  || '?'),
+          'Residue: ' + (atom.resn  || '?') + ' ' + (atom.resi || ''),
+          'Coords:  (' +
+            (atom.x ? atom.x.toFixed(2) : '?') + ', ' +
+            (atom.y ? atom.y.toFixed(2) : '?') + ', ' +
+            (atom.z ? atom.z.toFixed(2) : '?') + ')'
+        ];
+        infoBox.innerHTML = lines.join('<br>');
+        infoBox.style.display = 'block';
+        setTimeout(function(){{ infoBox.style.display='none'; }}, 4000);
+        v.render();
+      }});
       v.zoomTo();
       {rotate}
       v.render();
@@ -1150,29 +1193,52 @@ def _build_preview_cached(hp, gp, distance, _mtime_h, _mtime_g):
 
 
 def _py3dmol_complex(pdb_str, width=680, height=460, distance=0):
-    """3Dmol viewer for host-guest complex with Z-axis overlay."""
+    """3Dmol host-guest complex viewer with Z-axis overlay and click-to-inspect."""
     z_label = f"{distance} Ang"
     return f"""
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 <div style="position:relative;width:{width}px;height:{height}px;border-radius:12px;
      overflow:hidden;border:1px solid #E5E7EB;background:#FAFBFC;">
   <div id="v3dc" style="width:100%;height:100%;"></div>
+  <div id="v3dc-info" style="
+       display:none;position:absolute;top:10px;left:12px;
+       background:rgba(15,110,86,0.92);color:#fff;
+       font-size:12px;font-family:monospace;padding:6px 12px;
+       border-radius:8px;pointer-events:none;line-height:1.6;
+       box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
   <div style="position:absolute;top:10px;right:14px;font-size:12px;color:#444;
        background:rgba(255,255,255,0.88);padding:3px 10px;border-radius:6px;
        pointer-events:none;font-weight:600;">Z = {z_label}</div>
   <div style="position:absolute;bottom:10px;left:14px;font-size:11px;color:#888;
        background:rgba(255,255,255,0.82);padding:2px 9px;border-radius:5px;
        pointer-events:none;">
-    Left-drag: rotate &nbsp;&#183;&nbsp; Scroll: zoom &nbsp;&#183;&nbsp; Right-drag: pan
+    Left-drag: rotate &nbsp;&#183;&nbsp; Scroll: zoom &nbsp;&#183;&nbsp; Click atom: info
   </div>
 </div>
 <script>
 var v = $3Dmol.createViewer(document.getElementById("v3dc"),
                             {{backgroundColor:"#FAFBFC"}});
 v.addModel(`{pdb_str}`,"pdb");
-v.setStyle({{}}, {{stick:{{colorscheme:"grayCarbon", radius:0.2}}}});
-v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.28}}}});
+v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.15}}}});
+v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.24}}}});
 v.addStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
+var infoBox = document.getElementById("v3dc-info");
+v.setClickable({{}}, true, function(atom) {{
+  var tag = atom.resn === "GST" ? " [guest]" : " [host]";
+  var lines = [
+    "Element: " + (atom.elem || "?") + tag,
+    "Atom:    " + (atom.atom || "?"),
+    "Residue: " + (atom.resn || "?") + " " + (atom.resi || ""),
+    "Coords:  (" +
+      (atom.x ? atom.x.toFixed(2) : "?") + ", " +
+      (atom.y ? atom.y.toFixed(2) : "?") + ", " +
+      (atom.z ? atom.z.toFixed(2) : "?") + ")"
+  ];
+  infoBox.innerHTML = lines.join("<br>");
+  infoBox.style.display = "block";
+  setTimeout(function(){{ infoBox.style.display="none"; }}, 4000);
+  v.render();
+}});
 v.rotate(90, {{x:1, y:0, z:0}});
 v.zoomTo();
 v.render();
