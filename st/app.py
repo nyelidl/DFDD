@@ -350,6 +350,7 @@ DEFAULTS = {
     # flags
     "build_done":        False,
     "topo_done":         False,
+    "build_dist_confirmed": False,
     "min_done":          False,
     "pacsmd_done":       False,
     "pacsmd_extended":   False,
@@ -418,18 +419,47 @@ def waiting_card(title: str, subtitle: str = ""):
     )
 
 
-def py3dmol_html(pdb_str, width=680, height=420, side_view=False,
-                 show_surface=False):
-    """Render a PDB string with 3Dmol.js.
-    side_view=True   → rotate camera 90° for cyclodextrin side profile
-    show_surface=True → add translucent molecular surface on host
+def py3dmol_html_fmt(mol_str, fmt="sdf", width=680, height=420, side_view=False):
+    """Render any molecule format (sdf/pdb/mol2) with 3Dmol.js.
+    Shows explicit hydrogens as thin white sticks distinct from heavy atoms.
+    Fully interactive: rotate (left-drag), zoom (scroll), pan (right-drag).
     """
-    rotate  = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
-    surface = (
-        "v.addSurface($3Dmol.SurfaceType.MS, "
-        "{opacity:0.35, color:'#C7EDE2'}, {resn:['GST']}, undefined, undefined, true);"
-        if show_surface else ""
-    )
+    rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
+    return f"""
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+    <div id="vfmt" style="
+        width:{width}px; height:{height}px; position:relative;
+        border-radius:12px; overflow:hidden;
+        border:1px solid #E5E7EB; background:#FAFBFC;
+    "></div>
+    <script>
+      var v = $3Dmol.createViewer(document.getElementById('vfmt'),
+                                  {{backgroundColor:'#FAFBFC'}});
+      v.addModel(`{mol_str}`,'{fmt}');
+      v.setStyle({{elem:'H'}},{{stick:{{color:'#CCCCCC',radius:0.08}}}});
+      v.setStyle({{elem:'C'}},{{stick:{{color:'#404040',radius:0.18}}}});
+      v.setStyle({{elem:'N'}},{{stick:{{color:'#4466CC',radius:0.18}}}});
+      v.setStyle({{elem:'O'}},{{stick:{{color:'#CC3333',radius:0.18}}}});
+      v.setStyle({{elem:'S'}},{{stick:{{color:'#CCAA00',radius:0.18}}}});
+      v.setStyle({{elem:'P'}},{{stick:{{color:'#FF8800',radius:0.18}}}});
+      v.setStyle({{elem:'F'}},{{stick:{{color:'#33BB33',radius:0.15}}}});
+      v.setStyle({{elem:'Cl'}},{{stick:{{color:'#22AA22',radius:0.20}}}});
+      v.setStyle({{elem:'Br'}},{{stick:{{color:'#882200',radius:0.22}}}});
+      v.addSurface($3Dmol.SurfaceType.VDW,
+                  {{opacity:0.08, color:'#1D9E75'}},
+                  {{not:{{elem:'H'}}}});
+      v.zoomTo();
+      {rotate}
+      v.render();
+    </script>"""
+
+
+def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
+    """Render a PDB string with 3Dmol.js (gray sticks, cyan guest residue).
+    side_view=True → rotate 90° around X for cyclodextrin side profile.
+    Fully interactive: rotate (left-drag), zoom (scroll), pan (right-drag).
+    """
+    rotate = "v.rotate(90, {x:1, y:0, z:0});" if side_view else ""
     return f"""
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
     <div id="v3d" style="
@@ -444,7 +474,6 @@ def py3dmol_html(pdb_str, width=680, height=420, side_view=False,
       v.addModel(`{pdb_str}`,'pdb');
       v.setStyle({{}},{{stick:{{colorscheme:'grayCarbon',radius:0.2}}}});
       v.addStyle({{resn:'GST'}},{{stick:{{colorscheme:'cyanCarbon',radius:0.28}}}});
-      {surface}
       v.zoomTo();
       {rotate}
       v.render();
@@ -1078,9 +1107,23 @@ def page_guest():
 
         st.success(f"✅ Guest ready!   Charge: **{final_charge}**   Method: AM1-BCC")
         gp = st.session_state.get("guest_path")
-        if gp and os.path.exists(gp):
-            pdb = core.read_file(gp)
-            st.components.v1.html(py3dmol_html(pdb, 680, 340), height=350)
+        # Show SDF (with H) if available, fall back to PDB
+        sdf_path = wpath("guest_raw.sdf")
+        if os.path.exists(sdf_path):
+            mol_str  = core.read_file(sdf_path)
+            mol_fmt  = "sdf"
+        elif gp and os.path.exists(gp):
+            mol_str  = core.read_file(gp)
+            mol_fmt  = "pdb"
+        else:
+            mol_str, mol_fmt = None, None
+
+        if mol_str:
+            st.components.v1.html(
+                py3dmol_html_fmt(mol_str, mol_fmt, 680, 360),
+                height=370
+            )
+            st.caption("🖱️ Left-drag = rotate · Scroll = zoom · Right-drag = pan")
         next_button(3, "Next → Build complex & solvate", key_suffix="_new")
 
     if st.session_state.get("guest_path") and os.path.exists(st.session_state["guest_path"]):
@@ -1090,196 +1133,220 @@ def page_guest():
 
 
 
+
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 3 — Build complex + solvation (live interactive 3D preview)
+# STEP 3 — Build complex + solvation
 # ══════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(show_spinner=False)
-def _build_preview_cached(hp: str, gp: str, distance: float, _mtime_host: float, _mtime_guest: float):
-    """Cache the complex preview build per (host_path, guest_path, distance).
-    _mtime_* args bust the cache if the input files change.
-    """
+def _build_preview_cached(hp, gp, distance, _mtime_h, _mtime_g):
     import tempfile
-    tmp_pdb = os.path.join(tempfile.gettempdir(), f"_dfdd_preview_{distance:.1f}.pdb")
-    ok, msg = core.build_host_guest_complex(hp, gp, distance, tmp_pdb)
-    if not ok or not os.path.exists(tmp_pdb):
+    tmp = os.path.join(tempfile.gettempdir(),
+                       f"_dfdd_prev_{abs(hash((hp, gp, distance)))}.pdb")
+    ok, msg = core.build_host_guest_complex(hp, gp, distance, tmp)
+    if not ok or not os.path.exists(tmp):
         return None, msg
-    return core.read_file(tmp_pdb), msg
+    return core.read_file(tmp), msg
+
+
+def _py3dmol_complex(pdb_str, width=680, height=460, distance=0):
+    """3Dmol viewer for host-guest complex with Z-axis overlay."""
+    z_label = f"{distance} Ang"
+    return f"""
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<div style="position:relative;width:{width}px;height:{height}px;border-radius:12px;
+     overflow:hidden;border:1px solid #E5E7EB;background:#FAFBFC;">
+  <div id="v3dc" style="width:100%;height:100%;"></div>
+  <div style="position:absolute;top:10px;right:14px;font-size:12px;color:#444;
+       background:rgba(255,255,255,0.88);padding:3px 10px;border-radius:6px;
+       pointer-events:none;font-weight:600;">Z = {z_label}</div>
+  <div style="position:absolute;bottom:10px;left:14px;font-size:11px;color:#888;
+       background:rgba(255,255,255,0.82);padding:2px 9px;border-radius:5px;
+       pointer-events:none;">
+    Left-drag: rotate &nbsp;&#183;&nbsp; Scroll: zoom &nbsp;&#183;&nbsp; Right-drag: pan
+  </div>
+</div>
+<script>
+var v = $3Dmol.createViewer(document.getElementById("v3dc"),
+                            {{backgroundColor:"#FAFBFC"}});
+v.addModel(`{pdb_str}`,"pdb");
+v.setStyle({{}}, {{stick:{{colorscheme:"grayCarbon", radius:0.2}}}});
+v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.28}}}});
+v.addStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
+v.rotate(90, {{x:1, y:0, z:0}});
+v.zoomTo();
+v.render();
+</script>"""
 
 
 def page_build():
     render_stepper(3)
-    section_header(
-        "🔗 Build complex & solvate",
-        "Adjust the sliders — the 3D complex updates live. Click *Build topology* when you're happy with the geometry."
-    )
+    section_header("🔗 Build complex & solvate")
 
     hp = st.session_state.get("host_path")
     gp = st.session_state.get("guest_path")
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.info(f"**Host:** `{os.path.basename(hp) if hp else '—'}`")
-    with c2:
-        st.info(f"**Guest:** `{os.path.basename(gp) if gp else '—'}`")
+    if not (hp and os.path.exists(hp or "") and gp and os.path.exists(gp or "")):
+        st.warning("Complete Steps 1 (host) and 2 (guest) first.")
+        return
 
-    # ── Interactive controls ──────────────────────────────────────────────────
-    st.markdown("#### 📐 Complex geometry")
-    distance = st.slider(
-        "Guest initial offset along cavity axis (Å)",
-        min_value=-25, max_value=25, value=st.session_state.get("build_distance", -15), step=1,
-        help="Negative = guest placed above the host opening. Typical: −15 to −20 Å.",
-        key="build_distance_slider",
-    )
-    st.session_state["build_distance"] = distance
+    pc1, pc2 = st.columns(2)
+    with pc1:
+        st.info(f"**Host:** `{os.path.basename(hp)}`")
+    with pc2:
+        st.info(f"**Guest:** `{os.path.basename(gp)}`")
 
-    st.markdown("#### 💧 Solvation")
+    # Already done shortcut
+    if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
+        st.success("Complex & topology already built.")
+        mc1, mc2, mc3 = st.columns(3)
+        for col, fname in zip([mc1, mc2, mc3],
+                              ["complex.top", "complex.crd", "complex_leap.pdb"]):
+            p = wpath(fname)
+            with col:
+                st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "---")
+        next_button(4, "Next -> Minimization & heating", key_suffix="_done")
+        return
+
+    # STAGE 1 - Z-axis positioning
+    st.markdown("### Stage 1 -- Position guest along Z-axis")
+    st.caption("Drag the slider to slide the guest along the cavity axis. The 3D view updates live.")
+
+    left, right = st.columns([1, 2.8])
+
+    with left:
+        distance = st.slider(
+            "Z offset (Ang)",
+            min_value=-25, max_value=5,
+            value=st.session_state.get("build_distance", -15),
+            step=1,
+            key="build_dist_sl",
+        )
+        st.session_state["build_distance"] = distance
+
+        # Visual Z indicator bar
+        pct = int((distance + 25) / 30 * 100)
+        st.markdown(f"""
+<div style="margin:1rem auto;width:36px;height:240px;background:#E5E7EB;
+     border-radius:18px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:{pct}%;left:0;right:0;height:24px;
+       background:#1D9E75;border-radius:12px;"></div>
+</div>
+<div style="text-align:center;font-size:1.3rem;font-weight:700;color:#0F6E56;margin-top:4px;">
+  {distance} Ang</div>
+<div style="text-align:center;font-size:0.82rem;color:#9CA3AF;">
+  {"above cavity" if distance < 0 else "at cavity" if distance == 0 else "below cavity"}
+</div>""", unsafe_allow_html=True)
+
+    with right:
+        mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
+        with st.spinner("Updating..."):
+            preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
+        if preview_pdb:
+            st.components.v1.html(_py3dmol_complex(preview_pdb, 460, 400, distance), height=410)
+        else:
+            st.error(f"Preview failed: {pmsg}")
+
+    dist_confirmed = st.session_state.get("build_dist_confirmed", False)
+    if not dist_confirmed:
+        c_btn, _, _ = st.columns([1, 1, 1])
+        with c_btn:
+            if st.button("OK -- confirm position, set up water", type="primary",
+                         key="btn_dist_ok", use_container_width=True):
+                st.session_state["build_dist_confirmed"] = True
+                st.rerun()
+        return
+    else:
+        c_ok, c_edit = st.columns([3, 1])
+        with c_ok:
+            st.success(f"Position confirmed: Z = {distance} Ang")
+        with c_edit:
+            if st.button("Change", key="btn_dist_edit", use_container_width=True):
+                st.session_state["build_dist_confirmed"] = False
+                st.rerun()
+
+    st.divider()
+
+    # STAGE 2 - Solvation
+    st.markdown("### Stage 2 -- Add water box")
+
     sc1, sc2, sc3 = st.columns(3)
     with sc1:
         water_type = st.selectbox(
-            "Water model",
-            ["TIP3P", "OPC"],
+            "Water model", ["TIP3P", "OPC"],
             index=0 if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else 1,
             key="build_water_sel",
         )
         st.session_state["build_water_type"] = water_type
-        box_buf = st.slider(
-            "Water padding (Å)",
-            min_value=4, max_value=25, value=st.session_state.get("build_box_buf", 5), step=1,
-            help="Distance from solute to edge of water box. Typical: 4–25 Å.",
-            key="build_box_buf_slider",
-        )
-        st.session_state["build_box_buf"] = box_buf
     with sc2:
-        unit_xy = st.slider(
-            "Unit cell X/Y (Å)",
-            min_value=12, max_value=25, value=st.session_state.get("build_unit_xy", 13), step=1,
-            key="build_unit_xy_slider",
-        )
+        box_buf = st.slider("Water padding (Ang)", 4, 25,
+            st.session_state.get("build_box_buf", 5), step=1, key="build_box_buf_sl")
+        st.session_state["build_box_buf"] = box_buf
+        unit_xy = st.slider("Unit cell X/Y (Ang)", 12, 25,
+            st.session_state.get("build_unit_xy", 13), step=1, key="build_uxy_sl")
         st.session_state["build_unit_xy"] = unit_xy
-        unit_z = st.slider(
-            "Unit cell Z (Å)",
-            min_value=30, max_value=50, value=st.session_state.get("build_unit_z", 35), step=1,
-            key="build_unit_z_slider",
-        )
-        st.session_state["build_unit_z"] = unit_z
     with sc3:
-        translate_z = st.slider(
-            "Z-translation (Å)",
-            min_value=-20, max_value=20, value=st.session_state.get("build_translate_z", 0), step=1,
-            help="Shift complex along Z before solvation.",
-            key="build_translate_z_slider",
-        )
+        unit_z = st.slider("Unit cell Z (Ang)", 30, 60,
+            st.session_state.get("build_unit_z", 35), step=1, key="build_uz_sl")
+        st.session_state["build_unit_z"] = unit_z
+        translate_z = st.slider("Z-translation (Ang)", -20, 20,
+            st.session_state.get("build_translate_z", 0), step=1, key="build_tz_sl")
         st.session_state["build_translate_z"] = translate_z
+
+    st.caption(
+        f"{water_type} | padding {box_buf} Ang | "
+        f"cell {unit_xy}x{unit_xy}x{unit_z} Ang | Z-shift {translate_z} Ang"
+    )
 
     water_ff  = "leaprc.water.tip3p" if water_type == "TIP3P" else "leaprc.water.opc"
     water_box = "TIP3PBOX"           if water_type == "TIP3P" else "OPCBOX"
 
-    st.divider()
+    if st.button("OK -- build complex & add water", type="primary", key="btn_solvate"):
+        cx_out = wpath("complex.pdb")
+        with st.spinner("Building complex..."):
+            ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
+        if not ok:
+            st.error(f"Build failed: {msg}"); st.stop()
+        st.success("Complex built")
 
-    # ── Live 3D preview ──────────────────────────────────────────────────────
-    st.markdown("#### 🔬 Live preview")
+        ht  = st.session_state.get("host_type", "BCD_DFT")
+        hff = st.session_state.get("host_forcefield", "DFT")
+        if hff == "GLYCAM06":
+            core.insert_ter_records(cx_out)
 
-    if not (hp and gp and os.path.exists(hp) and os.path.exists(gp)):
-        st.warning("⚠️ Host or guest not prepared yet.")
-        return
+        with st.spinner("Running tleap... (~30 s)"):
+            script = core.write_tleap_script(
+                workdir=WD(), host_forcefield=hff,
+                host_prep=st.session_state.get("host_prep", ""),
+                host_frcmod=st.session_state.get("host_frcmod", ""),
+                host_type=ht, water_ff=water_ff, water_box=water_box,
+                box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
+                translate_z=translate_z, cx_pdb=cx_out,
+                out_top=wpath("complex.top"), out_crd=wpath("complex.crd"),
+                out_pdb=wpath("complex_leap.pdb"),
+            )
+            rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
+        st.session_state["log_tleap"] = out
 
-    mtime_h = os.path.getmtime(hp)
-    mtime_g = os.path.getmtime(gp)
+        if rc != 0:
+            st.error("tleap failed")
+            log_expander("log_tleap"); st.stop()
 
-    with st.spinner("Rebuilding complex…"):
-        preview_pdb, msg = _build_preview_cached(hp, gp, float(distance), mtime_h, mtime_g)
-
-    if preview_pdb is None:
-        st.error(f"❌ Preview failed: {msg}")
-    else:
-        # Compute an approximate box outline to show the water padding envelope
-        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420, side_view=True), height=430)
-        st.caption(
-            f"Distance = **{distance} Å** · Water model = **{water_type}** · "
-            f"Padding = **{box_buf} Å** · Cell = **{unit_xy}×{unit_xy}×{unit_z} Å**"
-        )
-
-    st.divider()
-
-    # ── Commit: write complex.pdb + tleap topology ───────────────────────────
-    if st.session_state.get("topo_done") and os.path.exists(wpath("complex.top")):
-        st.success("✅ Topology already built.")
+        st.session_state["build_done"] = True
+        st.session_state["topo_done"]  = True
+        st.success("Solvated system ready!")
 
         mc1, mc2, mc3 = st.columns(3)
         for col, fname in zip([mc1, mc2, mc3],
                               ["complex.top", "complex.crd", "complex_leap.pdb"]):
             p = wpath(fname)
             with col:
-                st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
-        next_button(4, "Next → Minimization & heating", key_suffix="_done")
-
-    else:
-        if st.button("▶ Build topology & solvate", type="primary"):
-            cx_out = wpath("complex.pdb")
-
-            # ─── 1. Build real complex at current slider settings ────────
-            with st.spinner("Building host–guest complex…"):
-                ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
-            st.session_state["log_complex"] = msg
-
-            if not ok:
-                st.error(f"❌ Build failed: {msg}")
-                st.stop()
-            st.success("✅ Complex built")
-
-            pdb = core.read_file(cx_out)
-            st.components.v1.html(py3dmol_html(pdb, 680, 380, side_view=True), height=390)
-
-            # ─── 2. Run tleap ────────────────────────────────────────────
-            with st.spinner("Running tleap (topology + solvation)… this takes ~30 s"):
-                ht  = st.session_state.get("host_type", "BCD_DFT")
-                hff = st.session_state.get("host_forcefield", "DFT")
-                if hff == "GLYCAM06":
-                    core.insert_ter_records(cx_out)
-
-                script = core.write_tleap_script(
-                    workdir=WD(),
-                    host_forcefield=hff,
-                    host_prep=st.session_state.get("host_prep", ""),
-                    host_frcmod=st.session_state.get("host_frcmod", ""),
-                    host_type=ht,
-                    water_ff=water_ff, water_box=water_box,
-                    box_buf=box_buf, unit_xy=unit_xy, unit_z=unit_z,
-                    translate_z=translate_z,
-                    cx_pdb=cx_out,
-                    out_top=wpath("complex.top"),
-                    out_crd=wpath("complex.crd"),
-                    out_pdb=wpath("complex_leap.pdb"),
-                )
-                rc, out = core.run_cmd(["tleap", "-f", script], cwd=WD())
-            st.session_state["log_tleap"] = out
-
-            if rc != 0:
-                st.error("❌ tleap failed")
-                log_expander("log_tleap")
-                st.stop()
-
-            st.session_state["build_done"] = True
-            st.session_state["topo_done"]  = True
-            st.success("✅ Topology & solvated box generated!")
-
-            mc1, mc2, mc3 = st.columns(3)
-            for col, fname in zip([mc1, mc2, mc3],
-                                  ["complex.top", "complex.crd", "complex_leap.pdb"]):
-                p = wpath(fname)
-                with col:
-                    st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "—")
-
-            next_button(4, "Next → Minimization & heating", key_suffix="_built")
+                st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "---")
+        next_button(4, "Next -> Minimization & heating", key_suffix="_built")
 
     log_expander("log_tleap")
 
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# STEP 4 — Minimization & Heating  (waiting page)
-# ══════════════════════════════════════════════════════════════════════════════
 def page_minimize():
     render_stepper(4)
     section_header("🔥 Minimization & heating", "Energy minimization, NVT heating 0→300 K, short equilibration.")
