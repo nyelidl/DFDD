@@ -1245,29 +1245,82 @@ def _build_preview_cached(hp, gp, distance, _mtime_h, _mtime_g):
     return core.read_file(tmp), msg
 
 
-def _py3dmol_complex(pdb_str, width=680, height=460, distance=0):
-    """3Dmol host-guest complex viewer with Z-axis overlay and click-to-inspect."""
-    z_label = f"{distance} Ang"
+def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
+    """Fixed-camera 3D viewer for host-guest complex.
+
+    Camera is set once to show the full ~55 Å Z-extent centered at origin.
+    It does NOT follow the ligand — the view stays fixed so the user can see
+    the ligand moving up/down as they adjust Z.
+
+    The Z-position bar on the right of the viewer is purely decorative (updates
+    via the Streamlit slider outside).  Click any atom for element info.
+    """
+    # Percentage for the Z-position indicator inside the viewer
+    # Map -20..+20 Ang → 0..100% (bottom to top)
+    zpct = int((distance + 20) / 40 * 100)
+    z_label = f"{distance:+d} Å"
+    above_below = "above cavity" if distance < 0 else ("at cavity" if distance == 0 else "below cavity")
+
     return f"""
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-<div style="position:relative;width:{width}px;height:{height}px;border-radius:12px;
-     overflow:hidden;border:1px solid #E5E7EB;background:#FAFBFC;">
-  <div id="v3dc" style="width:100%;height:100%;"></div>
-  <div id="v3dc-info" style="
-       display:none;position:absolute;top:10px;left:12px;
-       background:rgba(15,110,86,0.92);color:#fff;
-       font-size:12px;font-family:monospace;padding:6px 12px;
-       border-radius:8px;pointer-events:none;line-height:1.6;
-       box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
-  <div style="position:absolute;top:10px;right:14px;font-size:12px;color:#444;
-       background:rgba(255,255,255,0.88);padding:3px 10px;border-radius:6px;
-       pointer-events:none;font-weight:600;">Z = {z_label}</div>
-  <div style="position:absolute;bottom:10px;left:14px;font-size:11px;color:#888;
-       background:rgba(255,255,255,0.82);padding:2px 9px;border-radius:5px;
-       pointer-events:none;">
-    Left-drag: rotate &nbsp;&#183;&nbsp; Scroll: zoom &nbsp;&#183;&nbsp; Click atom: info
+<div style="display:flex;gap:0;width:{width+64}px;height:{height}px;
+            border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;">
+
+  <!-- ── 3D viewer ───────────────────────────────────────────── -->
+  <div style="position:relative;flex:1;background:#FAFBFC;">
+    <div id="v3dc" style="width:100%;height:100%;"></div>
+
+    <!-- atom info popup -->
+    <div id="v3dc-info" style="
+         display:none;position:absolute;top:10px;left:10px;
+         background:rgba(15,110,86,0.93);color:#fff;
+         font-size:11px;font-family:monospace;padding:5px 10px;
+         border-radius:7px;pointer-events:none;line-height:1.6;
+         box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:200px;z-index:10;"></div>
+
+    <!-- camera hint -->
+    <div style="position:absolute;bottom:8px;left:10px;font-size:10px;color:#999;
+         background:rgba(255,255,255,0.8);padding:2px 7px;border-radius:4px;
+         pointer-events:none;">
+      Left-drag: rotate &nbsp;·&nbsp; Scroll: zoom &nbsp;·&nbsp; Click: info
+    </div>
   </div>
+
+  <!-- ── Z-axis bar (right panel) ────────────────────────────── -->
+  <div style="width:64px;background:#F3F4F6;display:flex;flex-direction:column;
+              align-items:center;justify-content:space-between;
+              padding:10px 0;border-left:1px solid #E5E7EB;">
+
+    <!-- label top (+20) -->
+    <div style="font-size:10px;color:#6B7280;font-weight:500;">+20 Å</div>
+
+    <!-- track -->
+    <div style="position:relative;width:20px;flex:1;margin:6px 0;
+                background:#E5E7EB;border-radius:10px;overflow:hidden;">
+      <!-- filled portion below indicator -->
+      <div style="position:absolute;bottom:0;left:0;right:0;
+                  height:{zpct}%;background:#C7EDE2;border-radius:10px;
+                  transition:height .15s ease;"></div>
+      <!-- indicator pill -->
+      <div style="position:absolute;left:0;right:0;
+                  bottom:calc({zpct}% - 12px);height:24px;
+                  background:#1D9E75;border-radius:10px;
+                  box-shadow:0 1px 4px rgba(29,158,117,0.5);
+                  transition:bottom .15s ease;"></div>
+    </div>
+
+    <!-- label bottom (-20) -->
+    <div style="font-size:10px;color:#6B7280;font-weight:500;">-20 Å</div>
+
+    <!-- current value -->
+    <div style="margin-top:6px;text-align:center;line-height:1.3;">
+      <div style="font-size:13px;font-weight:700;color:#0F6E56;">{z_label}</div>
+      <div style="font-size:9px;color:#9CA3AF;margin-top:1px;">{above_below}</div>
+    </div>
+  </div>
+
 </div>
+
 <script>
 var v = $3Dmol.createViewer(document.getElementById("v3dc"),
                             {{backgroundColor:"#FAFBFC"}});
@@ -1275,25 +1328,33 @@ v.addModel(`{pdb_str}`,"pdb");
 v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.15}}}});
 v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.24}}}});
 v.addStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
+
+/* ── Fixed camera: always shows 55 Å window centred at origin ─────────── */
+/* Rotate 90° around X first so Z-axis = screen vertical */
+v.rotate(90, {{x:1, y:0, z:0}});
+/* Set a fixed zoom level — slab from -27.5 to +27.5 Å in the new Z direction.
+   zoomTo() is intentionally NOT called so the camera does not follow the ligand. */
+v.zoom(0.85);          /* tweak: smaller = more zoomed out */
+v.setView([0, 0, 0,   /* centre of rotation x,y,z */
+           0, 0, 0,   /* camera x,y offset */
+           40]);       /* camera distance — ~55 Å field of view */
+
+/* atom click */
 var infoBox = document.getElementById("v3dc-info");
 v.setClickable({{}}, true, function(atom) {{
   var tag = atom.resn === "GST" ? " [guest]" : " [host]";
-  var lines = [
-    "Element: " + (atom.elem || "?") + tag,
-    "Atom:    " + (atom.atom || "?"),
-    "Residue: " + (atom.resn || "?") + " " + (atom.resi || ""),
-    "Coords:  (" +
-      (atom.x ? atom.x.toFixed(2) : "?") + ", " +
-      (atom.y ? atom.y.toFixed(2) : "?") + ", " +
-      (atom.z ? atom.z.toFixed(2) : "?") + ")"
-  ];
-  infoBox.innerHTML = lines.join("<br>");
+  infoBox.innerHTML = [
+    "Elem: " + (atom.elem||"?") + tag,
+    "Atom: " + (atom.atom||"?"),
+    "Res:  " + (atom.resn||"?") + " " + (atom.resi||""),
+    "XYZ: (" + (atom.x||0).toFixed(1) + ", " +
+               (atom.y||0).toFixed(1) + ", " +
+               (atom.z||0).toFixed(1) + ")"
+  ].join("<br>");
   infoBox.style.display = "block";
-  setTimeout(function(){{ infoBox.style.display="none"; }}, 4000);
+  setTimeout(function(){{ infoBox.style.display="none"; }}, 3500);
   v.render();
 }});
-v.rotate(90, {{x:1, y:0, z:0}});
-v.zoomTo();
 v.render();
 </script>"""
 
@@ -1324,53 +1385,70 @@ def page_build():
             p = wpath(fname)
             with col:
                 st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "---")
-        next_button(4, "Next -> Minimization & heating", key_suffix="_done")
+        next_button(4, "Next → Minimization & heating", key_suffix="_done")
         return
 
-    # STAGE 1 - Z-axis positioning
-    st.markdown("### Stage 1 -- Position guest along Z-axis")
-    st.caption("Drag the slider to slide the guest along the cavity axis. The 3D view updates live.")
+    # ══════════════════════════════════════════════════════════════════════════
+    # STAGE 1 — Z-axis positioning
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("### 📐 Stage 1 — Position guest along Z-axis")
+    st.caption(
+        "Use the **+** / **−** buttons or type a value to slide the guest along the "
+        "cavity axis. The 3D view and the Z-bar update live."
+    )
 
-    left, right = st.columns([1, 2.8])
+    # ── Z controller row (above viewer) ──────────────────────────────────────
+    cur_dist = st.session_state.get("build_distance", -15)
 
-    with left:
-        distance = st.slider(
-            "Z offset (Ang)",
-            min_value=-20, max_value=20,
-            value=st.session_state.get("build_distance", -15),
-            step=1,
-            key="build_dist_sl",
+    zc1, zc2, zc3, zc4, zc5 = st.columns([1, 1, 2, 1, 1])
+    with zc1:
+        if st.button("−5", key="z_m5", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, cur_dist - 5)
+            st.rerun()
+    with zc2:
+        if st.button("−1", key="z_m1", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, cur_dist - 1)
+            st.rerun()
+    with zc3:
+        new_val = st.number_input(
+            "Z offset (Å)", min_value=-20, max_value=20,
+            value=cur_dist, step=1, label_visibility="collapsed",
+            key="z_num",
         )
-        st.session_state["build_distance"] = distance
+        if new_val != cur_dist:
+            st.session_state["build_distance"] = new_val
+            st.rerun()
+    with zc4:
+        if st.button("+1", key="z_p1", use_container_width=True):
+            st.session_state["build_distance"] = min(20, cur_dist + 1)
+            st.rerun()
+    with zc5:
+        if st.button("+5", key="z_p5", use_container_width=True):
+            st.session_state["build_distance"] = min(20, cur_dist + 5)
+            st.rerun()
 
-        # Visual Z indicator bar
-        pct = int((distance + 20) / 40 * 100)  # map -20..+20 → 0..100%
-        st.markdown(f"""
-<div style="margin:1rem auto;width:36px;height:240px;background:#E5E7EB;
-     border-radius:18px;position:relative;overflow:hidden;">
-  <div style="position:absolute;bottom:{pct}%;left:0;right:0;height:24px;
-       background:#1D9E75;border-radius:12px;"></div>
-</div>
-<div style="text-align:center;font-size:1.3rem;font-weight:700;color:#0F6E56;margin-top:4px;">
-  {distance} Ang</div>
-<div style="text-align:center;font-size:0.82rem;color:#9CA3AF;">
-  {"above cavity" if distance < 0 else "at cavity" if distance == 0 else "below cavity"}
-</div>""", unsafe_allow_html=True)
+    distance = st.session_state.get("build_distance", -15)
 
-    with right:
-        mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
-        with st.spinner("Updating..."):
-            preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
-        if preview_pdb:
-            st.components.v1.html(_py3dmol_complex(preview_pdb, 460, 400, distance), height=410)
-        else:
-            st.error(f"Preview failed: {pmsg}")
+    # ── Live 3D preview ───────────────────────────────────────────────────────
+    mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
+    with st.spinner("Updating…"):
+        preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
 
+    if preview_pdb:
+        # Full-width viewer with integrated Z-bar on the right
+        st.components.v1.html(
+            _py3dmol_complex(preview_pdb, 580, 480, distance),
+            height=490
+        )
+    else:
+        st.error(f"Preview failed: {pmsg}")
+
+    # Stage 1 confirm
     dist_confirmed = st.session_state.get("build_dist_confirmed", False)
     if not dist_confirmed:
-        c_btn, _, _ = st.columns([1, 1, 1])
-        with c_btn:
-            if st.button("OK -- confirm position, set up water", type="primary",
+        col_btn, _, _ = st.columns([1, 1, 1])
+        with col_btn:
+            if st.button("✅ Confirm position → set up water", type="primary",
                          key="btn_dist_ok", use_container_width=True):
                 st.session_state["build_dist_confirmed"] = True
                 st.rerun()
@@ -1378,9 +1456,9 @@ def page_build():
     else:
         c_ok, c_edit = st.columns([3, 1])
         with c_ok:
-            st.success(f"Position confirmed: Z = {distance} Ang")
+            st.success(f"✅ Guest position confirmed: Z = **{distance} Å**  ({('above' if distance < 0 else 'at/below')} cavity)")
         with c_edit:
-            if st.button("Change", key="btn_dist_edit", use_container_width=True):
+            if st.button("✏️ Change", key="btn_dist_edit", use_container_width=True):
                 st.session_state["build_dist_confirmed"] = False
                 st.rerun()
 
