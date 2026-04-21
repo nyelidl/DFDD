@@ -52,20 +52,36 @@ st.set_page_config(
 st.markdown("""
 <style>
 /* ═════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS
+   DESIGN TOKENS — Soft orchid theme
+   Variable names preserved from the original green theme so all inline
+   HTML (stepper, wait-card, res-metric, choice-card) keeps working.
    ═════════════════════════════════════════════════════════════════════════ */
 :root {
-    --dfdd-primary:      #1D9E75;
-    --dfdd-primary-dark: #0F6E56;
-    --dfdd-primary-darker: #085041;
-    --dfdd-primary-tint: #E1F5EE;
-    --dfdd-primary-bg:   #f0faf6;
-    --dfdd-border:       #c7ede2;
-    --dfdd-text-body:    #2C3E50;
-    --dfdd-text-muted:   #6B7280;
-    --dfdd-text-sub:     #9CA3AF;
-    --dfdd-bg-subtle:    #F9FAFB;
-    --dfdd-accent-red:   #E24B4A;
+    /* Brand ramp (was teal → now orchid purple) */
+    --dfdd-primary:        #8B6CE8;   /* main brand */
+    --dfdd-primary-dark:   #5B3FD1;   /* hover / headings */
+    --dfdd-primary-darker: #3A2896;   /* active / deep text */
+    --dfdd-primary-tint:   #F2EEFC;   /* focus ring / selected bg */
+    --dfdd-primary-bg:     #F9F7FE;   /* subtle page tint */
+    --dfdd-border:         #DDD1F7;   /* brand-tinted border */
+
+    /* Text (unchanged — neutral text reads well on any brand) */
+    --dfdd-text-body:      #2C3E50;
+    --dfdd-text-muted:     #6B7280;
+    --dfdd-text-sub:       #9CA3AF;
+    --dfdd-bg-subtle:      #F9FAFB;
+
+    /* Playful accent ramps (new — used by status chips, errors, highlights) */
+    --dfdd-accent-red:     #E2553A;   /* errors / destructive */
+    --dfdd-accent-coral:   #FFB4A2;   /* warm accent */
+    --dfdd-accent-coral-bg:#FFE8E1;
+    --dfdd-accent-coral-ink:#B54A2E;
+    --dfdd-accent-mint:    #6BCFB8;   /* "done" / success cues */
+    --dfdd-accent-mint-bg: #E0F6F0;
+    --dfdd-accent-mint-ink:#0E7A60;
+    --dfdd-accent-sun:     #FFCE6B;   /* "running" / warning */
+    --dfdd-accent-sun-bg:  #FFF4DD;
+    --dfdd-accent-sun-ink: #8B5E0A;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -90,23 +106,23 @@ code, pre { font-size: 0.9rem !important; }
 h1, h2, h3 { color: var(--dfdd-primary-dark) !important; }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   BUTTONS
+   BUTTONS — slightly rounder + softer shadow for a playful feel
    ═════════════════════════════════════════════════════════════════════════ */
 button[kind="primary"], .stButton > button[kind="primary"] {
     background-color: var(--dfdd-primary) !important;
     border-color: var(--dfdd-primary) !important;
     color: #fff !important;
     font-size: 1rem !important;
-    font-weight: 600 !important;
-    padding: 0.55rem 1.4rem !important;
-    border-radius: 8px !important;
+    font-weight: 500 !important;
+    padding: 0.6rem 1.4rem !important;
+    border-radius: 10px !important;
     transition: all 0.15s ease !important;
-    box-shadow: 0 1px 3px rgba(29,158,117,0.2) !important;
+    box-shadow: 0 1px 3px rgba(139, 108, 232, 0.25) !important;
 }
 button[kind="primary"]:hover, .stButton > button[kind="primary"]:hover {
     background-color: var(--dfdd-primary-dark) !important;
     border-color: var(--dfdd-primary-dark) !important;
-    box-shadow: 0 2px 6px rgba(29,158,117,0.3) !important;
+    box-shadow: 0 2px 8px rgba(139, 108, 232, 0.35) !important;
     transform: translateY(-1px);
 }
 button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
@@ -116,12 +132,13 @@ button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
 }
 button[kind="secondary"], .stButton > button[kind="secondary"] {
     font-size: 0.95rem !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     transition: all 0.15s ease !important;
 }
 button[kind="secondary"]:hover {
     border-color: var(--dfdd-primary) !important;
     color: var(--dfdd-primary-dark) !important;
+    background: var(--dfdd-primary-tint) !important;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -131,8 +148,8 @@ button[kind="secondary"]:hover {
     display: flex; align-items: center; gap: 0;
     margin: 0 0 2rem 0;
     padding: 1rem 0.5rem;
-    background: var(--dfdd-bg-subtle);
-    border-radius: 12px;
+    background: var(--dfdd-primary-bg);
+    border-radius: 14px;
     overflow-x: auto;
 }
 .step-item {
@@ -142,7 +159,7 @@ button[kind="secondary"]:hover {
 .step-circle {
     width: 36px; height: 36px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 600;
+    font-size: 14px; font-weight: 500;
     transition: all 0.25s ease;
 }
 .step-done .step-circle { background: var(--dfdd-primary); color: #fff; }
@@ -151,7 +168,7 @@ button[kind="secondary"]:hover {
     box-shadow: 0 0 0 5px var(--dfdd-primary-tint);
     transform: scale(1.08);
 }
-.step-todo .step-circle { background: #E5E7EB; color: #9CA3AF; }
+.step-todo .step-circle { background: #EDEAF3; color: #A8A2B8; }
 .step-label {
     font-size: 11px; margin-top: 6px;
     text-align: center; color: var(--dfdd-text-muted); max-width: 72px;
@@ -162,7 +179,7 @@ button[kind="secondary"]:hover {
 }
 .step-line {
     flex: 1; height: 2px;
-    background: #E5E7EB; margin: 0 2px; margin-bottom: 22px;
+    background: #EDEAF3; margin: 0 2px; margin-bottom: 22px;
     transition: background 0.3s ease;
 }
 .step-line.done { background: var(--dfdd-primary); }
@@ -171,7 +188,7 @@ button[kind="secondary"]:hover {
    SECTION HEADERS
    ═════════════════════════════════════════════════════════════════════════ */
 .sec-header {
-    font-size: 1.75rem; font-weight: 700;
+    font-size: 1.75rem; font-weight: 600;
     color: var(--dfdd-primary-dark);
     margin: 0 0 0.3rem 0;
     letter-spacing: -0.01em;
@@ -185,13 +202,13 @@ button[kind="secondary"]:hover {
    CARDS
    ═════════════════════════════════════════════════════════════════════════ */
 .wait-card {
-    background: linear-gradient(135deg, #f8fffe 0%, #e8f7f1 100%);
+    background: linear-gradient(135deg, #FDFCFF 0%, #F2EEFC 100%);
     border: 1px solid var(--dfdd-border);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 2rem 2.5rem;
     text-align: center;
     margin: 1.25rem 0;
-    box-shadow: 0 2px 8px rgba(29,158,117,0.05);
+    box-shadow: 0 2px 10px rgba(139, 108, 232, 0.06);
 }
 .wait-title {
     font-size: 1.5rem; font-weight: 600;
@@ -204,11 +221,11 @@ button[kind="secondary"]:hover {
 }
 .mol-card {
     background: var(--dfdd-bg-subtle);
-    border: 1px solid #E5E7EB;
-    border-radius: 10px; padding: 1rem;
+    border: 1px solid #EDEAF3;
+    border-radius: 12px; padding: 1rem;
 }
 .choice-card {
-    border: 2px solid #E5E7EB; border-radius: 10px;
+    border: 2px solid #EDEAF3; border-radius: 12px;
     padding: 1.1rem; cursor: pointer;
     transition: all 0.18s ease; background: #fff;
     font-size: 1rem;
@@ -216,27 +233,27 @@ button[kind="secondary"]:hover {
 .choice-card:hover {
     border-color: var(--dfdd-primary);
     transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(29,158,117,0.08);
+    box-shadow: 0 2px 8px rgba(139, 108, 232, 0.1);
 }
 .choice-card.selected {
     border-color: var(--dfdd-primary);
-    background: var(--dfdd-primary-bg);
-    box-shadow: 0 1px 4px rgba(29,158,117,0.1);
+    background: var(--dfdd-primary-tint);
+    box-shadow: 0 1px 4px rgba(139, 108, 232, 0.12);
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
    RESULT METRICS
    ═════════════════════════════════════════════════════════════════════════ */
 .res-metric {
-    background: var(--dfdd-primary-bg);
+    background: var(--dfdd-primary-tint);
     border: 1px solid var(--dfdd-border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 1.3rem 1.6rem;
     text-align: center;
-    box-shadow: 0 1px 3px rgba(29,158,117,0.06);
+    box-shadow: 0 1px 3px rgba(139, 108, 232, 0.06);
 }
 .res-value {
-    font-size: 2.1rem; font-weight: 700;
+    font-size: 2.1rem; font-weight: 600;
     color: var(--dfdd-primary-dark);
     line-height: 1.1;
     letter-spacing: -0.02em;
@@ -248,19 +265,42 @@ button[kind="secondary"]:hover {
 
 /* ═════════════════════════════════════════════════════════════════════════
    ALERTS / DIVIDERS
+   Alerts get the warm-coral/mint/sun accents so state colors are playful
+   but still semantically readable (error = red, info = brand, success = mint)
    ═════════════════════════════════════════════════════════════════════════ */
-hr { margin: 1.5rem 0 !important; border-color: #E5E7EB !important; }
+hr { margin: 1.5rem 0 !important; border-color: #EDEAF3 !important; }
 
 div[data-testid="stAlert"] {
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     border-left-width: 4px !important;
 }
 
-/* Info boxes in green tint */
+/* Info → orchid tint */
 div[data-testid="stInfo"] {
-    background-color: var(--dfdd-primary-bg) !important;
+    background-color: var(--dfdd-primary-tint) !important;
     border-color: var(--dfdd-border) !important;
     color: var(--dfdd-primary-darker) !important;
+}
+
+/* Success → mint tint */
+div[data-testid="stSuccess"] {
+    background-color: var(--dfdd-accent-mint-bg) !important;
+    border-color: var(--dfdd-accent-mint) !important;
+    color: var(--dfdd-accent-mint-ink) !important;
+}
+
+/* Warning → sunny tint */
+div[data-testid="stWarning"] {
+    background-color: var(--dfdd-accent-sun-bg) !important;
+    border-color: var(--dfdd-accent-sun) !important;
+    color: var(--dfdd-accent-sun-ink) !important;
+}
+
+/* Error → coral tint (softer than pure red) */
+div[data-testid="stError"] {
+    background-color: var(--dfdd-accent-coral-bg) !important;
+    border-color: var(--dfdd-accent-coral) !important;
+    color: var(--dfdd-accent-coral-ink) !important;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -269,9 +309,9 @@ div[data-testid="stInfo"] {
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input,
 .stTextArea textarea {
-    border-radius: 8px !important;
-    border-color: #E5E7EB !important;
-    transition: border-color 0.15s ease !important;
+    border-radius: 10px !important;
+    border-color: #EDEAF3 !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 .stTextInput > div > div > input:focus,
 .stNumberInput > div > div > input:focus,
@@ -280,28 +320,51 @@ div[data-testid="stInfo"] {
     box-shadow: 0 0 0 3px var(--dfdd-primary-tint) !important;
 }
 
+/* Selectbox trigger */
+div[data-baseweb="select"] > div {
+    border-radius: 10px !important;
+}
+
 /* Horizontal radio button pills */
 div[data-baseweb="radio"] {
     padding: 4px 2px !important;
 }
 
+/* Slider track + thumb */
+div[data-baseweb="slider"] div[role="slider"] {
+    background: var(--dfdd-primary) !important;
+    border-color: var(--dfdd-primary) !important;
+}
+
 /* File uploader dropzone */
 section[data-testid="stFileUploadDropzone"] {
-    border: 2px dashed #c7ede2 !important;
-    background: var(--dfdd-bg-subtle) !important;
-    border-radius: 10px !important;
+    border: 2px dashed var(--dfdd-border) !important;
+    background: var(--dfdd-primary-bg) !important;
+    border-radius: 12px !important;
 }
 section[data-testid="stFileUploadDropzone"]:hover {
     border-color: var(--dfdd-primary) !important;
-    background: var(--dfdd-primary-bg) !important;
+    background: var(--dfdd-primary-tint) !important;
+}
+
+/* Tabs (used in Step 9 DBFE) */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 10px 10px 0 0 !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--dfdd-primary-dark) !important;
+    background: var(--dfdd-primary-tint) !important;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
    SIDEBAR
    ═════════════════════════════════════════════════════════════════════════ */
 section[data-testid="stSidebar"] {
-    background: #FAFBFC !important;
-    border-right: 1px solid #E5E7EB;
+    background: var(--dfdd-primary-bg) !important;
+    border-right: 1px solid var(--dfdd-border);
 }
 section[data-testid="stSidebar"] h2 {
     font-size: 1.5rem !important;
@@ -310,11 +373,43 @@ section[data-testid="stSidebar"] h2 {
 }
 section[data-testid="stSidebar"] hr {
     margin: 1rem 0 !important;
+    border-color: var(--dfdd-border) !important;
 }
 
 /* Progress bars */
 div[data-testid="stProgress"] > div > div > div {
     background: var(--dfdd-primary) !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — stack columns + shrink stepper labels on narrow screens
+   Makes the wizard genuinely usable on tablet/phone.
+   ═════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+    /* Force Streamlit columns to stack vertically on phones */
+    div[data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+
+    /* Shrink stepper circles + hide long labels on phones */
+    .step-circle { width: 28px; height: 28px; font-size: 12px; }
+    .step-label { font-size: 10px; max-width: 56px; }
+    .step-line { margin-bottom: 16px; }
+    .stepper { padding: 0.75rem 0.3rem; }
+
+    /* Tighten section headers */
+    .sec-header { font-size: 1.4rem; }
+    .wait-card { padding: 1.25rem 1rem; border-radius: 14px; }
+    .wait-title { font-size: 1.2rem; }
+
+    /* Make result metrics fit smaller screens */
+    .res-metric { padding: 1rem 0.8rem; }
+    .res-value { font-size: 1.6rem; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -342,6 +437,11 @@ DEFAULTS = {
     "guest_pH_range":    0.5,
     "guest_apply_ph":    True,
     "guest_smiles_protonated": "",
+    # PubChem name search
+    "guest_pubchem_query":        "",
+    "guest_pubchem_results":      [],
+    "guest_pubchem_selected_cid": None,
+    "guest_pubchem_error":        None,
     # sim params (set in step 6 UI)
     "pacsmd_cycles":     40,
     "pacsmd_candi":      3,
@@ -432,7 +532,7 @@ def py3dmol_html_fmt(mol_str, fmt="sdf", width=680, height=420, side_view=False)
           border:1px solid #E5E7EB;background:#FAFBFC;"></div>
       <div id="vfmt-info" style="
           display:none;position:absolute;top:10px;left:12px;
-          background:rgba(15,110,86,0.92);color:#fff;
+          background:rgba(91,63,209,0.92);color:#fff;
           font-size:12px;font-family:monospace;padding:6px 12px;
           border-radius:8px;pointer-events:none;line-height:1.6;
           box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
@@ -485,7 +585,7 @@ def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
           box-shadow:0 1px 3px rgba(0,0,0,0.04);"></div>
       <div id="v3d-info" style="
           display:none;position:absolute;top:10px;left:12px;
-          background:rgba(15,110,86,0.92);color:#fff;
+          background:rgba(91,63,209,0.92);color:#fff;
           font-size:12px;font-family:monospace;padding:6px 12px;
           border-radius:8px;pointer-events:none;line-height:1.6;
           box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:220px;"></div>
@@ -523,6 +623,99 @@ def py3dmol_html(pdb_str, width=680, height=420, side_view=False):
       {rotate}
       v.render();
     </script>"""
+
+
+# ─── PubChem name search ──────────────────────────────────────────────────────
+@st.cache_data(show_spinner=False, ttl=3600)
+def pubchem_search_by_name(name: str, max_results: int = 5):
+    """Search PubChem for a compound by name and return a list of matches.
+
+    Uses PubChem PUG REST (https://pubchem.ncbi.nlm.nih.gov/rest/pug).
+    No API key required. Results are cached for 1 hour per query.
+
+    Returns a list of dicts like:
+        [{"cid": 2244, "name": "Aspirin",
+          "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+          "iupac": "...", "formula": "...", "mw": 180.16,
+          "image_url": "...", "pubchem_url": "..."}]
+    or [] if nothing found. Raises no exceptions — errors become st.warning.
+    """
+    import urllib.request, urllib.parse, urllib.error, json as _json
+
+    name = (name or "").strip()
+    if not name:
+        return []
+
+    base = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    headers = {"User-Agent": "DFDD/1.0 (molecular-dynamics-wizard)"}
+
+    def _get(url, timeout=15):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read().decode("utf-8", errors="replace")
+
+    # 1) Resolve name → list of CIDs
+    try:
+        q = urllib.parse.quote(name, safe="")
+        cids_txt = _get(f"{base}/compound/name/{q}/cids/TXT")
+        cids = [c.strip() for c in cids_txt.splitlines() if c.strip().isdigit()]
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return []
+        raise RuntimeError(f"PubChem error ({e.code}): {e.reason}")
+    except Exception as e:
+        raise RuntimeError(f"Network error: {e}")
+
+    if not cids:
+        return []
+
+    cids = cids[:max_results]
+    cid_list = ",".join(cids)
+
+    # 2) Bulk fetch properties. Try new property names first, fall back to old.
+    #    (PubChem renamed CanonicalSMILES → SMILES, IsomericSMILES → ConnectivitySMILES
+    #     in 2024–25.)
+    props_new = "SMILES,IUPACName,MolecularFormula,MolecularWeight,Title"
+    props_old = "CanonicalSMILES,IsomericSMILES,IUPACName,MolecularFormula,MolecularWeight,Title"
+
+    rows = None
+    for props in (props_new, props_old):
+        try:
+            js = _get(f"{base}/compound/cid/{cid_list}/property/{props}/JSON")
+            data = _json.loads(js)
+            rows = data.get("PropertyTable", {}).get("Properties", [])
+            if rows:
+                break
+        except urllib.error.HTTPError:
+            continue
+        except Exception:
+            continue
+
+    if not rows:
+        return []
+
+    out = []
+    for r in rows:
+        cid = r.get("CID")
+        if cid is None:
+            continue
+        # SMILES: prefer isomeric (stereo) when available
+        smi = (r.get("IsomericSMILES")
+               or r.get("SMILES")
+               or r.get("CanonicalSMILES")
+               or r.get("ConnectivitySMILES")
+               or "")
+        out.append({
+            "cid":         cid,
+            "name":        r.get("Title") or name,
+            "smiles":      smi,
+            "iupac":       r.get("IUPACName", ""),
+            "formula":     r.get("MolecularFormula", ""),
+            "mw":          r.get("MolecularWeight", ""),
+            "image_url":   f"{base}/compound/cid/{cid}/PNG?image_size=200x200",
+            "pubchem_url": f"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}",
+        })
+    return out
 
 
 # ─── Step names for progress bar ──────────────────────────────────────────────
@@ -879,10 +1072,13 @@ def page_guest():
 
     input_type = st.radio(
         "Input method",
-        ["SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
+        ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
         horizontal=True,
-        index=["SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
+        index=["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
             st.session_state.get("guest_input_type", "SMILES")
+            if st.session_state.get("guest_input_type", "SMILES") in
+               ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
+            else "SMILES"
         ),
         key="guest_input_radio",
     )
@@ -920,6 +1116,96 @@ def page_guest():
         )
         if smiles_in:
             st.caption(f"`{smiles_in}`")
+
+    # ── PubChem name search ───────────────────────────────────────────────────
+    elif input_type == "Search by name (PubChem)":
+        st.markdown(
+            "Type a compound name (common, IUPAC, or trade name) and DFDD will "
+            "fetch the structure from the "
+            "[PubChem](https://pubchem.ncbi.nlm.nih.gov/) database."
+        )
+
+        sc1, sc2 = st.columns([3, 1])
+        with sc1:
+            query = st.text_input(
+                "Compound name",
+                value=st.session_state.get("guest_pubchem_query", ""),
+                placeholder="e.g. aspirin, caffeine, ibuprofen, paracetamol…",
+                key="guest_pubchem_query_input",
+                label_visibility="collapsed",
+            )
+        with sc2:
+            do_search = st.button("🔍 Search", use_container_width=True,
+                                  key="btn_pubchem_search")
+
+        if do_search and query.strip():
+            st.session_state["guest_pubchem_query"] = query.strip()
+            with st.spinner(f"Searching PubChem for “{query.strip()}”…"):
+                try:
+                    results = pubchem_search_by_name(query.strip(), max_results=5)
+                    st.session_state["guest_pubchem_results"] = results
+                    st.session_state["guest_pubchem_error"]   = None
+                except Exception as e:
+                    st.session_state["guest_pubchem_results"] = []
+                    st.session_state["guest_pubchem_error"]   = str(e)
+
+        err = st.session_state.get("guest_pubchem_error")
+        if err:
+            st.error(f"PubChem lookup failed: {err}")
+
+        results = st.session_state.get("guest_pubchem_results", [])
+
+        if results:
+            st.caption(f"Found {len(results)} match(es) — click **Use this** to load.")
+
+            # Pre-select first result if nothing chosen
+            sel_cid = st.session_state.get("guest_pubchem_selected_cid")
+            if sel_cid is None:
+                sel_cid = results[0]["cid"]
+                st.session_state["guest_pubchem_selected_cid"] = sel_cid
+
+            for r in results:
+                is_sel = (r["cid"] == sel_cid)
+                with st.container(border=True):
+                    rc1, rc2, rc3 = st.columns([1, 3, 1])
+                    with rc1:
+                        try:
+                            st.image(r["image_url"], width=120)
+                        except Exception:
+                            st.caption("(no image)")
+                    with rc2:
+                        st.markdown(f"**{r['name']}**  \n"
+                                    f"CID `{r['cid']}` · {r['formula']} · "
+                                    f"MW {r['mw']}")
+                        if r.get("iupac"):
+                            st.caption(f"IUPAC: {r['iupac']}")
+                        if r.get("smiles"):
+                            st.code(r["smiles"], language="text")
+                    with rc3:
+                        label = "✓ Selected" if is_sel else "Use this"
+                        if st.button(label,
+                                     key=f"pc_pick_{r['cid']}",
+                                     type="primary" if is_sel else "secondary",
+                                     use_container_width=True,
+                                     disabled=is_sel):
+                            st.session_state["guest_pubchem_selected_cid"] = r["cid"]
+                            st.session_state["guest_smiles"] = r["smiles"]
+                            st.rerun()
+                        st.markdown(
+                            f"[View on PubChem ↗]({r['pubchem_url']})",
+                            help="Open the compound page in a new tab",
+                        )
+
+            # Resolve selected SMILES
+            chosen = next((r for r in results
+                           if r["cid"] == st.session_state.get("guest_pubchem_selected_cid")),
+                          results[0])
+            smiles_in = chosen["smiles"]
+            st.session_state["guest_smiles"] = smiles_in
+            st.success(f"Using **{chosen['name']}** (CID {chosen['cid']}) — "
+                       f"SMILES loaded.")
+        elif st.session_state.get("guest_pubchem_query") and not err:
+            st.info("No matches. Try a different spelling or a more common name.")
 
     # ── Ketcher draw ──────────────────────────────────────────────────────────
     elif input_type == "Draw (Ketcher)":
@@ -1273,7 +1559,7 @@ def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
     <!-- atom info popup -->
     <div id="v3dc-info" style="
          display:none;position:absolute;top:10px;left:10px;
-         background:rgba(15,110,86,0.93);color:#fff;
+         background:rgba(91,63,209,0.93);color:#fff;
          font-size:11px;font-family:monospace;padding:5px 10px;
          border-radius:7px;pointer-events:none;line-height:1.6;
          box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:200px;z-index:10;"></div>
@@ -1304,7 +1590,7 @@ def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
       <!-- indicator pill -->
       <div style="position:absolute;left:0;right:0;
                   bottom:calc({zpct}% - 12px);height:24px;
-                  background:#1D9E75;border-radius:10px;
+                  background:#8B6CE8;border-radius:10px;
                   box-shadow:0 1px 4px rgba(29,158,117,0.5);
                   transition:bottom .15s ease;"></div>
     </div>
@@ -1314,7 +1600,7 @@ def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
 
     <!-- current value -->
     <div style="margin-top:6px;text-align:center;line-height:1.3;">
-      <div style="font-size:13px;font-weight:700;color:#0F6E56;">{z_label}</div>
+      <div style="font-size:13px;font-weight:700;color:#5B3FD1;">{z_label}</div>
       <div style="font-size:9px;color:#9CA3AF;margin-top:1px;">{above_below}</div>
     </div>
   </div>
@@ -1706,7 +1992,7 @@ def page_pacsmd_analysis():
             fig = go.Figure(go.Scatter(
                 x=list(range(1, len(dis) + 1)), y=dis.tolist(),
                 mode="lines+markers",
-                line=dict(color="#1D9E75", width=2),
+                line=dict(color="#8B6CE8", width=2),
                 marker=dict(size=4),
             ))
             fig.add_hline(y=5, line_dash="dot", line_color="#E24B4A",
@@ -1917,7 +2203,7 @@ def page_analysis():
                     pass
 
         if charts:
-            colors = ["#1D9E75", "#D85A30", "#378ADD"]
+            colors = ["#8B6CE8", "#D85A30", "#378ADD"]
             fig = make_subplots(
                 rows=len(charts), cols=1,
                 subplot_titles=[c[3] for c in charts],
@@ -2010,7 +2296,7 @@ def page_analysis():
                     "ΔEVDW": gb_d["VDWAALS"], "ΔEele": gb_d["EEL"],
                     "ΔEGB": gb_d["EGB"], "ΔESURF": gb_d["ESURF"],
                     "ΔG total": gb_d["DELTA TOTAL"],
-                }, "#1D9E75"), use_container_width=True)
+                }, "#8B6CE8"), use_container_width=True)
 
         st.divider()
         next_button(9, "Next → DBFE")
