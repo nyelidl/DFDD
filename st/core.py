@@ -472,42 +472,89 @@ def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
 
 
 def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
-    """Convert SMILES → 3D PDB + SDF.
-    Uses obabel for 3D coordinate generation (avoids RDKit EmbedMolecule
-    ABI issues on conda-forge builds).  RDKit is used only for charge detection.
+    """Convert SMILES → 3D PDB + SDF, **preserving formal charges**.
+
+    Strategy:
+      1. RDKit: parse SMILES (respects [O-], [N+], etc.), embed 3D, write SDF.
+         RDKit preserves formal charges through embedding & MMFF optimisation.
+      2. obabel SDF → PDB for downstream antechamber compatibility.
+      3. obabel fallback if RDKit embed fails.
+
+    The previous version used `obabel -:smi --gen3d -h` which adds hydrogens
+    based on default valences and **silently neutralises charged groups**
+    (e.g. [O-] → OH).  This broke the protonation state from Dimorphite-DL.
+
     Returns (charge, error).
     """
-    import tempfile, subprocess as _sp
+    import subprocess as _sp
 
-    smiles = smiles.strip()
+    smiles = (smiles or "").strip()
     if not smiles:
         return None, "Empty SMILES"
 
     cwd = workdir or os.path.dirname(output_pdb) or "."
-
-    # ── Step 1: obabel SMILES → 3D SDF ───────────────────────────────────────
     sdf_out = output_sdf or output_pdb + "_tmp.sdf"
+
+    # ── Step 1: RDKit embed (preserves charges) ──────────────────────────────
+    rdkit_ok = False
+    charge = 0
     try:
-        result = _sp.run(
-            ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out,
-             "--gen3d", "--minimize", "--ff", "MMFF94", "-h"],
-            capture_output=True, text=True, timeout=120, cwd=cwd
-        )
-        if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
-            # Fallback: gen3d without minimize
-            result = _sp.run(
-                ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out, "--gen3d", "-h"],
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            raise ValueError("RDKit could not parse SMILES")
+        # Capture formal charge BEFORE adding Hs
+        charge = Chem.GetFormalCharge(mol)
+        # Add explicit Hs — RDKit respects formal charges here, unlike obabel -h
+        molH = Chem.AddHs(mol)
+        # 3D embedding
+        params = AllChem.ETKDGv3()
+        params.randomSeed = 42
+        cid = AllChem.EmbedMolecule(molH, params)
+        if cid < 0:
+            # Fallback to less strict embedding
+            cid = AllChem.EmbedMolecule(molH, useRandomCoords=True, randomSeed=42)
+        if cid < 0:
+            raise ValueError("RDKit could not generate 3D coordinates")
+        # MMFF optimisation (gentle — keeps charged geometry)
+        try:
+            AllChem.MMFFOptimizeMolecule(molH, maxIters=200)
+        except Exception:
+            pass
+        # Write SDF
+        writer = Chem.SDWriter(sdf_out)
+        writer.write(molH)
+        writer.close()
+        if os.path.exists(sdf_out) and os.path.getsize(sdf_out) > 10:
+            rdkit_ok = True
+    except Exception as e:
+        # RDKit failed — fall through to obabel
+        rdkit_ok = False
+
+    # ── Step 2: fallback to obabel if RDKit failed ──────────────────────────
+    if not rdkit_ok:
+        try:
+            # Use --gen3d but NOT -h (let SMILES dictate H count from charges)
+            _sp.run(
+                ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out,
+                 "--gen3d", "--minimize", "--ff", "MMFF94"],
                 capture_output=True, text=True, timeout=120, cwd=cwd
             )
-    except FileNotFoundError:
-        return None, "obabel not found — complete Step 1 (environment setup) first"
-    except Exception as e:
-        return None, f"obabel error: {e}"
+            if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+                _sp.run(
+                    ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out, "--gen3d"],
+                    capture_output=True, text=True, timeout=120, cwd=cwd
+                )
+        except FileNotFoundError:
+            return None, "obabel not found and RDKit embedding failed"
+        except Exception as e:
+            return None, f"obabel error: {e}"
 
-    if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
-        return None, "obabel could not generate 3D structure — check SMILES"
+        if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+            return None, "Could not generate 3D structure (RDKit + obabel both failed)"
 
-    # ── Step 2: obabel SDF → PDB ──────────────────────────────────────────────
+    # ── Step 3: SDF → PDB via obabel (no -h, preserve SDF state) ────────────
     try:
         _sp.run(
             ["obabel", sdf_out, "-opdb", "-O", output_pdb],
@@ -518,16 +565,6 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
 
     if not os.path.exists(output_pdb):
         return None, "obabel could not write PDB file"
-
-    # ── Step 3: RDKit for formal charge only (no EmbedMolecule) ──────────────
-    charge = 0
-    try:
-        from rdkit import Chem
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is not None:
-            charge = Chem.GetFormalCharge(mol)
-    except Exception:
-        pass
 
     return charge, None
 
@@ -622,6 +659,11 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
     """
     SVD-based cavity-axis detection; translate guest by `distance` Å
     along that axis. Returns (ok, log).
+
+    The output PDB includes:
+      - Host atoms in chain A
+      - Guest atoms in chain B (residue name GST) with CONECT records
+        copied from the input guest_pdb so 3D viewers can draw bonds
     """
     try:
         from openmm.app import PDBFile, Modeller
@@ -643,14 +685,19 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
         guest_cent    = guest_coords - guest_coords.mean(axis=0) + host_center
         guest_shifted = guest_cent + normal * distance
 
+        # Write a temporary shifted guest PDB with chain B (avoids residue clash
+        # with host chain A, and lets viewers distinguish host vs guest cleanly)
         shifted_pdb = output_pdb + "_tmp_guest.pdb"
         with open(shifted_pdb, "w") as f:
             for i, atom in enumerate(pdb_guest.topology.atoms()):
                 x, y, z = guest_shifted[i]
+                # Use chain B for guest, residue name GST, residue number 1
+                # Element symbol right-justified in cols 77-78
+                el = (atom.element.symbol if atom.element else "C")[:2]
                 f.write(
-                    f"ATOM  {i+1:5d} {atom.name:>4s} GST A   1    "
-                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           "
-                    f"{atom.element.symbol:>2s}\n"
+                    f"ATOM  {i+1:5d}  {atom.name[:3]:<3s} GST B   1    "
+                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          "
+                    f"{el:>2s}\n"
                 )
             f.write("END\n")
 
@@ -660,7 +707,52 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
         with open(output_pdb, "w") as f:
             PDBFile.writeFile(mod.topology, mod.positions, f)
 
-        os.remove(shifted_pdb)
+        # ── Append CONECT records for the guest so 3D viewers draw bonds ────
+        # OpenMM's PDBFile.writeFile does NOT emit CONECT for non-standard
+        # residues by default, leaving guests as disconnected dots in 3Dmol/
+        # PyMOL etc.  We extract bonds from the guest topology and append.
+        try:
+            host_natom = pdb_host.topology.getNumAtoms()
+            # Map guest topology atom indices → indices in the merged PDB
+            # (host atoms come first, then guest atoms in the same order)
+            guest_atoms = list(pdb_gs.topology.atoms())
+            # In the output PDB, atom serial numbers start at 1 and increment
+            # in topology order: 1..host_natom for host, then guest atoms.
+            # PDB CONECT serials are 1-based.
+            conect_lines = []
+            for bond in pdb_gs.topology.bonds():
+                a, b = bond.atom1, bond.atom2
+                # Find their position in the guest atom list
+                ia = guest_atoms.index(a)
+                ib = guest_atoms.index(b)
+                # Convert to PDB serial in merged file
+                sa = host_natom + ia + 1
+                sb = host_natom + ib + 1
+                conect_lines.append(f"CONECT{sa:5d}{sb:5d}\n")
+
+            if conect_lines:
+                # Insert CONECT records before the END line
+                with open(output_pdb) as f:
+                    content = f.read()
+                if "\nEND\n" in content:
+                    content = content.replace(
+                        "\nEND\n", "\n" + "".join(conect_lines) + "END\n"
+                    )
+                elif content.rstrip().endswith("END"):
+                    content = content.rstrip()[:-3] + "".join(conect_lines) + "END\n"
+                else:
+                    content = content + "".join(conect_lines) + "END\n"
+                with open(output_pdb, "w") as f:
+                    f.write(content)
+        except Exception:
+            # CONECT generation is best-effort; if it fails the complex is
+            # still chemically correct, just visually disconnected.
+            pass
+
+        try:
+            os.remove(shifted_pdb)
+        except OSError:
+            pass
         return True, f"Complex saved to {output_pdb}"
 
     except Exception as e:
@@ -790,48 +882,93 @@ system = prmtop.createSystem(
 )
 integrator = LangevinMiddleIntegrator(300*kelvin, 1/picosecond, 0.002*picoseconds)
 integrator.setConstraintTolerance(1e-5)
-simulation = Simulation(prmtop.topology, system, integrator)
+
+# Try GPU first, fall back to CPU
+simulation = None
+for plat_name in ["CUDA", "OpenCL", "CPU"]:
+    try:
+        plat = Platform.getPlatformByName(plat_name)
+        simulation = Simulation(prmtop.topology, system, integrator, plat)
+        print(f"Platform: {{plat_name}}")
+        break
+    except Exception:
+        continue
+if simulation is None:
+    raise RuntimeError("No OpenMM platform available")
+
 simulation.context.setPositions(inpcrd.positions)
 
-# Position restraints — heavy atoms of first 30 residues
-k = 10000 * kilojoule_per_mole / nanometer**2
+# ─────────────────────────────────────────────────────────────────────
+# STEP 1: Minimize WITHOUT restraints (let everything relax)
+# ─────────────────────────────────────────────────────────────────────
+print("Minimizing (unrestrained)...")
+simulation.minimizeEnergy(maxIterations={min_iters})
+
+# Capture post-minimization positions as restraint reference.
+# These are used for heating/equilibration so the solute doesn't drift
+# while waters thermalise.
+pos_min = simulation.context.getState(getPositions=True)\\
+            .getPositions(asNumpy=True).value_in_unit(nanometer)
+
+# ─────────────────────────────────────────────────────────────────────
+# STEP 2: Add position restraints on SOLUTE heavy atoms only
+# (host + guest, NOT water/ions). Reference = post-minimization pos.
+# ─────────────────────────────────────────────────────────────────────
+SOLVENT_RESN = {{"WAT", "HOH", "TIP3", "OPC", "Na+", "Cl-", "K+", "Mg+", "NA", "CL"}}
+
+k = 1000 * kilojoule_per_mole / nanometer**2  # gentler than 10000 for stability
 posres = CustomExternalForce("0.5*k*((x-x0)^2+(y-y0)^2+(z-z0)^2)")
 posres.addPerParticleParameter("k")
 posres.addPerParticleParameter("x0")
 posres.addPerParticleParameter("y0")
 posres.addPerParticleParameter("z0")
 
-pos0 = simulation.context.getState(getPositions=True)\\
-         .getPositions(asNumpy=True).value_in_unit(nanometer)
-
 n_restrained = 0
 for atom in prmtop.topology.atoms():
-    if atom.residue.index >= 30:
-        break
-    if atom.element and atom.element.symbol != "H":
-        x, y, z = pos0[atom.index]
-        posres.addParticle(atom.index, [k, x, y, z])
-        n_restrained += 1
+    resn = atom.residue.name.strip().upper()
+    if resn in SOLVENT_RESN:
+        continue  # never restrain solvent or ions
+    if atom.element is None or atom.element.symbol == "H":
+        continue  # heavy atoms only
+    x, y, z = pos_min[atom.index]
+    posres.addParticle(atom.index, [k, x, y, z])
+    n_restrained += 1
+
+if n_restrained == 0:
+    raise RuntimeError(
+        "No solute heavy atoms found to restrain. "
+        "Check that the topology has non-solvent residues."
+    )
 
 system.addForce(posres)
 simulation.context.reinitialize(preserveState=True)
-print(f"Restrained {{n_restrained}} heavy atoms")
+print(f"Restrained {{n_restrained}} solute heavy atoms (k=1000 kJ/mol/nm^2)")
 
-print("Minimizing...")
-simulation.minimizeEnergy(maxIterations={min_iters})
-print("Heating 0 → 300 K...")
+# ─────────────────────────────────────────────────────────────────────
+# STEP 3: Heat 0 → 300 K with restraints on
+# ─────────────────────────────────────────────────────────────────────
+print("Heating 0 -> 300 K...")
 simulation.context.setVelocitiesToTemperature(0*kelvin)
 for T in [50, 100, 150, 200, 250, 300]:
     integrator.setTemperature(T*kelvin)
     simulation.step({heat_steps})
     print(f"  {{T}} K done")
 
-print("NVT equilibration...")
+# ─────────────────────────────────────────────────────────────────────
+# STEP 4: NVT equilibration at 300 K with restraints on
+# ─────────────────────────────────────────────────────────────────────
+print("NVT equilibration (restrained)...")
 simulation.step({nvt_steps})
+
+# ─────────────────────────────────────────────────────────────────────
+# STEP 5: Production with restraints on (gentle pre-cMD relaxation)
+# ─────────────────────────────────────────────────────────────────────
 print("Restrained production...")
 simulation.step({prod_steps})
 
-# Save restart
+# ─────────────────────────────────────────────────────────────────────
+# STEP 6: Save final restart (positions, velocities, box)
+# ─────────────────────────────────────────────────────────────────────
 st2 = simulation.context.getState(getPositions=True, getVelocities=True)
 pos_A   = st2.getPositions(asNumpy=True).value_in_unit(nanometer) * 10.0
 vel_Aps = st2.getVelocities(asNumpy=True).value_in_unit(nanometer/picosecond) * 10.0
