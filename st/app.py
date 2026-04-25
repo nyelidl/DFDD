@@ -186,36 +186,49 @@ button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
     transform: translateY(0);
 }
 
-/* Next → navigation buttons — mint green (distinct from action buttons) */
-.dfdd-next-btn > button, .dfdd-next-btn > button[kind="primary"] {
-    background-color: var(--dfdd-accent-mint-ink) !important;
-    border-color: var(--dfdd-accent-mint-ink) !important;
-    color: #fff !important;
-    font-size: 1rem !important;
+/* Next → navigation buttons — mint green via key prefix targeting.
+   Streamlit adds the key as part of the button's test-id/aria label,
+   so we target the wrapper div containing a button whose text starts with Next */
+.dfdd-next-btn button,
+.dfdd-next-btn > button,
+.dfdd-next-btn .stButton button,
+.dfdd-next-btn .stButton > button,
+div.dfdd-next-btn button[kind="primary"],
+div.dfdd-next-btn > div > button {
+    background-color: #0E7A60 !important;
+    border-color: #0E7A60 !important;
+    color: #ffffff !important;
     font-weight: 600 !important;
-    padding: 0.65rem 1.8rem !important;
     border-radius: 12px !important;
     letter-spacing: 0.02em !important;
+    box-shadow: 0 2px 8px rgba(14,122,96,0.30) !important;
     transition: all 0.15s ease !important;
-    box-shadow: 0 1px 4px rgba(11,122,96,0.25) !important;
+    font-size: 1rem !important;
+    padding: 0.65rem 1.8rem !important;
 }
-.dfdd-next-btn > button:hover {
+div.dfdd-next-btn button[kind="primary"]:hover,
+div.dfdd-next-btn > div > button:hover {
     background-color: #0a5c47 !important;
     border-color: #0a5c47 !important;
-    box-shadow: 0 2px 10px rgba(11,122,96,0.35) !important;
+    box-shadow: 0 3px 12px rgba(14,122,96,0.40) !important;
     transform: translateY(-1px) !important;
 }
+
 @media (prefers-color-scheme: dark) {
-    .dfdd-next-btn > button, .dfdd-next-btn > button[kind="primary"] {
-        background-color: var(--dfdd-accent-mint) !important;
-        border-color: var(--dfdd-accent-mint) !important;
+    .dfdd-next-btn button,
+    .dfdd-next-btn > button,
+    .dfdd-next-btn .stButton button,
+    div.dfdd-next-btn button[kind="primary"],
+    div.dfdd-next-btn > div > button {
+        background-color: #6BCFB8 !important;
+        border-color: #6BCFB8 !important;
         color: #0a2420 !important;
-        box-shadow: 0 1px 4px rgba(107,207,184,0.25) !important;
+        box-shadow: 0 2px 8px rgba(107,207,184,0.25) !important;
     }
-    .dfdd-next-btn > button:hover {
+    div.dfdd-next-btn button[kind="primary"]:hover,
+    div.dfdd-next-btn > div > button:hover {
         background-color: #7de0c9 !important;
         border-color: #7de0c9 !important;
-        box-shadow: 0 2px 10px rgba(107,207,184,0.35) !important;
     }
 }
 
@@ -836,15 +849,54 @@ def log_expander(key, label="📋 Log"):
 def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
     """Render a centred mint-green Next button that advances the wizard.
 
-    Wrapped in .dfdd-next-btn so it picks up the mint-green override rule
-    and is visually distinct from action (lilac primary) buttons.
+    Uses a hidden Streamlit button as the actual click handler, with a visible
+    HTML overlay button styled green. The overlay's onclick triggers the hidden
+    Streamlit button via JS — this bypasses Streamlit's CSS specificity issues.
     """
     st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
+
+    _btn_key = f"next_to_{next_step}{key_suffix}"
+    _hidden_id = f"dfdd_next_hidden_{_btn_key}"
+
+    # Visible styled HTML button that clicks the hidden Streamlit one
+    st.markdown(
+        f"""<div style="display:flex;justify-content:center;margin-bottom:0.5rem;">
+  <button onclick="
+    var btns = window.parent.document.querySelectorAll('button[kind=primary]');
+    btns.forEach(function(b){{
+      if(b.innerText.trim().startsWith('{label[:12].strip()}')){{% b.click(); %}}
+    }});
+  " style="
+    background:#0E7A60;
+    border:none;
+    color:#fff;
+    font-size:1rem;
+    font-weight:600;
+    padding:0.65rem 3rem;
+    border-radius:12px;
+    cursor:pointer;
+    letter-spacing:0.02em;
+    box-shadow:0 2px 10px rgba(14,122,96,0.30);
+    transition:all 0.15s ease;
+    font-family:inherit;
+    min-width:320px;
+  "
+  onmouseover="this.style.background='#0a5c47';this.style.transform='translateY(-1px)'"
+  onmouseout="this.style.background='#0E7A60';this.style.transform='translateY(0)'"
+  >{label}</button>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+    # Hidden real Streamlit button — zero-height, invisible
     col = st.columns([1, 2, 1])[1]
     with col:
-        st.markdown('<div class="dfdd-next-btn">', unsafe_allow_html=True)
-        if st.button(label, key=f"next_to_{next_step}{key_suffix}", type="primary",
-                     use_container_width=True):
+        st.markdown(
+            '<div style="height:0;overflow:hidden;position:absolute;opacity:0;">'
+            f'<span id="{_hidden_id}"></span>',
+            unsafe_allow_html=True,
+        )
+        if st.button(label, key=_btn_key, type="primary", use_container_width=True):
             go_step(next_step)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1647,6 +1699,32 @@ def page_guest():
         output_name = "GST"
     with c2:
         st.info("**Charge method:** AM1-BCC (GAFF2)")
+
+    # Charge options — defined outside columns so always in scope below
+    if input_type.startswith("File"):
+        charge_mode = st.radio(
+            "Formal charge",
+            ["Auto-detect from file", "Set manually"],
+            horizontal=True,
+            key="guest_charge_mode",
+        )
+        manual_charge = st.number_input(
+            "Manual charge", -10, 10, 0,
+            disabled=(charge_mode == "Auto-detect from file"),
+            key="guest_manual_charge",
+        )
+    else:
+        charge_mode = st.radio(
+            "Formal charge",
+            ["Auto-detect (RDKit)", "Set manually"],
+            horizontal=True,
+            key="guest_charge_mode",
+        )
+        manual_charge = st.number_input(
+            "Manual charge", -10, 10, 0,
+            disabled=(charge_mode != "Set manually"),
+            key="guest_manual_charge",
+        )
 
     # ── Prepare ───────────────────────────────────────────────────────────────
     if st.button("▶ Prepare guest", type="primary"):
