@@ -847,58 +847,47 @@ def log_expander(key, label="📋 Log"):
             st.code(txt[-4000:])
 
 def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
-    """Render a centred mint-green Next button that advances the wizard.
+    """Render a centred mint-green Next → button that advances the wizard.
 
-    Uses a hidden Streamlit button as the actual click handler, with a visible
-    HTML overlay button styled green. The overlay's onclick triggers the hidden
-    Streamlit button via JS — this bypasses Streamlit's CSS specificity issues.
+    Injects a scoped <style> block keyed to the button's data-testid just
+    before rendering it, which overrides Streamlit's own button colour
+    without a second visible element.
     """
     st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
 
     _btn_key = f"next_to_{next_step}{key_suffix}"
-    _hidden_id = f"dfdd_next_hidden_{_btn_key}"
 
-    # Visible styled HTML button that clicks the hidden Streamlit one
+    # Inject CSS that targets this specific button by its generated test-id.
+    # Streamlit sets data-testid="stButton" on the wrapper div; the key ends
+    # up in the button's aria-label, so we match on that.
     st.markdown(
-        f"""<div style="display:flex;justify-content:center;margin-bottom:0.5rem;">
-  <button onclick="
-    var btns = window.parent.document.querySelectorAll('button[kind=primary]');
-    btns.forEach(function(b){{
-      if(b.innerText.trim().startsWith('{label[:12].strip()}')){{% b.click(); %}}
-    }});
-  " style="
-    background:#0E7A60;
-    border:none;
-    color:#fff;
-    font-size:1rem;
-    font-weight:600;
-    padding:0.65rem 3rem;
-    border-radius:12px;
-    cursor:pointer;
-    letter-spacing:0.02em;
-    box-shadow:0 2px 10px rgba(14,122,96,0.30);
-    transition:all 0.15s ease;
-    font-family:inherit;
-    min-width:320px;
-  "
-  onmouseover="this.style.background='#0a5c47';this.style.transform='translateY(-1px)'"
-  onmouseout="this.style.background='#0E7A60';this.style.transform='translateY(0)'"
-  >{label}</button>
-</div>""",
+        f"""<style>
+div[data-testid="stButton"]:has(button[aria-label="{label}"]) button,
+div[data-testid="stButton"]:has(button[aria-label="{label}"]) button[kind="primary"] {{
+    background-color: #0E7A60 !important;
+    border-color: #0E7A60 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: 0 2px 10px rgba(14,122,96,0.30) !important;
+    padding: 0.65rem 1.8rem !important;
+}}
+div[data-testid="stButton"]:has(button[aria-label="{label}"]) button:hover {{
+    background-color: #0a5c47 !important;
+    border-color: #0a5c47 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 14px rgba(14,122,96,0.40) !important;
+}}
+</style>""",
         unsafe_allow_html=True,
     )
 
-    # Hidden real Streamlit button — zero-height, invisible
     col = st.columns([1, 2, 1])[1]
     with col:
-        st.markdown(
-            '<div style="height:0;overflow:hidden;position:absolute;opacity:0;">'
-            f'<span id="{_hidden_id}"></span>',
-            unsafe_allow_html=True,
-        )
-        if st.button(label, key=_btn_key, type="primary", use_container_width=True):
+        if st.button(label, key=_btn_key, type="primary",
+                     use_container_width=True):
             go_step(next_step)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def section_header(title: str, subtitle: str = ""):
@@ -1676,9 +1665,11 @@ def page_guest():
                 charge_str = ""
                 try:
                     from rdkit import Chem as _Chem
+                    # Always compute from the protonated SMILES (new_smi),
+                    # NOT from the original — this is what matters for antechamber
                     _m = _Chem.MolFromSmiles(new_smi)
-                    if _m:
-                        fc = sum(a.GetFormalCharge() for a in _m.GetAtoms())
+                    if _m is not None:
+                        fc = _Chem.GetFormalCharge(_m)
                         charge_str = f"  |  Charge: **{fc:+d}**"
                 except Exception:
                     pass
@@ -1778,7 +1769,21 @@ def page_guest():
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
-                log   += f"RDKit detected charge: {detected}\n"
+                log   += f"RDKit detected charge from 3D gen: {detected}\n"
+
+                # ── Re-compute formal charge from the protonated SMILES ───────
+                # smiles_to_3d_pdb reads charge from the *original* SMILES which
+                # may be neutral even after pH adjustment (e.g. baicalein → -1).
+                # Always recompute from smi_to_use (the post-protonation SMILES).
+                try:
+                    from rdkit import Chem as _RChem
+                    _pm = _RChem.MolFromSmiles(smi_to_use)
+                    if _pm is not None:
+                        detected = _RChem.GetFormalCharge(_pm)
+                        log += f"Formal charge from protonated SMILES: {detected}\n"
+                except Exception as _ce:
+                    log += f"Charge re-read failed ({_ce}), keeping {detected}\n"
+
                 # Persist the final SMILES used
                 st.session_state["guest_smiles_protonated"] = smi_to_use
                 if charge_mode == "Set manually":
@@ -1895,118 +1900,112 @@ def _build_preview_cached(hp, gp, distance, _mtime_h, _mtime_g):
     return core.read_file(tmp), msg
 
 
-def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
-    """Fixed-camera 3D viewer for host-guest complex.
+def _py3dmol_complex(pdb_str, width=760, height=500, distance=0):
+    """Full-width 3D viewer for host-guest complex with overview camera."""
+    _uid = f"v3dc_{abs(hash(str(distance) + pdb_str[:32])) % 999999}"
 
-    Camera is set once to show the full ~55 Å Z-extent centered at origin.
-    It does NOT follow the ligand — the view stays fixed so the user can see
-    the ligand moving up/down as they adjust Z.
-
-    The Z-position bar on the right of the viewer is purely decorative (updates
-    via the Streamlit slider outside).  Click any atom for element info.
-    """
-    # Percentage for the Z-position indicator inside the viewer
-    # Map -20..+20 Ang → 0..100% (bottom to top)
     zpct = int((distance + 20) / 40 * 100)
     z_label = f"{distance:+d} Å"
-    above_below = "above cavity" if distance < 0 else ("at cavity" if distance == 0 else "below cavity")
+    above_below = ("above cavity" if distance < 0
+                   else ("at cavity" if distance == 0 else "below cavity"))
 
-    return f"""
+    # Safely escape PDB for embedding inside a JS string literal.
+    # Replace backticks and backslashes so the template literal doesn't break.
+    pdb_safe = (pdb_str
+                .replace("\\", "\\\\")
+                .replace("`", "'")
+                .replace("${", "$\\{"))
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-<div style="display:flex;gap:0;width:{width+64}px;height:{height}px;
-            border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;">
-
-  <!-- ── 3D viewer ───────────────────────────────────────────── -->
-  <div style="position:relative;flex:1;background:#FAFBFC;">
-    <div id="v3dc" style="width:100%;height:100%;"></div>
-
-    <!-- atom info popup -->
-    <div id="v3dc-info" style="
-         display:none;position:absolute;top:10px;left:10px;
-         background:rgba(91,63,209,0.93);color:#fff;
-         font-size:11px;font-family:monospace;padding:5px 10px;
-         border-radius:7px;pointer-events:none;line-height:1.6;
-         box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:200px;z-index:10;"></div>
-
-    <!-- camera hint -->
-    <div style="position:absolute;bottom:8px;left:10px;font-size:10px;color:#999;
-         background:rgba(255,255,255,0.8);padding:2px 7px;border-radius:4px;
-         pointer-events:none;">
-      Left-drag: rotate &nbsp;·&nbsp; Scroll: zoom &nbsp;·&nbsp; Click: info
+<style>
+body{{margin:0;padding:0;overflow:hidden;background:#FAFBFC;}}
+#outer{{display:flex;width:100%;height:{height}px;
+        border-radius:10px;overflow:hidden;border:1px solid #E5E7EB;box-sizing:border-box;}}
+#vwrap{{position:relative;flex:1;min-width:0;background:#FAFBFC;}}
+#{_uid}{{width:100%;height:100%;}}
+#ibox{{display:none;position:absolute;top:10px;left:10px;
+       background:rgba(91,63,209,0.92);color:#fff;
+       font-size:11px;font-family:monospace;padding:5px 10px;
+       border-radius:7px;pointer-events:none;line-height:1.6;
+       box-shadow:0 2px 8px rgba(0,0,0,0.25);max-width:220px;z-index:10;}}
+#hint{{position:absolute;bottom:8px;left:10px;font-size:10px;color:#777;
+       background:rgba(255,255,255,0.88);padding:2px 8px;border-radius:4px;
+       pointer-events:none;}}
+#zbar{{width:60px;flex-shrink:0;background:#F3F4F6;display:flex;
+       flex-direction:column;align-items:center;justify-content:space-between;
+       padding:10px 0;border-left:1px solid #E5E7EB;}}
+#zt{{font-size:10px;color:#6B7280;font-weight:500;}}
+#zb{{font-size:10px;color:#6B7280;font-weight:500;}}
+#ztrack{{position:relative;width:18px;flex:1;margin:5px 0;
+         background:#E5E7EB;border-radius:9px;overflow:hidden;}}
+#zfill{{position:absolute;bottom:0;left:0;right:0;
+        height:{zpct}%;background:#C4B5F4;border-radius:9px;}}
+#zpill{{position:absolute;left:0;right:0;
+        bottom:calc({zpct}% - 11px);height:22px;
+        background:#A78BFA;border-radius:9px;}}
+#zval{{margin-top:5px;text-align:center;line-height:1.3;}}
+</style>
+</head>
+<body>
+<div id="outer">
+  <div id="vwrap">
+    <div id="{_uid}"></div>
+    <div id="ibox"></div>
+    <div id="hint">Left-drag: rotate · Scroll: zoom · Click: info</div>
+  </div>
+  <div id="zbar">
+    <div id="zt">+20 Å</div>
+    <div id="ztrack"><div id="zfill"></div><div id="zpill"></div></div>
+    <div id="zb">-20 Å</div>
+    <div id="zval">
+      <div style="font-size:12px;font-weight:700;color:#7C5FC8;">{z_label}</div>
+      <div style="font-size:9px;color:#9CA3AF;">{above_below}</div>
     </div>
   </div>
-
-  <!-- ── Z-axis bar (right panel) ────────────────────────────── -->
-  <div style="width:64px;background:#F3F4F6;display:flex;flex-direction:column;
-              align-items:center;justify-content:space-between;
-              padding:10px 0;border-left:1px solid #E5E7EB;">
-
-    <!-- label top (+20) -->
-    <div style="font-size:10px;color:#6B7280;font-weight:500;">+20 Å</div>
-
-    <!-- track -->
-    <div style="position:relative;width:20px;flex:1;margin:6px 0;
-                background:#E5E7EB;border-radius:10px;overflow:hidden;">
-      <!-- filled portion below indicator -->
-      <div style="position:absolute;bottom:0;left:0;right:0;
-                  height:{zpct}%;background:#C7EDE2;border-radius:10px;
-                  transition:height .15s ease;"></div>
-      <!-- indicator pill -->
-      <div style="position:absolute;left:0;right:0;
-                  bottom:calc({zpct}% - 12px);height:24px;
-                  background:#8B6CE8;border-radius:10px;
-                  box-shadow:0 1px 4px rgba(29,158,117,0.5);
-                  transition:bottom .15s ease;"></div>
-    </div>
-
-    <!-- label bottom (-20) -->
-    <div style="font-size:10px;color:#6B7280;font-weight:500;">-20 Å</div>
-
-    <!-- current value -->
-    <div style="margin-top:6px;text-align:center;line-height:1.3;">
-      <div style="font-size:13px;font-weight:700;color:#5B3FD1;">{z_label}</div>
-      <div style="font-size:9px;color:#9CA3AF;margin-top:1px;">{above_below}</div>
-    </div>
-  </div>
-
 </div>
-
 <script>
-var v = $3Dmol.createViewer(document.getElementById("v3dc"),
-                            {{backgroundColor:"#FAFBFC"}});
-v.addModel(`{pdb_str}`,"pdb");
-v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.15}}}});
-v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.24}}}});
-v.addStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
+(function(){{
+  var el = document.getElementById("{_uid}");
+  if(!el){{ console.error("viewer div not found"); return; }}
+  if(typeof $3Dmol === "undefined"){{ console.error("3Dmol not loaded"); return; }}
 
-/* ── Fixed camera: always shows 55 Å window centred at origin ─────────── */
-/* Rotate 90° around X first so Z-axis = screen vertical */
-v.rotate(90, {{x:1, y:0, z:0}});
-/* Set a fixed zoom level — slab from -27.5 to +27.5 Å in the new Z direction.
-   zoomTo() is intentionally NOT called so the camera does not follow the ligand. */
-v.zoom(0.85);          /* tweak: smaller = more zoomed out */
-v.setView([0, 0, 0,   /* centre of rotation x,y,z */
-           0, 0, 0,   /* camera x,y offset */
-           40]);       /* camera distance — ~55 Å field of view */
+  var pdb = `{pdb_safe}`;
+  var v = $3Dmol.createViewer(el, {{backgroundColor:"#FAFBFC"}});
+  v.addModel(pdb, "pdb");
 
-/* atom click */
-var infoBox = document.getElementById("v3dc-info");
-v.setClickable({{}}, true, function(atom) {{
-  var tag = atom.resn === "GST" ? " [guest]" : " [host]";
-  infoBox.innerHTML = [
-    "Elem: " + (atom.elem||"?") + tag,
-    "Atom: " + (atom.atom||"?"),
-    "Res:  " + (atom.resn||"?") + " " + (atom.resi||""),
-    "XYZ: (" + (atom.x||0).toFixed(1) + ", " +
-               (atom.y||0).toFixed(1) + ", " +
-               (atom.z||0).toFixed(1) + ")"
-  ].join("<br>");
-  infoBox.style.display = "block";
-  setTimeout(function(){{ infoBox.style.display="none"; }}, 3500);
+  /* Host — thin sticks in element colours */
+  v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.12}}}});
+
+  /* Guest — thicker cyan sticks + small spheres */
+  v.setStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.28}}}});
+  v.setStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
+
+  /* Zoom to fit everything, then pull back slightly */
+  v.zoomTo();
+  v.zoom(0.80);
   v.render();
-}});
-v.render();
-</script>"""
+
+  /* Click → atom info */
+  var ibox = document.getElementById("ibox");
+  v.setClickable({{}}, true, function(atom){{
+    var tag = (atom.resn === "GST") ? " [guest]" : " [host]";
+    ibox.innerHTML =
+      "Elem: " + (atom.elem||"?") + tag + "<br>" +
+      "Atom: " + (atom.atom||"?") + "<br>" +
+      "Res: "  + (atom.resn||"?") + " " + (atom.resi||"") + "<br>" +
+      "XYZ: (" + [(atom.x||0),(atom.y||0),(atom.z||0)]
+                  .map(function(n){{return n.toFixed(1);}}).join(", ") + ")";
+    ibox.style.display = "block";
+    setTimeout(function(){{ibox.style.display="none";}}, 3500);
+    v.render();
+  }});
+}})();
+</script>
+</body>
+</html>"""
 
 
 def page_build():
@@ -2050,63 +2049,55 @@ def page_build():
 
     cur_dist = st.session_state.get("build_distance", -15)
 
-    # ── Side-by-side: slider | 3D viewer ─────────────────────────────────────
-    slider_col, viewer_col = st.columns([1, 5])
-
-    with slider_col:
-        st.markdown(
-            '<div style="display:flex;flex-direction:column;align-items:center;'
-            'height:500px;justify-content:space-between;padding:8px 0;">',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-size:11px;color:var(--dfdd-text-muted);font-weight:500;">'
-            '+20 Å</div>',
-            unsafe_allow_html=True,
-        )
-        # Vertical slider — Streamlit renders sliders horizontally; we use CSS rotation
-        new_dist = st.slider(
-            "Z offset (Å)",
-            min_value=-20, max_value=20,
-            value=cur_dist, step=1,
-            key="z_slider_vert",
-            label_visibility="collapsed",
-        )
-        st.markdown(
-            '<div style="font-size:11px;color:var(--dfdd-text-muted);font-weight:500;">'
-            '-20 Å</div>',
-            unsafe_allow_html=True,
-        )
-        # Current value badge
-        _above_below = "above cavity" if new_dist < 0 else ("at cavity" if new_dist == 0 else "below cavity")
-        st.markdown(
-            f'<div style="text-align:center;margin-top:8px;">'
-            f'<div style="font-size:18px;font-weight:700;color:var(--dfdd-primary);">'
-            f'{new_dist:+d} Å</div>'
-            f'<div style="font-size:10px;color:var(--dfdd-text-muted);">{_above_below}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if new_dist != cur_dist:
-            st.session_state["build_distance"] = new_dist
-            st.rerun()
+    # ── Z slider (horizontal, full width) ────────────────────────────────────
+    new_dist = st.slider(
+        "Guest Z offset (Å) — slide to move guest along cavity axis",
+        min_value=-20, max_value=20,
+        value=cur_dist, step=1,
+        key="z_slider_vert",
+    )
+    if new_dist != cur_dist:
+        st.session_state["build_distance"] = new_dist
+        st.rerun()
 
     distance = st.session_state.get("build_distance", -15)
 
-    with viewer_col:
-        mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
-        with st.spinner("Updating 3D view…"):
-            preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
+    # Z value display
+    _above_below = "above cavity" if distance < 0 else ("at cavity" if distance == 0 else "below cavity")
+    st.markdown(
+        f'<div style="text-align:center;margin:-8px 0 10px;">'
+        f'<span style="font-size:15px;font-weight:700;color:var(--dfdd-primary);">'
+        f'{distance:+d} Å</span>'
+        f'<span style="font-size:12px;color:var(--dfdd-text-muted);margin-left:8px;">'
+        f'({_above_below})</span></div>',
+        unsafe_allow_html=True,
+    )
 
-        if preview_pdb:
-            st.components.v1.html(
-                _py3dmol_complex(preview_pdb, 580, 480, distance),
-                height=490,
-            )
-        else:
-            st.error(f"Preview failed: {pmsg}")
+    # ── 3D preview — full width, outside any column ───────────────────────────
+    mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
+    with st.spinner("Updating 3D view…"):
+        preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
+
+    if preview_pdb:
+        st.components.v1.html(
+            _py3dmol_complex(preview_pdb, 760, 500, distance),
+            height=510,
+        )
+    else:
+        st.error(f"❌ 3D preview failed: {pmsg}")
+        st.caption(
+            "This usually means OpenMM is not installed yet (complete Step 0), "
+            "or the guest PDB has no valid atoms. Check the error above."
+        )
+        with st.expander("🔍 Debug: host / guest file info", expanded=False):
+            for label, path in [("Host", hp), ("Guest", gp)]:
+                if path and os.path.exists(path):
+                    lines = open(path).readlines()
+                    atom_lines = [l for l in lines if l.startswith(("ATOM","HETATM"))]
+                    st.caption(f"**{label}** `{path}` — {len(atom_lines)} ATOM/HETATM lines")
+                    st.code("".join(lines[:8]), language="text")
+                else:
+                    st.caption(f"**{label}** not found: `{path}`")
 
     # Fine-tune buttons below viewer
     bc1, bc2, bc3, bc4, bc5 = st.columns([1, 1, 3, 1, 1])
