@@ -52,25 +52,26 @@ st.set_page_config(
 st.markdown("""
 <style>
 /* ═════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Soft orchid theme  (v2 — updated from UX review pages 0-5)
+   DESIGN TOKENS — Warm lilac theme  (v3 — light + dark mode)
+   Light:  brand #A78BFA · tint #F3EEFF · bg #FAFAFE · border #DDD6FE
+   Dark:   brand #BFA8FF · tint #2A2140 · bg #0F0D1A · border #3E3060
    Variable names preserved so all inline HTML keeps working.
    ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Light mode (default) ─────────────────────────────────────────────── */
 :root {
-    /* Brand ramp — orchid purple */
-    --dfdd-primary:        #8B6CE8;
-    --dfdd-primary-dark:   #5B3FD1;
-    --dfdd-primary-darker: #3A2896;
-    --dfdd-primary-tint:   #F2EEFC;
-    --dfdd-primary-bg:     #F9F7FE;
-    --dfdd-border:         #DDD1F7;
+    --dfdd-primary:             #A78BFA;
+    --dfdd-primary-dark:        #7C5FC8;
+    --dfdd-primary-darker:      #4C3596;
+    --dfdd-primary-tint:        #F3EEFF;
+    --dfdd-primary-bg:          #FAFAFE;
+    --dfdd-border:              #DDD6FE;
 
-    /* Text */
-    --dfdd-text-body:      #2C3E50;
-    --dfdd-text-muted:     #6B7280;
-    --dfdd-text-sub:       #9CA3AF;
-    --dfdd-bg-subtle:      #F9FAFB;
+    --dfdd-text-body:           #2C2440;
+    --dfdd-text-muted:          #6B5E8A;
+    --dfdd-text-sub:            #A89EC0;
+    --dfdd-bg-subtle:           #F5F3FA;
 
-    /* Accent ramps */
     --dfdd-accent-red:          #E2553A;
     --dfdd-accent-coral:        #FFB4A2;
     --dfdd-accent-coral-bg:     #FFE8E1;
@@ -81,6 +82,58 @@ st.markdown("""
     --dfdd-accent-sun:          #FFCE6B;
     --dfdd-accent-sun-bg:       #FFF4DD;
     --dfdd-accent-sun-ink:      #8B5E0A;
+
+    --dfdd-step-todo-bg:        #EDE8FF;
+    --dfdd-step-todo-text:      #A89EC0;
+    --dfdd-step-line-todo:      #EDE8FF;
+    --dfdd-card-bg:             #FFFFFF;
+    --dfdd-wait-gradient-start: #FDFCFF;
+    --dfdd-wait-gradient-end:   #F3EEFF;
+    --dfdd-pf-wait-bg:          #EDE8FF;
+    --dfdd-pf-wait-text:        #8880A8;
+    --dfdd-cdot-todo:           #EDE8FF;
+    --dfdd-choice-todo-border:  #EDE8FF;
+    --dfdd-est-pill-bg:         #FFFFFF;
+    --dfdd-input-border-idle:   #EDE8FF;
+    --dfdd-hr-color:            #EDE8FF;
+}
+
+/* ── Dark mode overrides ──────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --dfdd-primary:             #BFA8FF;
+        --dfdd-primary-dark:        #D4C2FF;
+        --dfdd-primary-darker:      #EDE5FF;
+        --dfdd-primary-tint:        #2A2140;
+        --dfdd-primary-bg:          #0F0D1A;
+        --dfdd-border:              #3E3060;
+
+        --dfdd-text-body:           #EDE5FF;
+        --dfdd-text-muted:          #B0A4CC;
+        --dfdd-text-sub:            #6E6488;
+        --dfdd-bg-subtle:           #1A1630;
+
+        --dfdd-accent-coral-bg:     #3A1510;
+        --dfdd-accent-coral-ink:    #FFB4A2;
+        --dfdd-accent-mint-bg:      #0A2420;
+        --dfdd-accent-mint-ink:     #6BCFB8;
+        --dfdd-accent-sun-bg:       #2A1C08;
+        --dfdd-accent-sun-ink:      #FFCE6B;
+
+        --dfdd-step-todo-bg:        #2A2140;
+        --dfdd-step-todo-text:      #6E6488;
+        --dfdd-step-line-todo:      #2A2140;
+        --dfdd-card-bg:             #1A1630;
+        --dfdd-wait-gradient-start: #1A1630;
+        --dfdd-wait-gradient-end:   #2A2140;
+        --dfdd-pf-wait-bg:          #2A2140;
+        --dfdd-pf-wait-text:        #6E6488;
+        --dfdd-cdot-todo:           #2A2140;
+        --dfdd-choice-todo-border:  #2A2140;
+        --dfdd-est-pill-bg:         #2A2140;
+        --dfdd-input-border-idle:   #2A2140;
+        --dfdd-hr-color:            #2A2140;
+    }
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -105,8 +158,11 @@ code, pre { font-size: 0.9rem !important; }
 h1, h2, h3 { color: var(--dfdd-primary-dark) !important; }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   BUTTONS
+   BUTTONS — primary (run/action) vs next (navigation)
+   Next → buttons get mint-green so they stand out from action buttons.
    ═════════════════════════════════════════════════════════════════════════ */
+
+/* Primary action buttons (Run, Prepare, Search…) — warm lilac */
 button[kind="primary"], .stButton > button[kind="primary"] {
     background-color: var(--dfdd-primary) !important;
     border-color: var(--dfdd-primary) !important;
@@ -116,12 +172,12 @@ button[kind="primary"], .stButton > button[kind="primary"] {
     padding: 0.6rem 1.4rem !important;
     border-radius: 10px !important;
     transition: all 0.15s ease !important;
-    box-shadow: 0 1px 3px rgba(139,108,232,0.25) !important;
+    box-shadow: 0 1px 3px rgba(167,139,250,0.25) !important;
 }
 button[kind="primary"]:hover, .stButton > button[kind="primary"]:hover {
     background-color: var(--dfdd-primary-dark) !important;
     border-color: var(--dfdd-primary-dark) !important;
-    box-shadow: 0 2px 8px rgba(139,108,232,0.35) !important;
+    box-shadow: 0 2px 8px rgba(167,139,250,0.35) !important;
     transform: translateY(-1px);
 }
 button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
@@ -129,6 +185,40 @@ button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
     border-color: var(--dfdd-primary-darker) !important;
     transform: translateY(0);
 }
+
+/* Next → navigation buttons — mint green (distinct from action buttons) */
+.dfdd-next-btn > button, .dfdd-next-btn > button[kind="primary"] {
+    background-color: var(--dfdd-accent-mint-ink) !important;
+    border-color: var(--dfdd-accent-mint-ink) !important;
+    color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    padding: 0.65rem 1.8rem !important;
+    border-radius: 12px !important;
+    letter-spacing: 0.02em !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 1px 4px rgba(11,122,96,0.25) !important;
+}
+.dfdd-next-btn > button:hover {
+    background-color: #0a5c47 !important;
+    border-color: #0a5c47 !important;
+    box-shadow: 0 2px 10px rgba(11,122,96,0.35) !important;
+    transform: translateY(-1px) !important;
+}
+@media (prefers-color-scheme: dark) {
+    .dfdd-next-btn > button, .dfdd-next-btn > button[kind="primary"] {
+        background-color: var(--dfdd-accent-mint) !important;
+        border-color: var(--dfdd-accent-mint) !important;
+        color: #0a2420 !important;
+        box-shadow: 0 1px 4px rgba(107,207,184,0.25) !important;
+    }
+    .dfdd-next-btn > button:hover {
+        background-color: #7de0c9 !important;
+        border-color: #7de0c9 !important;
+        box-shadow: 0 2px 10px rgba(107,207,184,0.35) !important;
+    }
+}
+
 button[kind="secondary"], .stButton > button[kind="secondary"] {
     font-size: 0.95rem !important;
     border-radius: 10px !important;
@@ -167,7 +257,7 @@ button[kind="secondary"]:hover {
     box-shadow: 0 0 0 5px var(--dfdd-primary-tint);
     transform: scale(1.08);
 }
-.step-todo .step-circle { background: #EDEAF3; color: #A8A2B8; }
+.step-todo .step-circle { background: var(--dfdd-step-todo-bg); color: var(--dfdd-step-todo-text); }
 .step-label {
     font-size: 11px; margin-top: 6px;
     text-align: center; color: var(--dfdd-text-muted);
@@ -178,7 +268,7 @@ button[kind="secondary"]:hover {
 }
 .step-line {
     flex: 1; height: 2px;
-    background: #EDEAF3; margin: 0 2px 22px;
+    background: var(--dfdd-step-line-todo); margin: 0 2px 22px;
     transition: background 0.3s ease; border-radius: 2px;
 }
 .step-line.done { background: var(--dfdd-primary); }
@@ -200,34 +290,34 @@ button[kind="secondary"]:hover {
    CARDS — wait, mol, choice
    ═════════════════════════════════════════════════════════════════════════ */
 .wait-card {
-    background: linear-gradient(135deg, #FDFCFF 0%, #F2EEFC 100%);
+    background: linear-gradient(135deg, var(--dfdd-wait-gradient-start) 0%, var(--dfdd-wait-gradient-end) 100%);
     border: 1px solid var(--dfdd-border);
     border-radius: 16px; padding: 2rem 2.5rem;
     text-align: center; margin: 1.25rem 0;
-    box-shadow: 0 2px 10px rgba(139,108,232,0.06);
+    box-shadow: 0 2px 10px rgba(167,139,250,0.06);
 }
 .wait-title {
     font-size: 1.5rem; font-weight: 600;
-    color: var(--dfdd-primary-dark); margin-bottom: 0.6rem;
+    color: var(--dfdd-primary-darker); margin-bottom: 0.6rem;
 }
 .wait-sub { color: var(--dfdd-text-muted); font-size: 1.02rem; line-height: 1.6; }
 
 .mol-card {
     background: var(--dfdd-bg-subtle);
-    border: 1px solid #EDEAF3; border-radius: 12px; padding: 1rem;
+    border: 1px solid var(--dfdd-border); border-radius: 12px; padding: 1rem;
 }
 .choice-card {
-    border: 2px solid #EDEAF3; border-radius: 12px;
+    border: 2px solid var(--dfdd-choice-todo-border); border-radius: 12px;
     padding: 1.1rem; cursor: pointer;
-    transition: all 0.18s ease; background: #fff; font-size: 1rem;
+    transition: all 0.18s ease; background: var(--dfdd-card-bg); font-size: 1rem;
 }
 .choice-card:hover {
     border-color: var(--dfdd-primary); transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(139,108,232,0.10);
+    box-shadow: 0 2px 8px rgba(167,139,250,0.12);
 }
 .choice-card.selected {
     border-color: var(--dfdd-primary); background: var(--dfdd-primary-tint);
-    box-shadow: 0 1px 4px rgba(139,108,232,0.12);
+    box-shadow: 0 1px 4px rgba(167,139,250,0.14);
 }
 
 /* ── Running / done state cards (pages 4 & 5) ──────────────────────────── */
@@ -282,7 +372,7 @@ button[kind="secondary"]:hover {
     border: 1px solid var(--dfdd-border);
     border-radius: 14px; padding: 1.3rem 1.6rem;
     text-align: center;
-    box-shadow: 0 1px 3px rgba(139,108,232,0.06);
+    box-shadow: 0 1px 3px rgba(167,139,250,0.08);
 }
 .res-value {
     font-size: 2.1rem; font-weight: 600;
@@ -318,7 +408,7 @@ button[kind="secondary"]:hover {
 
 /* Pre-flight compact tags */
 .dfdd-pf-card {
-    background: white; border: 1px solid var(--dfdd-border);
+    background: var(--dfdd-card-bg); border: 1px solid var(--dfdd-border);
     border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem;
 }
 .dfdd-pf-header {
@@ -336,7 +426,7 @@ button[kind="secondary"]:hover {
 .dfdd-pf-tag-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .dfdd-pf-tag.ok     { background: var(--dfdd-accent-mint-bg);  color: var(--dfdd-accent-mint-ink); }
 .dfdd-pf-tag.run    { background: var(--dfdd-accent-sun-bg);   color: var(--dfdd-accent-sun-ink); }
-.dfdd-pf-tag.wait   { background: #EDEAF3; color: #888; }
+.dfdd-pf-tag.wait   { background: var(--dfdd-pf-wait-bg); color: var(--dfdd-pf-wait-text); }
 .dfdd-pf-tag.run .dfdd-pf-tag-dot { animation: dfdd-pulse 1.3s ease-in-out infinite; }
 @keyframes dfdd-pulse { 50% { opacity: 0.4; } }
 
@@ -349,7 +439,7 @@ button[kind="secondary"]:hover {
     gap: 8px; margin-bottom: 1rem;
 }
 .dfdd-host-card {
-    background: white; border: 1.5px solid var(--dfdd-border);
+    background: var(--dfdd-card-bg); border: 1.5px solid var(--dfdd-border);
     border-radius: 11px; padding: 11px 8px; cursor: pointer;
     transition: all 0.18s ease; text-align: center;
     display: flex; flex-direction: column; align-items: center;
@@ -429,7 +519,7 @@ button[kind="secondary"]:hover {
 
 /* PubChem result cards */
 .dfdd-result-card {
-    background: white; border: 1.5px solid var(--dfdd-border);
+    background: var(--dfdd-card-bg); border: 1.5px solid var(--dfdd-border);
     border-radius: 10px; padding: 10px; margin-bottom: 7px;
     display: grid; grid-template-columns: 56px 1fr auto;
     gap: 10px; align-items: center; cursor: pointer; transition: all 0.2s;
@@ -441,7 +531,7 @@ button[kind="secondary"]:hover {
 }
 .dfdd-mol-thumb {
     width: 56px; height: 56px; border-radius: 7px;
-    background: white; border: 0.5px solid var(--dfdd-border);
+    background: var(--dfdd-card-bg); border: 0.5px solid var(--dfdd-border);
     display: flex; align-items: center; justify-content: center;
 }
 .dfdd-result-name { font-size: 0.9rem; font-weight: 500; margin-bottom: 2px; }
@@ -453,7 +543,7 @@ button[kind="secondary"]:hover {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dfdd-pick-btn {
-    background: white; color: var(--dfdd-primary-darker);
+    background: var(--dfdd-card-bg); color: var(--dfdd-primary-darker);
     border: 1.5px solid var(--dfdd-border); padding: 6px 12px;
     border-radius: 7px; font-size: 0.82rem; font-weight: 500;
     cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -471,7 +561,7 @@ button[kind="secondary"]:hover {
 }
 .dfdd-est-pill {
     display: inline-flex; align-items: center; gap: 5px;
-    background: white; border-radius: 7px;
+    background: var(--dfdd-est-pill-bg); border-radius: 7px;
     padding: 5px 11px; font-size: 0.82rem; font-weight: 500;
     color: var(--dfdd-primary-darker);
 }
@@ -482,12 +572,12 @@ button[kind="secondary"]:hover {
 .dfdd-cdot { width: 10px; height: 10px; border-radius: 50%; }
 .dfdd-cdot.done    { background: var(--dfdd-primary); opacity: 0.75; }
 .dfdd-cdot.active  { background: var(--dfdd-primary); animation: dfdd-pulse 1s ease-in-out infinite; }
-.dfdd-cdot.todo    { background: #EDEAF3; }
+.dfdd-cdot.todo    { background: var(--dfdd-cdot-todo); }
 
 /* ═════════════════════════════════════════════════════════════════════════
    ALERTS / DIVIDERS
    ═════════════════════════════════════════════════════════════════════════ */
-hr { margin: 1.5rem 0 !important; border-color: #EDEAF3 !important; }
+hr { margin: 1.5rem 0 !important; border-color: var(--dfdd-hr-color) !important; }
 
 div[data-testid="stAlert"] {
     border-radius: 12px !important;
@@ -521,7 +611,7 @@ div[data-testid="stError"] {
 .stNumberInput > div > div > input,
 .stTextArea textarea {
     border-radius: 10px !important;
-    border-color: #EDEAF3 !important;
+    border-color: var(--dfdd-input-border-idle) !important;
     transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 .stTextInput > div > div > input:focus,
@@ -574,6 +664,58 @@ section[data-testid="stSidebar"] hr {
 /* Progress bars */
 div[data-testid="stProgress"] > div > div > div {
     background: var(--dfdd-primary) !important;
+}
+
+/* ── Dark mode Streamlit chrome overrides ─────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    /* Main app background */
+    .stApp, [data-testid="stAppViewContainer"] {
+        background-color: #0F0D1A !important;
+    }
+    /* Main content area */
+    [data-testid="stMain"], section.main {
+        background-color: #0F0D1A !important;
+    }
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: #1A1630 !important;
+    }
+    /* Cards and containers */
+    [data-testid="stVerticalBlock"],
+    [data-testid="stHorizontalBlock"] > div {
+        background-color: transparent !important;
+    }
+    /* Input fields */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stTextArea textarea {
+        background-color: #1A1630 !important;
+        color: #EDE5FF !important;
+    }
+    /* Selectbox */
+    div[data-baseweb="select"] > div {
+        background-color: #1A1630 !important;
+        border-color: #3E3060 !important;
+        color: #EDE5FF !important;
+    }
+    /* Metric cards */
+    [data-testid="stMetric"] {
+        background-color: #1A1630 !important;
+        border-radius: 10px;
+    }
+    /* Expander */
+    [data-testid="stExpander"] {
+        border-color: #3E3060 !important;
+        background-color: #1A1630 !important;
+    }
+    /* Code blocks */
+    [data-testid="stCode"], .stCode {
+        background-color: #1A1630 !important;
+    }
+    /* Dividers */
+    [data-testid="stDivider"] hr {
+        border-color: #2A2140 !important;
+    }
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -692,13 +834,19 @@ def log_expander(key, label="📋 Log"):
             st.code(txt[-4000:])
 
 def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
-    """Render a centred green Next button that advances the wizard."""
+    """Render a centred mint-green Next button that advances the wizard.
+
+    Wrapped in .dfdd-next-btn so it picks up the mint-green override rule
+    and is visually distinct from action (lilac primary) buttons.
+    """
     st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
     col = st.columns([1, 2, 1])[1]
     with col:
+        st.markdown('<div class="dfdd-next-btn">', unsafe_allow_html=True)
         if st.button(label, key=f"next_to_{next_step}{key_suffix}", type="primary",
                      use_container_width=True):
             go_step(next_step)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def section_header(title: str, subtitle: str = ""):
@@ -1266,17 +1414,19 @@ def _charge_from_file(path):
 
 def page_guest():
     render_stepper(2)
-    section_header("\U0001f9ea Prepare guest molecule", "Provide your guest ligand by SMILES, file upload, or draw with Ketcher.")
+    section_header("🧪 Prepare guest molecule",
+                   "Search by name, enter SMILES, draw with Ketcher, or upload a 3D file.")
 
+    # ── Input mode tabs ───────────────────────────────────────────────────────
     input_type = st.radio(
         "Input method",
-        ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
+        ["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
         horizontal=True,
-        index=["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
-            st.session_state.get("guest_input_type", "SMILES")
-            if st.session_state.get("guest_input_type", "SMILES") in
-               ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
-            else "SMILES"
+        index=["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
+            st.session_state.get("guest_input_type", "PubChem search")
+            if st.session_state.get("guest_input_type", "PubChem search") in
+               ["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
+            else "PubChem search"
         ),
         key="guest_input_radio",
     )
@@ -1285,62 +1435,26 @@ def page_guest():
     smiles_in     = ""
     uploaded_file = None
 
-    # ── SMILES ────────────────────────────────────────────────────────────────
-    if input_type == "SMILES":
-
-        # Example guests
-        EXAMPLES = {
-            "Aspirin":      "CC(=O)OC1=CC=CC=C1C(=O)O",
-            "Ibuprofen":    "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
-            "Naproxen":     "COc1ccc2cc(ccc2c1)C(C)C(=O)O",
-            "Caffeine":     "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
-            "Glucose":      "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
-            "Testosterone": "O=C1CC[C@H]2[C@@H]3CCc4cc(O)cc[C@@]4(C)[C@H]3CC[C@@]12C",
-        }
-
-        st.markdown("**Quick examples** — click to load:")
-        ex_cols = st.columns(len(EXAMPLES))
-        for col, (name, smi) in zip(ex_cols, EXAMPLES.items()):
-            with col:
-                if st.button(name, key=f"ex_{name}", use_container_width=True):
-                    st.session_state["guest_smiles"] = smi
-                    st.rerun()
-
-        smiles_in = st.text_input(
-            "SMILES string",
-            value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
-            help="Paste any valid SMILES or click an example above",
-            key="guest_smiles_input",
-        )
-        if smiles_in:
-            st.caption(f"`{smiles_in}`")
-
-    # ── PubChem name search ───────────────────────────────────────────────────
-    elif input_type == "Search by name (PubChem)":
-        st.markdown(
-            "Type a compound name (common, IUPAC, or trade name) and DFDD will "
-            "fetch the structure from the "
-            "[PubChem](https://pubchem.ncbi.nlm.nih.gov/) database."
-        )
-
-        sc1, sc2 = st.columns([3, 1])
-        with sc1:
-            query = st.text_input(
+    # ── PubChem search ────────────────────────────────────────────────────────
+    if input_type == "PubChem search":
+        st.markdown("#### 🔍 Search compound by name")
+        _sq_col, _sb_col = st.columns([5, 1])
+        with _sq_col:
+            _sq = st.text_input(
                 "Compound name",
                 value=st.session_state.get("guest_pubchem_query", ""),
                 placeholder="e.g. aspirin, caffeine, ibuprofen, paracetamol…",
                 key="guest_pubchem_query_input",
                 label_visibility="collapsed",
             )
-        with sc2:
-            do_search = st.button("🔍 Search", use_container_width=True,
-                                  key="btn_pubchem_search")
+        with _sb_col:
+            _sb = st.button("🔍 Search", key="btn_pubchem_search", type="primary")
 
-        if do_search and query.strip():
-            st.session_state["guest_pubchem_query"] = query.strip()
-            with st.spinner(f"Searching PubChem for “{query.strip()}”…"):
+        if _sb and _sq.strip():
+            st.session_state["guest_pubchem_query"] = _sq.strip()
+            with st.spinner(f"Searching PubChem for '{_sq.strip()}'…"):
                 try:
-                    results = pubchem_search_by_name(query.strip(), max_results=5)
+                    results = pubchem_search_by_name(_sq.strip(), max_results=5)
                     st.session_state["guest_pubchem_results"] = results
                     st.session_state["guest_pubchem_error"]   = None
                 except Exception as e:
@@ -1355,8 +1469,6 @@ def page_guest():
 
         if results:
             st.caption(f"Found {len(results)} match(es) — click **Use this** to load.")
-
-            # Pre-select first result if nothing chosen
             sel_cid = st.session_state.get("guest_pubchem_selected_cid")
             if sel_cid is None:
                 sel_cid = results[0]["cid"]
@@ -1373,57 +1485,76 @@ def page_guest():
                             st.caption("(no image)")
                     with rc2:
                         st.markdown(f"**{r['name']}**  \n"
-                                    f"CID `{r['cid']}` · {r['formula']} · "
-                                    f"MW {r['mw']}")
+                                    f"CID `{r['cid']}` · {r['formula']} · MW {r['mw']}")
                         if r.get("iupac"):
                             st.caption(f"IUPAC: {r['iupac']}")
                         if r.get("smiles"):
                             st.code(r["smiles"], language="text")
                     with rc3:
                         label = "✓ Selected" if is_sel else "Use this"
-                        if st.button(label,
-                                     key=f"pc_pick_{r['cid']}",
+                        if st.button(label, key=f"pc_pick_{r['cid']}",
                                      type="primary" if is_sel else "secondary",
-                                     use_container_width=True,
-                                     disabled=is_sel):
+                                     use_container_width=True, disabled=is_sel):
                             st.session_state["guest_pubchem_selected_cid"] = r["cid"]
                             st.session_state["guest_smiles"] = r["smiles"]
                             st.rerun()
-                        st.markdown(
-                            f"[View on PubChem ↗]({r['pubchem_url']})",
-                            help="Open the compound page in a new tab",
-                        )
+                        st.markdown(f"[View on PubChem ↗]({r['pubchem_url']})")
 
-            # Resolve selected SMILES
-            chosen = next((r for r in results
-                           if r["cid"] == st.session_state.get("guest_pubchem_selected_cid")),
-                          results[0])
+            chosen = next(
+                (r for r in results if r["cid"] == st.session_state.get("guest_pubchem_selected_cid")),
+                results[0],
+            )
             smiles_in = chosen["smiles"]
             st.session_state["guest_smiles"] = smiles_in
-            st.success(f"Using **{chosen['name']}** (CID {chosen['cid']}) — "
-                       f"SMILES loaded.")
+            st.success(f"Using **{chosen['name']}** (CID {chosen['cid']}) — SMILES loaded.")
+
         elif st.session_state.get("guest_pubchem_query") and not err:
-            st.info("No matches. Try a different spelling or a more common name.")
+            st.info("No matches found. Try a different spelling or a more common name.")
+
+    # ── SMILES input ──────────────────────────────────────────────────────────
+    elif input_type == "SMILES":
+        st.markdown("#### Paste or type a SMILES string")
+        _example_row = st.container()
+        with _example_row:
+            st.caption("Quick examples:")
+            ex_cols = st.columns(6)
+            _examples = [
+                ("Aspirin",     "CC(=O)OC1=CC=CC=C1C(=O)O"),
+                ("Caffeine",    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
+                ("Ibuprofen",   "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"),
+                ("Naproxen",    "CC(C1=CC2=CC=CC=C2C=C1)C(=O)O"),
+                ("Glucose",     "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O"),
+                ("Paracetamol", "CC(=O)NC1=CC=C(O)C=C1"),
+            ]
+            for col, (name, smi) in zip(ex_cols, _examples):
+                with col:
+                    if st.button(name, key=f"ex_{name}", use_container_width=True):
+                        st.session_state["guest_smiles"] = smi
+                        st.rerun()
+
+        smiles_in = st.text_input(
+            "SMILES string",
+            value=st.session_state.get("guest_smiles", ""),
+            placeholder="e.g. CC(=O)OC1=CC=CC=C1C(=O)O",
+            key="guest_smiles_input",
+        )
+        if smiles_in:
+            st.session_state["guest_smiles"] = smiles_in
 
     # ── Ketcher draw ──────────────────────────────────────────────────────────
     elif input_type == "Draw (Ketcher)":
         st_ketcher = _try_import_ketcher()
-
         if st_ketcher is None:
-            # Auto-install streamlit-ketcher if not present
             with st.spinner("Installing streamlit-ketcher…"):
                 core.run_cmd(
                     [sys.executable, "-m", "pip", "install", "-q", "streamlit-ketcher"],
-                    timeout=120
+                    timeout=120,
                 )
             st.info("✅ streamlit-ketcher installed — please click **Draw (Ketcher)** again.")
             st.stop()
-
         st.markdown("**Draw your molecule below. SMILES updates automatically.**")
-        # Pre-load with last used SMILES if available
         init_smiles = st.session_state.get("guest_smiles", "")
         drawn_smiles = st_ketcher(init_smiles, height=500, key="ketcher_editor")
-
         if drawn_smiles and drawn_smiles.strip():
             smiles_in = drawn_smiles.strip()
             st.session_state["guest_smiles"] = smiles_in
@@ -1434,10 +1565,11 @@ def page_guest():
 
     # ── File upload ───────────────────────────────────────────────────────────
     else:
+        st.markdown("#### Upload a 3D molecule file")
         uploaded_file = st.file_uploader(
             "Upload molecule file (.pdb or .mol2)",
             type=["pdb", "mol2"],
-            help="PDB or Mol2 format only. Must contain 3D coordinates.",
+            help="Must contain 3D coordinates. Protonation at target pH will be applied.",
             key="guest_file_upload",
         )
         if uploaded_file:
@@ -1445,46 +1577,43 @@ def page_guest():
 
     st.divider()
 
-    # ── pH / protonation ──────────────────────────────────────────────────────
+    # ── pH / protonation (same as anyone-can-dock style) ──────────────────────
     st.markdown("#### 🧫 Protonation state")
+    st.caption(
+        "Uses Dimorphite-DL at the target pH to select the dominant microstate "
+        "before building 3D coordinates and running antechamber AM1-BCC."
+    )
 
     pc1, pc2, pc3 = st.columns([1.2, 1, 1.5])
     with pc1:
         apply_ph = st.checkbox(
             "Adjust protonation at pH",
             value=st.session_state.get("guest_apply_ph", True),
-            help="Applies only to SMILES/Ketcher input (not to uploaded 3D files).",
+            help="Applies to SMILES / PubChem / Ketcher input. Uploaded 3D files are used as-is.",
             key="guest_apply_ph_chk",
         )
         st.session_state["guest_apply_ph"] = apply_ph
-
     with pc2:
         pH_val = st.slider(
-            "Target pH",
-            2.0, 12.0,
-            st.session_state.get("guest_pH", 7.4),
-            0.1,
-            disabled=not apply_ph,
-            key="guest_pH_slider",
+            "Target pH", 2.0, 12.0,
+            st.session_state.get("guest_pH", 7.4), 0.1,
+            disabled=not apply_ph, key="guest_pH_slider",
         )
         st.session_state["guest_pH"] = pH_val
-
     with pc3:
         pH_range = st.slider(
-            "pH range (± around target)",
-            0.1, 2.0,
-            st.session_state.get("guest_pH_range", 0.5),
-            0.1,
+            "pH range (±)", 0.1, 2.0,
+            st.session_state.get("guest_pH_range", 0.5), 0.1,
             disabled=not apply_ph,
-            help="Lower = strict protonation; higher = includes minor microspecies.",
+            help="Lower = strict; higher = includes minor microspecies.",
             key="guest_pH_range_slider",
         )
         st.session_state["guest_pH_range"] = pH_range
 
-    # Live protonation preview (SMILES / Ketcher only)
+    # Live protonation preview
     if apply_ph and smiles_in and smiles_in.strip() and not input_type.startswith("File"):
         if st.button("🔬 Preview protonated SMILES", key="btn_preview_proton"):
-            with st.spinner("Scoring protonation states via Henderson–Hasselbalch…"):
+            with st.spinner("Scoring protonation states…"):
                 new_smi, changed, err = core.protonate_smiles_at_ph(
                     smiles_in.strip(), pH=pH_val, pH_range=pH_range
                 )
@@ -1492,32 +1621,20 @@ def page_guest():
                 st.warning(f"⚠️ Protonation unavailable: {err}")
             else:
                 st.session_state["guest_smiles_protonated"] = new_smi
-                # Compute formal charge on result
                 charge_str = ""
                 try:
-                    from rdkit import Chem
-                    m = Chem.MolFromSmiles(new_smi)
-                    if m:
-                        fc = sum(a.GetFormalCharge() for a in m.GetAtoms())
+                    from rdkit import Chem as _Chem
+                    _m = _Chem.MolFromSmiles(new_smi)
+                    if _m:
+                        fc = sum(a.GetFormalCharge() for a in _m.GetAtoms())
                         charge_str = f"  |  Charge: **{fc:+d}**"
                 except Exception:
                     pass
-
                 if changed:
-                    st.success(
-                        f"✅ Rank-1 microstate at pH {pH_val}:  "
-                        f"`{new_smi}`{charge_str}"
-                    )
-                    st.caption(
-                        f"Input: `{smiles_in.strip()}` → selected by HH score "
-                        f"(pKaNET-style ranking)"
-                    )
+                    st.success(f"✅ Rank-1 microstate at pH {pH_val}: `{new_smi}`{charge_str}")
+                    st.caption(f"Input: `{smiles_in.strip()}` → selected by HH ranking")
                 else:
-                    st.info(
-                        f"No protonation change at pH {pH_val} — "
-                        f"input already matches rank-1 state.{charge_str}"
-                    )
-
+                    st.info(f"No change at pH {pH_val} — input already matches rank-1 state.{charge_str}")
         if st.session_state.get("guest_smiles_protonated"):
             st.caption(f"Selected microstate: `{st.session_state['guest_smiles_protonated']}`")
 
@@ -1528,37 +1645,8 @@ def page_guest():
     with c1:
         st.info("**Guest residue name:** `GST` (fixed)")
         output_name = "GST"
-
     with c2:
         st.info("**Charge method:** AM1-BCC (GAFF2)")
-
-        # Charge options depend on input method
-        if input_type.startswith("File"):
-            charge_mode = st.radio(
-                "Charge",
-                ["Auto-detect from file", "Set manually"],
-                horizontal=True,
-                key="guest_charge_mode",
-            )
-            manual_charge = st.number_input(
-                "Manual charge",
-                -10, 10, 0,
-                disabled=(charge_mode == "Auto-detect from file"),
-                key="guest_manual_charge",
-            )
-        else:
-            charge_mode = st.radio(
-                "Charge",
-                ["Auto-detect (RDKit)", "Set manually"],
-                horizontal=True,
-                key="guest_charge_mode",
-            )
-            manual_charge = st.number_input(
-                "Manual charge",
-                -10, 10, 0,
-                disabled=(charge_mode != "Set manually"),
-                key="guest_manual_charge",
-            )
 
     # ── Prepare ───────────────────────────────────────────────────────────────
     if st.button("▶ Prepare guest", type="primary"):
@@ -1877,55 +1965,91 @@ def page_build():
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown("### 📐 Stage 1 — Position guest along Z-axis")
     st.caption(
-        "Use the **+** / **−** buttons or type a value to slide the guest along the "
-        "cavity axis. The 3D view and the Z-bar update live."
+        "Use the **vertical slider** on the left to slide the guest along the "
+        "cavity axis. The 3D view updates live. The camera is fixed so you can "
+        "always see the full host–guest complex."
     )
 
-    # ── Z controller row (above viewer) ──────────────────────────────────────
     cur_dist = st.session_state.get("build_distance", -15)
 
-    zc1, zc2, zc3, zc4, zc5 = st.columns([1, 1, 2, 1, 1])
-    with zc1:
-        if st.button("−5", key="z_m5", use_container_width=True):
-            st.session_state["build_distance"] = max(-20, cur_dist - 5)
-            st.rerun()
-    with zc2:
-        if st.button("−1", key="z_m1", use_container_width=True):
-            st.session_state["build_distance"] = max(-20, cur_dist - 1)
-            st.rerun()
-    with zc3:
-        new_val = st.number_input(
-            "Z offset (Å)", min_value=-20, max_value=20,
-            value=cur_dist, step=1, label_visibility="collapsed",
-            key="z_num",
+    # ── Side-by-side: slider | 3D viewer ─────────────────────────────────────
+    slider_col, viewer_col = st.columns([1, 5])
+
+    with slider_col:
+        st.markdown(
+            '<div style="display:flex;flex-direction:column;align-items:center;'
+            'height:500px;justify-content:space-between;padding:8px 0;">',
+            unsafe_allow_html=True,
         )
-        if new_val != cur_dist:
-            st.session_state["build_distance"] = new_val
-            st.rerun()
-    with zc4:
-        if st.button("+1", key="z_p1", use_container_width=True):
-            st.session_state["build_distance"] = min(20, cur_dist + 1)
-            st.rerun()
-    with zc5:
-        if st.button("+5", key="z_p5", use_container_width=True):
-            st.session_state["build_distance"] = min(20, cur_dist + 5)
+        st.markdown(
+            '<div style="font-size:11px;color:var(--dfdd-text-muted);font-weight:500;">'
+            '+20 Å</div>',
+            unsafe_allow_html=True,
+        )
+        # Vertical slider — Streamlit renders sliders horizontally; we use CSS rotation
+        new_dist = st.slider(
+            "Z offset (Å)",
+            min_value=-20, max_value=20,
+            value=cur_dist, step=1,
+            key="z_slider_vert",
+            label_visibility="collapsed",
+        )
+        st.markdown(
+            '<div style="font-size:11px;color:var(--dfdd-text-muted);font-weight:500;">'
+            '-20 Å</div>',
+            unsafe_allow_html=True,
+        )
+        # Current value badge
+        _above_below = "above cavity" if new_dist < 0 else ("at cavity" if new_dist == 0 else "below cavity")
+        st.markdown(
+            f'<div style="text-align:center;margin-top:8px;">'
+            f'<div style="font-size:18px;font-weight:700;color:var(--dfdd-primary);">'
+            f'{new_dist:+d} Å</div>'
+            f'<div style="font-size:10px;color:var(--dfdd-text-muted);">{_above_below}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if new_dist != cur_dist:
+            st.session_state["build_distance"] = new_dist
             st.rerun()
 
     distance = st.session_state.get("build_distance", -15)
 
-    # ── Live 3D preview ───────────────────────────────────────────────────────
-    mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
-    with st.spinner("Updating…"):
-        preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
+    with viewer_col:
+        mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
+        with st.spinner("Updating 3D view…"):
+            preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
 
-    if preview_pdb:
-        # Full-width viewer with integrated Z-bar on the right
-        st.components.v1.html(
-            _py3dmol_complex(preview_pdb, 580, 480, distance),
-            height=490
+        if preview_pdb:
+            st.components.v1.html(
+                _py3dmol_complex(preview_pdb, 580, 480, distance),
+                height=490,
+            )
+        else:
+            st.error(f"Preview failed: {pmsg}")
+
+    # Fine-tune buttons below viewer
+    bc1, bc2, bc3, bc4, bc5 = st.columns([1, 1, 3, 1, 1])
+    with bc1:
+        if st.button("−5", key="z_m5", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, distance - 5); st.rerun()
+    with bc2:
+        if st.button("−1", key="z_m1", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, distance - 1); st.rerun()
+    with bc3:
+        st.markdown(
+            f'<div style="text-align:center;padding:6px 0;font-size:13px;'
+            f'color:var(--dfdd-text-muted);">Fine-tune Z offset</div>',
+            unsafe_allow_html=True,
         )
-    else:
-        st.error(f"Preview failed: {pmsg}")
+    with bc4:
+        if st.button("+1", key="z_p1", use_container_width=True):
+            st.session_state["build_distance"] = min(20, distance + 1); st.rerun()
+    with bc5:
+        if st.button("+5", key="z_p5", use_container_width=True):
+            st.session_state["build_distance"] = min(20, distance + 5); st.rerun()
 
     # Stage 1 confirm
     dist_confirmed = st.session_state.get("build_dist_confirmed", False)
@@ -1940,7 +2064,10 @@ def page_build():
     else:
         c_ok, c_edit = st.columns([3, 1])
         with c_ok:
-            st.success(f"✅ Guest position confirmed: Z = **{distance} Å**  ({('above' if distance < 0 else 'at/below')} cavity)")
+            st.success(
+                f"✅ Guest position confirmed: Z = **{distance} Å**  "
+                f"({'above' if distance < 0 else 'at/below'} cavity)"
+            )
         with c_edit:
             if st.button("✏️ Change", key="btn_dist_edit", use_container_width=True):
                 st.session_state["build_dist_confirmed"] = False
@@ -1948,54 +2075,87 @@ def page_build():
 
     st.divider()
 
-    # STAGE 2 - Solvation
-    st.markdown("### Stage 2 -- Add water box")
-
-    sc1, sc2, sc3 = st.columns(3)
-    with sc1:
-        water_type = st.selectbox(
-            "Water model", ["TIP3P", "OPC"],
-            index=0 if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else 1,
-            key="build_water_sel",
-        )
-        st.session_state["build_water_type"] = water_type
-    with sc2:
-        box_buf = st.slider("Water padding (Ang)", 4, 25,
-            st.session_state.get("build_box_buf", 5), step=1, key="build_box_buf_sl")
-        st.session_state["build_box_buf"] = box_buf
-        unit_xy = st.slider("Unit cell X/Y (Ang)", 12, 25,
-            st.session_state.get("build_unit_xy", 13), step=1, key="build_uxy_sl")
-        st.session_state["build_unit_xy"] = unit_xy
-    with sc3:
-        unit_z = st.slider("Unit cell Z (Ang)", 30, 60,
-            st.session_state.get("build_unit_z", 35), step=1, key="build_uz_sl")
-        st.session_state["build_unit_z"] = unit_z
-        translate_z = st.slider("Z-translation (Ang)", -20, 20,
-            st.session_state.get("build_translate_z", 0), step=1, key="build_tz_sl")
-        st.session_state["build_translate_z"] = translate_z
-
+    # ══════════════════════════════════════════════════════════════════════════
+    # STAGE 2 — Water model & solvation
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("### 💧 Stage 2 — Solvate the complex")
     st.caption(
-        f"{water_type} | padding {box_buf} Ang | "
-        f"cell {unit_xy}x{unit_xy}x{unit_z} Ang | Z-shift {translate_z} Ang"
+        "Choose your water model, then click **Prepare complex in water!** "
+        "to run tleap and build the solvated topology."
     )
+
+    # Water model — prominent choice cards
+    st.markdown("#### Water model")
+    wm_col1, wm_col2, wm_col_rest = st.columns([1, 1, 2])
+    with wm_col1:
+        tip3p_sel = st.button(
+            "💧 TIP3P\n\nFast · widely used",
+            key="wm_tip3p",
+            use_container_width=True,
+            type="primary" if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else "secondary",
+        )
+    with wm_col2:
+        opc_sel = st.button(
+            "💧 OPC\n\nMore accurate · slower",
+            key="wm_opc",
+            use_container_width=True,
+            type="primary" if st.session_state.get("build_water_type", "TIP3P") == "OPC" else "secondary",
+        )
+    if tip3p_sel:
+        st.session_state["build_water_type"] = "TIP3P"; st.rerun()
+    if opc_sel:
+        st.session_state["build_water_type"] = "OPC"; st.rerun()
+
+    water_type = st.session_state.get("build_water_type", "TIP3P")
+    st.caption(f"Selected: **{water_type}**")
+
+    # Box parameters (collapsed by default — sensible defaults for most users)
+    with st.expander("⚙️ Advanced box parameters", expanded=False):
+        sc2, sc3 = st.columns(2)
+        with sc2:
+            box_buf = st.slider("Water padding (Å)", 4, 25,
+                st.session_state.get("build_box_buf", 5), step=1, key="build_box_buf_sl")
+            st.session_state["build_box_buf"] = box_buf
+            unit_xy = st.slider("Unit cell X/Y (Å)", 12, 25,
+                st.session_state.get("build_unit_xy", 13), step=1, key="build_uxy_sl")
+            st.session_state["build_unit_xy"] = unit_xy
+        with sc3:
+            unit_z = st.slider("Unit cell Z (Å)", 30, 60,
+                st.session_state.get("build_unit_z", 35), step=1, key="build_uz_sl")
+            st.session_state["build_unit_z"] = unit_z
+            translate_z = st.slider("Z-translation (Å)", -20, 20,
+                st.session_state.get("build_translate_z", 0), step=1, key="build_tz_sl")
+            st.session_state["build_translate_z"] = translate_z
+        st.caption(
+            f"{water_type} · padding {box_buf} Å · "
+            f"cell {unit_xy}×{unit_xy}×{unit_z} Å · Z-shift {translate_z} Å"
+        )
+
+    # Always read from session state so values survive expander collapse
+    box_buf    = st.session_state.get("build_box_buf", 5)
+    unit_xy    = st.session_state.get("build_unit_xy", 13)
+    unit_z     = st.session_state.get("build_unit_z", 35)
+    translate_z = st.session_state.get("build_translate_z", 0)
 
     water_ff  = "leaprc.water.tip3p" if water_type == "TIP3P" else "leaprc.water.opc"
     water_box = "TIP3PBOX"           if water_type == "TIP3P" else "OPCBOX"
 
-    if st.button("OK -- build complex & add water", type="primary", key="btn_solvate"):
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    if st.button("🌊 Prepare complex in water!", type="primary", key="btn_solvate",
+                 use_container_width=False):
         cx_out = wpath("complex.pdb")
-        with st.spinner("Building complex..."):
+        with st.spinner("Building host–guest complex…"):
             ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
         if not ok:
             st.error(f"Build failed: {msg}"); st.stop()
-        st.success("Complex built")
+        st.success("✅ Complex assembled")
 
         ht  = st.session_state.get("host_type", "BCD_DFT")
         hff = st.session_state.get("host_forcefield", "DFT")
         if hff == "GLYCAM06":
             core.insert_ter_records(cx_out)
 
-        with st.spinner("Running tleap... (~30 s)"):
+        with st.spinner(f"Running tleap with {water_type}… (~30 s)"):
             script = core.write_tleap_script(
                 workdir=WD(), host_forcefield=hff,
                 host_prep=st.session_state.get("host_prep", ""),
@@ -2017,7 +2177,7 @@ def page_build():
 
         st.session_state["build_done"] = True
         st.session_state["topo_done"]  = True
-        st.success("Solvated system ready!")
+        st.success(f"🌊 Solvated system ready! ({water_type} water box)")
 
         mc1, mc2, mc3 = st.columns(3)
         for col, fname in zip([mc1, mc2, mc3],
@@ -2025,7 +2185,7 @@ def page_build():
             p = wpath(fname)
             with col:
                 st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "---")
-        next_button(4, "Next -> Minimization & heating", key_suffix="_built")
+        next_button(4, "Next → Minimization & heating", key_suffix="_built")
 
     log_expander("log_tleap")
 
