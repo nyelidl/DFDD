@@ -227,9 +227,170 @@ def _write_glycam_leap(host_type, pdb_fname, prep_fname, dat_fname, workdir):
     return script_name
 
 
-# ─── Guest Preparation ────────────────────────────────────────────────────────
+# ─── Guest Preparation ─────────────────────────────────────────────
 
-# ── Ionisable site SMARTS (subset of pKaNET, covers common drug-like groups) ─
+# ── Chromone/flavonoid A-ring phenol detection (ported from pKaNET Cloud) ────
+
+def _detect_chromone_system(mol):
+    """Return atom indices of the fused chromen-4-one (flavone backbone) system."""
+    ring_info = mol.GetRingInfo()
+    rings = [set(r) for r in ring_info.AtomRings() if len(r) == 6]
+    if not rings:
+        return set()
+
+    def _has_exo_carbonyl(atom_idx):
+        atom = mol.GetAtomWithIdx(atom_idx)
+        if atom.GetSymbol() != "C":
+            return False
+        for bond in atom.GetBonds():
+            other = bond.GetOtherAtom(atom)
+            if other.GetSymbol() != "O" or other.IsInRing():
+                continue
+            bo = bond.GetBondTypeAsDouble()
+            if bo == 2.0:
+                return True
+            if bo == 1.5 and other.GetTotalNumHs() == 0 and other.GetDegree() == 1:
+                return True
+        return False
+
+    pyrone_rings = [
+        ring for ring in rings
+        if sum(1 for i in ring if mol.GetAtomWithIdx(i).GetSymbol() == "O") == 1
+        and any(_has_exo_carbonyl(i) for i in ring)
+    ]
+    if not pyrone_rings:
+        return set()
+
+    system: set = set()
+    for py in pyrone_rings:
+        system.update(py)
+        for other in rings:
+            if other is not py and len(py & other) >= 2:
+                system.update(other)
+    return system
+
+
+def _find_flavone_A_ring_phenols(mol):
+    """Position-aware pKa for chromone A-ring phenolic OHs.
+
+    Baicalein C7-OH: ortho to ring-O of pyranone + one ortho phenol neighbour
+    (C6-OH) -> flavone_phenol_catechol_pair pKa 7.0 -> deprotonated at pH 7.4.
+
+    Classification:
+      carbonyl_direct=True   -> flavone_3OH_flavonol   pKa  9.0
+      carbonyl_direct=False  -> flavone_5OH_chelated   pKa 11.0
+      ortho_to_ring_O        -> flavone_8OH             pKa  8.5
+      n_ortho_phenols >= 2   -> flavone_6OH_pyrogallol  pKa  8.5
+      n_ortho_phenols == 1   -> flavone_catechol_pair   pKa  7.0
+      else                   -> flavone_isolated        pKa  7.0
+    """
+    chromone_atoms = _detect_chromone_system(mol)
+    if not chromone_atoms:
+        return []
+
+    ring_carbonyl_idx = None
+    ring_oxygen_idx   = None
+
+    for idx in chromone_atoms:
+        atom = mol.GetAtomWithIdx(idx)
+        if atom.GetSymbol() == "C":
+            for bond in atom.GetBonds():
+                other = bond.GetOtherAtom(atom)
+                if (other.GetSymbol() == "O"
+                        and not other.IsInRing()
+                        and bond.GetBondTypeAsDouble() in (2.0, 1.5)
+                        and other.GetTotalNumHs() == 0
+                        and other.GetDegree() == 1):
+                    ring_carbonyl_idx = idx
+                    break
+        elif atom.GetSymbol() == "O" and atom.IsInRing():
+            ring_oxygen_idx = idx
+
+    def _chromone_nbrs(idx):
+        return [n.GetIdx() for n in mol.GetAtomWithIdx(idx).GetNeighbors()
+                if n.GetIdx() in chromone_atoms]
+
+    def _has_phenolic_OH(c_idx):
+        for bond in mol.GetAtomWithIdx(c_idx).GetBonds():
+            other = bond.GetOtherAtom(mol.GetAtomWithIdx(c_idx))
+            if (other.GetSymbol() == "O"
+                    and other.GetTotalNumHs() >= 1
+                    and other.GetDegree() == 1
+                    and bond.GetBondTypeAsDouble() == 1.0
+                    and not other.IsInRing()):
+                return True
+        return False
+
+    candidates = []
+    for atom in mol.GetAtoms():
+        c_idx = atom.GetIdx()
+        if c_idx not in chromone_atoms:
+            continue
+        if atom.GetSymbol() != "C" or not atom.GetIsAromatic():
+            continue
+        if c_idx == ring_carbonyl_idx:
+            continue
+        for bond in atom.GetBonds():
+            other = bond.GetOtherAtom(atom)
+            if (other.GetSymbol() == "O"
+                    and other.GetTotalNumHs() >= 1
+                    and other.GetDegree() == 1
+                    and bond.GetBondTypeAsDouble() == 1.0
+                    and not other.IsInRing()):
+                candidates.append((c_idx, other.GetIdx()))
+                break
+
+    sites = []
+    for c_idx, o_idx in candidates:
+        chromone_nbrs = _chromone_nbrs(c_idx)
+        ortho_carbons = [n for n in chromone_nbrs
+                         if mol.GetAtomWithIdx(n).GetSymbol() == "C"]
+
+        ortho_to_carbonyl = False
+        carbonyl_direct   = False
+        if ring_carbonyl_idx is not None:
+            if ring_carbonyl_idx in chromone_nbrs:
+                ortho_to_carbonyl = True
+                carbonyl_direct   = True
+            else:
+                for nb in chromone_nbrs:
+                    if any(n.GetIdx() == ring_carbonyl_idx
+                           for n in mol.GetAtomWithIdx(nb).GetNeighbors()):
+                        ortho_to_carbonyl = True
+                        carbonyl_direct   = False
+                        break
+
+        ortho_to_ring_O = (ring_oxygen_idx is not None
+                           and ring_oxygen_idx in chromone_nbrs)
+        n_ortho_phenols = sum(1 for n in ortho_carbons if _has_phenolic_OH(n))
+
+        if ortho_to_carbonyl:
+            if carbonyl_direct:
+                label, pka = "flavone_3OH_flavonol", 9.0
+            else:
+                label, pka = "flavone_5OH_chelated", 11.0
+        elif ortho_to_ring_O:
+            label, pka = "flavone_8OH_ortho_pyranO", 8.5
+        elif n_ortho_phenols >= 2:
+            label, pka = "flavone_6OH_pyrogallol_center", 8.5
+        elif n_ortho_phenols == 1:
+            label, pka = "flavone_phenol_catechol_pair", 7.0
+        else:
+            label, pka = "flavone_phenol_isolated", 7.0
+
+        sites.append({
+            "label":         label,
+            "atom_indices":  [o_idx, c_idx],
+            "ionizable_idx": o_idx,
+            "heuristic_pka": pka,
+            "site_type":     "acid",
+        })
+
+    return sites
+
+
+# ── Ionisable site SMARTS table ───────────────────────────────────────────────
+
 _ION_SITES = [
     # label,              SMARTS,                                   heuristic_pKa, type
     ("sulfonic_acid",     "[SX4](=O)(=O)[OX2H1]",                  1.0,  "acid"),
@@ -266,24 +427,61 @@ for _lbl, _sma, _pka, _typ in _ION_SITES:
 
 
 def _find_ion_sites(mol):
-    """Return list of {label, heuristic_pka, site_type} for a molecule."""
-    seen = set()
-    sites = []
+    """Return ionisable sites.
+
+    Pass 1: flavonoid A-ring phenols (claimed atoms block Pass 2).
+    Pass 2: generic SMARTS table, first-match-wins per ionisable atom.
+    """
+    sites         = []
+    seen_ion      = set()
+    claimed_atoms = set()
+
+    for site in _find_flavone_A_ring_phenols(mol):
+        ion_idx = site["ionizable_idx"]
+        if ion_idx in seen_ion:
+            continue
+        seen_ion.add(ion_idx)
+        claimed_atoms.update(site["atom_indices"])
+        sites.append(site)
+
     for lbl, pat, pka, stype in _ION_COMPILED:
         try:
             for match in mol.GetSubstructMatches(pat):
-                k = frozenset(match)
-                if k not in seen:
-                    seen.add(k)
-                    sites.append({"label": lbl, "heuristic_pka": pka, "site_type": stype})
+                if any(a in claimed_atoms for a in match):
+                    continue
+                ion_idx = None
+                for idx in match:
+                    a = mol.GetAtomWithIdx(idx)
+                    if a.GetAtomicNum() in (7, 8, 16) and (
+                            a.GetTotalNumHs() > 0 or a.GetFormalCharge() < 0):
+                        ion_idx = idx
+                        break
+                if ion_idx is None:
+                    for idx in match:
+                        a = mol.GetAtomWithIdx(idx)
+                        if a.GetAtomicNum() in (7, 8, 16):
+                            ion_idx = idx
+                            break
+                if ion_idx is None:
+                    ion_idx = match[0]
+                if ion_idx in seen_ion:
+                    continue
+                seen_ion.add(ion_idx)
+                sites.append({
+                    "label":         lbl,
+                    "heuristic_pka": pka,
+                    "site_type":     stype,
+                    "ionizable_idx": ion_idx,
+                    "atom_indices":  list(match),
+                })
         except Exception:
             pass
     return sites
 
 
 def _hh_score(smiles, sites, pH, ref_mol=None):
-    """Henderson–Hasselbalch score: reward/penalise charge state vs pKa at pH.
-    Higher = more likely. Also penalises aromatic ring loss vs ref.
+    """HH score using per-atom charge at the ionisable position (not net charge).
+    This correctly handles flavonoid partial deprotonation (e.g. baicalein C7-OH).
     """
     try:
         from rdkit import Chem
@@ -294,43 +492,45 @@ def _hh_score(smiles, sites, pH, ref_mol=None):
     except Exception:
         return -999.0
 
-    # Formal charge map
-    fc_map = {a.GetIdx(): a.GetFormalCharge() for a in mol.GetAtoms()}
+    fc_map     = {a.GetIdx(): int(a.GetFormalCharge()) for a in mol.GetAtoms()}
     net_charge = sum(fc_map.values())
+    score      = 0.0
 
-    score = 0.0
-
-    # Per-site HH consistency
     for site in sites:
-        pka  = site["heuristic_pka"]
+        pka   = site["heuristic_pka"]
         stype = site["site_type"]
-        dpH  = abs(pH - pka)
+        dpH   = abs(pH - pka)
+
+        ion_idx = site.get("ionizable_idx")
+        if ion_idx is not None and ion_idx < mol.GetNumAtoms():
+            site_charge = int(fc_map.get(ion_idx, 0))
+        else:
+            atom_idxs   = site.get("atom_indices", [])
+            site_charge = sum(fc_map.get(i, 0) for i in atom_idxs) if atom_idxs else net_charge
+
         if stype == "acid":
-            f_dep = 1.0 / (1.0 + 10.0 ** (pka - pH))   # fraction deprotonated
+            f_dep      = 1.0 / (1.0 + 10.0 ** (pka - pH))
             expect_neg = f_dep > 0.5
-            has_neg = net_charge < 0
-            decisive = f_dep >= 0.65 or f_dep <= 0.35
-            mul = 1.6 if decisive else 1.0
-            if expect_neg and has_neg:
+            decisive   = f_dep >= 0.65 or f_dep <= 0.35
+            mul        = 1.6 if decisive else 1.0
+            if expect_neg and site_charge < 0:
                 score += min(1.5, dpH * 0.55 * mul) + 0.15
-            elif expect_neg and not has_neg:
+            elif expect_neg and site_charge >= 0:
                 score -= min(1.5, dpH * 0.45 * mul) + 0.15
             else:
                 score += 0.1
-        else:  # base
-            f_prot = 1.0 / (1.0 + 10.0 ** (pH - pka))  # fraction protonated
+        else:
+            f_prot     = 1.0 / (1.0 + 10.0 ** (pH - pka))
             expect_pos = f_prot > 0.5
-            has_pos = net_charge > 0
-            decisive = f_prot >= 0.65 or f_prot <= 0.35
-            mul = 1.6 if decisive else 1.0
-            if expect_pos and has_pos:
+            decisive   = f_prot >= 0.65 or f_prot <= 0.35
+            mul        = 1.6 if decisive else 1.0
+            if expect_pos and site_charge > 0:
                 score += min(1.5, dpH * 0.55 * mul) + 0.15
-            elif expect_pos and not has_pos:
+            elif expect_pos and site_charge <= 0:
                 score -= min(1.5, dpH * 0.45 * mul) + 0.15
             else:
                 score += 0.1
 
-    # Penalise aromatic ring loss vs input
     if ref_mol is not None:
         try:
             from rdkit.Chem import rdMolDescriptors
@@ -340,11 +540,63 @@ def _hh_score(smiles, sites, pH, ref_mol=None):
         except Exception:
             pass
 
-    # Small penalty for high net charge
     score -= 0.12 * max(0, abs(net_charge) - 1)
-
     return score
 
+
+def _manual_deprotonate_site(smiles, site):
+    """Force-deprotonate a specific ionisable site. Returns new SMILES or None."""
+    from rdkit import Chem
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    rw = Chem.RWMol(mol)
+    target_idx = site.get("ionizable_idx")
+    if target_idx is None:
+        for idx in site.get("atom_indices", []):
+            if idx >= rw.GetNumAtoms():
+                continue
+            a = rw.GetAtomWithIdx(idx)
+            if a.GetSymbol() in ("O", "S", "N") and a.GetTotalNumHs() >= 1:
+                target_idx = idx
+                break
+    if target_idx is None or target_idx >= rw.GetNumAtoms():
+        return None
+    try:
+        atom = rw.GetAtomWithIdx(target_idx)
+        if site["site_type"] == "acid":
+            atom.SetFormalCharge(-1)
+            atom.SetNumExplicitHs(0)
+            atom.SetNoImplicit(False)
+        else:
+            atom.SetFormalCharge(+1)
+            atom.SetNumExplicitHs(atom.GetTotalNumHs() + 1)
+            atom.SetNoImplicit(False)
+        new_mol = rw.GetMol()
+        Chem.SanitizeMol(new_mol)
+        return Chem.MolToSmiles(new_mol, isomericSmiles=True, canonical=True)
+    except Exception:
+        return None
+
+
+def _supplement_missed_sites(base_smiles, dimorphite_results, ion_sites, target_ph):
+    """Supplement Dimorphite results with force-ionised variants for sites
+    Dimorphite misses (e.g. flavone A-ring OHs like C7-OH of baicalein).
+    """
+    supplemented = list(dimorphite_results)
+    existing     = set(dimorphite_results)
+    for site in ion_sites:
+        pka   = site.get("heuristic_pka", 10.0)
+        stype = site.get("site_type", "acid")
+        if stype == "acid" and (target_ph - pka) < -1.5:
+            continue
+        if stype == "base" and (pka - target_ph) < -1.5:
+            continue
+        new_smi = _manual_deprotonate_site(base_smiles, site)
+        if new_smi and new_smi not in existing:
+            supplemented.append(new_smi)
+            existing.add(new_smi)
+    return supplemented
 
 def _dimorphite_enumerate(smiles, ph_min, ph_max):
     """Call dimorphite-dl via Python API or CLI. Returns list of canonical SMILES."""
@@ -424,7 +676,11 @@ def _dimorphite_enumerate(smiles, ph_min, ph_max):
 
 def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
     """Select the best protonation state at the given pH using a
-    Henderson–Hasselbalch scorer identical to pKaNET rank-1 logic.
+    Henderson–Hasselbalch scorer with position-aware pKa for flavonoids.
+
+    Key fix: candidates from Dimorphite-DL are supplemented with
+    force-ionised variants for sites Dimorphite does not cover (e.g.
+    baicalein C7-OH, pKa 7.0 -> charge -1 at pH 7.4).
 
     Returns (best_smiles, changed, error).
     """
@@ -443,11 +699,14 @@ def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
     ph_min = max(0.0,  pH - pH_range)
     ph_max = min(14.0, pH + pH_range)
 
-    # Enumerate protonation states
+    # Enumerate protonation states via Dimorphite-DL
     candidates = _dimorphite_enumerate(smiles, ph_min, ph_max)
 
-    # Find ionisable sites on the reference molecule
+    # Find ionisable sites (Pass 1 = flavonoid A-ring, Pass 2 = SMARTS table)
     sites = _find_ion_sites(ref_mol)
+
+    # Supplement with force-ionised variants for sites Dimorphite missed
+    candidates = _supplement_missed_sites(smiles, candidates, sites, pH)
 
     # Score each candidate and pick rank-1
     scored = []
@@ -472,89 +731,42 @@ def protonate_smiles_at_ph(smiles, pH=7.4, pH_range=0.5):
 
 
 def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
-    """Convert SMILES → 3D PDB + SDF, **preserving formal charges**.
-
-    Strategy:
-      1. RDKit: parse SMILES (respects [O-], [N+], etc.), embed 3D, write SDF.
-         RDKit preserves formal charges through embedding & MMFF optimisation.
-      2. obabel SDF → PDB for downstream antechamber compatibility.
-      3. obabel fallback if RDKit embed fails.
-
-    The previous version used `obabel -:smi --gen3d -h` which adds hydrogens
-    based on default valences and **silently neutralises charged groups**
-    (e.g. [O-] → OH).  This broke the protonation state from Dimorphite-DL.
-
+    """Convert SMILES → 3D PDB + SDF.
+    Uses obabel for 3D coordinate generation (avoids RDKit EmbedMolecule
+    ABI issues on conda-forge builds).  RDKit is used only for charge detection.
     Returns (charge, error).
     """
-    import subprocess as _sp
+    import tempfile, subprocess as _sp
 
-    smiles = (smiles or "").strip()
+    smiles = smiles.strip()
     if not smiles:
         return None, "Empty SMILES"
 
     cwd = workdir or os.path.dirname(output_pdb) or "."
+
+    # ── Step 1: obabel SMILES → 3D SDF ───────────────────────────────────────
     sdf_out = output_sdf or output_pdb + "_tmp.sdf"
-
-    # ── Step 1: RDKit embed (preserves charges) ──────────────────────────────
-    rdkit_ok = False
-    charge = 0
     try:
-        from rdkit import Chem
-        from rdkit.Chem import AllChem
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            raise ValueError("RDKit could not parse SMILES")
-        # Capture formal charge BEFORE adding Hs
-        charge = Chem.GetFormalCharge(mol)
-        # Add explicit Hs — RDKit respects formal charges here, unlike obabel -h
-        molH = Chem.AddHs(mol)
-        # 3D embedding
-        params = AllChem.ETKDGv3()
-        params.randomSeed = 42
-        cid = AllChem.EmbedMolecule(molH, params)
-        if cid < 0:
-            # Fallback to less strict embedding
-            cid = AllChem.EmbedMolecule(molH, useRandomCoords=True, randomSeed=42)
-        if cid < 0:
-            raise ValueError("RDKit could not generate 3D coordinates")
-        # MMFF optimisation (gentle — keeps charged geometry)
-        try:
-            AllChem.MMFFOptimizeMolecule(molH, maxIters=200)
-        except Exception:
-            pass
-        # Write SDF
-        writer = Chem.SDWriter(sdf_out)
-        writer.write(molH)
-        writer.close()
-        if os.path.exists(sdf_out) and os.path.getsize(sdf_out) > 10:
-            rdkit_ok = True
-    except Exception as e:
-        # RDKit failed — fall through to obabel
-        rdkit_ok = False
-
-    # ── Step 2: fallback to obabel if RDKit failed ──────────────────────────
-    if not rdkit_ok:
-        try:
-            # Use --gen3d but NOT -h (let SMILES dictate H count from charges)
-            _sp.run(
-                ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out,
-                 "--gen3d", "--minimize", "--ff", "MMFF94"],
+        result = _sp.run(
+            ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out,
+             "--gen3d", "--minimize", "--ff", "MMFF94", "-h"],
+            capture_output=True, text=True, timeout=120, cwd=cwd
+        )
+        if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+            # Fallback: gen3d without minimize
+            result = _sp.run(
+                ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out, "--gen3d", "-h"],
                 capture_output=True, text=True, timeout=120, cwd=cwd
             )
-            if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
-                _sp.run(
-                    ["obabel", f"-:{smiles}", "-osdf", "-O", sdf_out, "--gen3d"],
-                    capture_output=True, text=True, timeout=120, cwd=cwd
-                )
-        except FileNotFoundError:
-            return None, "obabel not found and RDKit embedding failed"
-        except Exception as e:
-            return None, f"obabel error: {e}"
+    except FileNotFoundError:
+        return None, "obabel not found — complete Step 1 (environment setup) first"
+    except Exception as e:
+        return None, f"obabel error: {e}"
 
-        if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
-            return None, "Could not generate 3D structure (RDKit + obabel both failed)"
+    if not os.path.exists(sdf_out) or os.path.getsize(sdf_out) < 10:
+        return None, "obabel could not generate 3D structure — check SMILES"
 
-    # ── Step 3: SDF → PDB via obabel (no -h, preserve SDF state) ────────────
+    # ── Step 2: obabel SDF → PDB ──────────────────────────────────────────────
     try:
         _sp.run(
             ["obabel", sdf_out, "-opdb", "-O", output_pdb],
@@ -565,6 +777,16 @@ def smiles_to_3d_pdb(smiles, output_pdb, output_sdf=None, workdir=None):
 
     if not os.path.exists(output_pdb):
         return None, "obabel could not write PDB file"
+
+    # ── Step 3: RDKit for formal charge only (no EmbedMolecule) ──────────────
+    charge = 0
+    try:
+        from rdkit import Chem
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is not None:
+            charge = Chem.GetFormalCharge(mol)
+    except Exception:
+        pass
 
     return charge, None
 
@@ -659,11 +881,6 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
     """
     SVD-based cavity-axis detection; translate guest by `distance` Å
     along that axis. Returns (ok, log).
-
-    The output PDB includes:
-      - Host atoms in chain A
-      - Guest atoms in chain B (residue name GST) with CONECT records
-        copied from the input guest_pdb so 3D viewers can draw bonds
     """
     try:
         from openmm.app import PDBFile, Modeller
@@ -685,19 +902,14 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
         guest_cent    = guest_coords - guest_coords.mean(axis=0) + host_center
         guest_shifted = guest_cent + normal * distance
 
-        # Write a temporary shifted guest PDB with chain B (avoids residue clash
-        # with host chain A, and lets viewers distinguish host vs guest cleanly)
         shifted_pdb = output_pdb + "_tmp_guest.pdb"
         with open(shifted_pdb, "w") as f:
             for i, atom in enumerate(pdb_guest.topology.atoms()):
                 x, y, z = guest_shifted[i]
-                # Use chain B for guest, residue name GST, residue number 1
-                # Element symbol right-justified in cols 77-78
-                el = (atom.element.symbol if atom.element else "C")[:2]
                 f.write(
-                    f"ATOM  {i+1:5d}  {atom.name[:3]:<3s} GST B   1    "
-                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          "
-                    f"{el:>2s}\n"
+                    f"ATOM  {i+1:5d} {atom.name:>4s} GST A   1    "
+                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           "
+                    f"{atom.element.symbol:>2s}\n"
                 )
             f.write("END\n")
 
@@ -707,52 +919,7 @@ def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
         with open(output_pdb, "w") as f:
             PDBFile.writeFile(mod.topology, mod.positions, f)
 
-        # ── Append CONECT records for the guest so 3D viewers draw bonds ────
-        # OpenMM's PDBFile.writeFile does NOT emit CONECT for non-standard
-        # residues by default, leaving guests as disconnected dots in 3Dmol/
-        # PyMOL etc.  We extract bonds from the guest topology and append.
-        try:
-            host_natom = pdb_host.topology.getNumAtoms()
-            # Map guest topology atom indices → indices in the merged PDB
-            # (host atoms come first, then guest atoms in the same order)
-            guest_atoms = list(pdb_gs.topology.atoms())
-            # In the output PDB, atom serial numbers start at 1 and increment
-            # in topology order: 1..host_natom for host, then guest atoms.
-            # PDB CONECT serials are 1-based.
-            conect_lines = []
-            for bond in pdb_gs.topology.bonds():
-                a, b = bond.atom1, bond.atom2
-                # Find their position in the guest atom list
-                ia = guest_atoms.index(a)
-                ib = guest_atoms.index(b)
-                # Convert to PDB serial in merged file
-                sa = host_natom + ia + 1
-                sb = host_natom + ib + 1
-                conect_lines.append(f"CONECT{sa:5d}{sb:5d}\n")
-
-            if conect_lines:
-                # Insert CONECT records before the END line
-                with open(output_pdb) as f:
-                    content = f.read()
-                if "\nEND\n" in content:
-                    content = content.replace(
-                        "\nEND\n", "\n" + "".join(conect_lines) + "END\n"
-                    )
-                elif content.rstrip().endswith("END"):
-                    content = content.rstrip()[:-3] + "".join(conect_lines) + "END\n"
-                else:
-                    content = content + "".join(conect_lines) + "END\n"
-                with open(output_pdb, "w") as f:
-                    f.write(content)
-        except Exception:
-            # CONECT generation is best-effort; if it fails the complex is
-            # still chemically correct, just visually disconnected.
-            pass
-
-        try:
-            os.remove(shifted_pdb)
-        except OSError:
-            pass
+        os.remove(shifted_pdb)
         return True, f"Complex saved to {output_pdb}"
 
     except Exception as e:
@@ -882,93 +1049,48 @@ system = prmtop.createSystem(
 )
 integrator = LangevinMiddleIntegrator(300*kelvin, 1/picosecond, 0.002*picoseconds)
 integrator.setConstraintTolerance(1e-5)
-
-# Try GPU first, fall back to CPU
-simulation = None
-for plat_name in ["CUDA", "OpenCL", "CPU"]:
-    try:
-        plat = Platform.getPlatformByName(plat_name)
-        simulation = Simulation(prmtop.topology, system, integrator, plat)
-        print(f"Platform: {{plat_name}}")
-        break
-    except Exception:
-        continue
-if simulation is None:
-    raise RuntimeError("No OpenMM platform available")
-
+simulation = Simulation(prmtop.topology, system, integrator)
 simulation.context.setPositions(inpcrd.positions)
 
-# ─────────────────────────────────────────────────────────────────────
-# STEP 1: Minimize WITHOUT restraints (let everything relax)
-# ─────────────────────────────────────────────────────────────────────
-print("Minimizing (unrestrained)...")
-simulation.minimizeEnergy(maxIterations={min_iters})
-
-# Capture post-minimization positions as restraint reference.
-# These are used for heating/equilibration so the solute doesn't drift
-# while waters thermalise.
-pos_min = simulation.context.getState(getPositions=True)\\
-            .getPositions(asNumpy=True).value_in_unit(nanometer)
-
-# ─────────────────────────────────────────────────────────────────────
-# STEP 2: Add position restraints on SOLUTE heavy atoms only
-# (host + guest, NOT water/ions). Reference = post-minimization pos.
-# ─────────────────────────────────────────────────────────────────────
-SOLVENT_RESN = {{"WAT", "HOH", "TIP3", "OPC", "Na+", "Cl-", "K+", "Mg+", "NA", "CL"}}
-
-k = 1000 * kilojoule_per_mole / nanometer**2  # gentler than 10000 for stability
+# Position restraints — heavy atoms of first 30 residues
+k = 10000 * kilojoule_per_mole / nanometer**2
 posres = CustomExternalForce("0.5*k*((x-x0)^2+(y-y0)^2+(z-z0)^2)")
 posres.addPerParticleParameter("k")
 posres.addPerParticleParameter("x0")
 posres.addPerParticleParameter("y0")
 posres.addPerParticleParameter("z0")
 
+pos0 = simulation.context.getState(getPositions=True)\\
+         .getPositions(asNumpy=True).value_in_unit(nanometer)
+
 n_restrained = 0
 for atom in prmtop.topology.atoms():
-    resn = atom.residue.name.strip().upper()
-    if resn in SOLVENT_RESN:
-        continue  # never restrain solvent or ions
-    if atom.element is None or atom.element.symbol == "H":
-        continue  # heavy atoms only
-    x, y, z = pos_min[atom.index]
-    posres.addParticle(atom.index, [k, x, y, z])
-    n_restrained += 1
-
-if n_restrained == 0:
-    raise RuntimeError(
-        "No solute heavy atoms found to restrain. "
-        "Check that the topology has non-solvent residues."
-    )
+    if atom.residue.index >= 30:
+        break
+    if atom.element and atom.element.symbol != "H":
+        x, y, z = pos0[atom.index]
+        posres.addParticle(atom.index, [k, x, y, z])
+        n_restrained += 1
 
 system.addForce(posres)
 simulation.context.reinitialize(preserveState=True)
-print(f"Restrained {{n_restrained}} solute heavy atoms (k=1000 kJ/mol/nm^2)")
+print(f"Restrained {{n_restrained}} heavy atoms")
 
-# ─────────────────────────────────────────────────────────────────────
-# STEP 3: Heat 0 → 300 K with restraints on
-# ─────────────────────────────────────────────────────────────────────
-print("Heating 0 -> 300 K...")
+print("Minimizing...")
+simulation.minimizeEnergy(maxIterations={min_iters})
+print("Heating 0 → 300 K...")
 simulation.context.setVelocitiesToTemperature(0*kelvin)
 for T in [50, 100, 150, 200, 250, 300]:
     integrator.setTemperature(T*kelvin)
     simulation.step({heat_steps})
     print(f"  {{T}} K done")
 
-# ─────────────────────────────────────────────────────────────────────
-# STEP 4: NVT equilibration at 300 K with restraints on
-# ─────────────────────────────────────────────────────────────────────
-print("NVT equilibration (restrained)...")
+print("NVT equilibration...")
 simulation.step({nvt_steps})
-
-# ─────────────────────────────────────────────────────────────────────
-# STEP 5: Production with restraints on (gentle pre-cMD relaxation)
-# ─────────────────────────────────────────────────────────────────────
 print("Restrained production...")
 simulation.step({prod_steps})
 
-# ─────────────────────────────────────────────────────────────────────
-# STEP 6: Save final restart (positions, velocities, box)
-# ─────────────────────────────────────────────────────────────────────
+# Save restart
 st2 = simulation.context.getState(getPositions=True, getVelocities=True)
 pos_A   = st2.getPositions(asNumpy=True).value_in_unit(nanometer) * 10.0
 vel_Aps = st2.getVelocities(asNumpy=True).value_in_unit(nanometer/picosecond) * 10.0
