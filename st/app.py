@@ -1,6 +1,7 @@
 """
 app.py — DFDD Streamlit UI  (wizard / linear-flow rewrite)
 All computation is delegated to core.py
+Design system: DFDD hi-fi prototype (Hengphasatporn et al., JCIM 2026)
 """
 
 import streamlit as st
@@ -42,730 +43,414 @@ import core
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="DFDD",
+    page_title="DFDD — Molecular Dynamics Wizard",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── Global CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* ═════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Warm lilac theme  (v3 — light + dark mode)
-   Light:  brand #A78BFA · tint #F3EEFF · bg #FAFAFE · border #DDD6FE
-   Dark:   brand #BFA8FF · tint #2A2140 · bg #0F0D1A · border #3E3060
-   Variable names preserved so all inline HTML keeps working.
-   ═════════════════════════════════════════════════════════════════════════ */
+# ─── Design system CSS injection ───────────────────────────────────────────────
+def _inject_css():
+    st.markdown("""
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <style>
+    /* ── Streamlit chrome reset ─────────────────────────────────────────────── */
+    #MainMenu, footer, header { visibility: hidden; }
+    .block-container { padding: 0 !important; max-width: 100% !important; }
+    [data-testid="stAppViewContainer"] { padding: 0; }
 
-/* ── Light mode (default) ─────────────────────────────────────────────── */
-:root {
-    --dfdd-primary:             #A78BFA;
-    --dfdd-primary-dark:        #7C5FC8;
-    --dfdd-primary-darker:      #4C3596;
-    --dfdd-primary-tint:        #F3EEFF;
-    --dfdd-primary-bg:          #FAFAFE;
-    --dfdd-border:              #DDD6FE;
-
-    --dfdd-text-body:           #2C2440;
-    --dfdd-text-muted:          #6B5E8A;
-    --dfdd-text-sub:            #A89EC0;
-    --dfdd-bg-subtle:           #F5F3FA;
-
-    --dfdd-accent-red:          #E2553A;
-    --dfdd-accent-coral:        #FFB4A2;
-    --dfdd-accent-coral-bg:     #FFE8E1;
-    --dfdd-accent-coral-ink:    #B54A2E;
-    --dfdd-accent-mint:         #6BCFB8;
-    --dfdd-accent-mint-bg:      #E0F6F0;
-    --dfdd-accent-mint-ink:     #0E7A60;
-    --dfdd-accent-sun:          #FFCE6B;
-    --dfdd-accent-sun-bg:       #FFF4DD;
-    --dfdd-accent-sun-ink:      #8B5E0A;
-
-    --dfdd-step-todo-bg:        #EDE8FF;
-    --dfdd-step-todo-text:      #A89EC0;
-    --dfdd-step-line-todo:      #EDE8FF;
-    --dfdd-card-bg:             #FFFFFF;
-    --dfdd-wait-gradient-start: #FDFCFF;
-    --dfdd-wait-gradient-end:   #F3EEFF;
-    --dfdd-pf-wait-bg:          #EDE8FF;
-    --dfdd-pf-wait-text:        #8880A8;
-    --dfdd-cdot-todo:           #EDE8FF;
-    --dfdd-choice-todo-border:  #EDE8FF;
-    --dfdd-est-pill-bg:         #FFFFFF;
-    --dfdd-input-border-idle:   #EDE8FF;
-    --dfdd-hr-color:            #EDE8FF;
-}
-
-/* ── Dark mode overrides ──────────────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
+    /* ── Theme tokens ───────────────────────────────────────────────────────── */
     :root {
-        --dfdd-primary:             #BFA8FF;
-        --dfdd-primary-dark:        #D4C2FF;
-        --dfdd-primary-darker:      #EDE5FF;
-        --dfdd-primary-tint:        #2A2140;
-        --dfdd-primary-bg:          #0F0D1A;
-        --dfdd-border:              #3E3060;
-
-        --dfdd-text-body:           #EDE5FF;
-        --dfdd-text-muted:          #B0A4CC;
-        --dfdd-text-sub:            #6E6488;
-        --dfdd-bg-subtle:           #1A1630;
-
-        --dfdd-accent-coral-bg:     #3A1510;
-        --dfdd-accent-coral-ink:    #FFB4A2;
-        --dfdd-accent-mint-bg:      #0A2420;
-        --dfdd-accent-mint-ink:     #6BCFB8;
-        --dfdd-accent-sun-bg:       #2A1C08;
-        --dfdd-accent-sun-ink:      #FFCE6B;
-
-        --dfdd-step-todo-bg:        #2A2140;
-        --dfdd-step-todo-text:      #6E6488;
-        --dfdd-step-line-todo:      #2A2140;
-        --dfdd-card-bg:             #1A1630;
-        --dfdd-wait-gradient-start: #1A1630;
-        --dfdd-wait-gradient-end:   #2A2140;
-        --dfdd-pf-wait-bg:          #2A2140;
-        --dfdd-pf-wait-text:        #6E6488;
-        --dfdd-cdot-todo:           #2A2140;
-        --dfdd-choice-todo-border:  #2A2140;
-        --dfdd-est-pill-bg:         #2A2140;
-        --dfdd-input-border-idle:   #2A2140;
-        --dfdd-hr-color:            #2A2140;
+        --accent:        #6366f1;
+        --accent2:       #06b6d4;
+        --accent-soft:   rgba(99,102,241,0.08);
+        --card-bg:       rgba(255,255,255,0.72);
+        --card-border:   rgba(255,255,255,0.88);
+        --border:        rgba(99,102,241,0.14);
+        --surface:       rgba(255,255,255,0.78);
+        --input-bg:      rgba(255,255,255,0.95);
+        --terminal-bg:   oklch(11% 0.04 270);
+        --text-primary:  oklch(14% 0.025 270);
+        --text-secondary:oklch(40% 0.015 270);
+        --text-tertiary: oklch(60% 0.008 270);
+        --sidebar-bg:    oklch(14% 0.065 274);
+        --sidebar-border:oklch(22% 0.06 274);
     }
-}
 
-/* ═════════════════════════════════════════════════════════════════════════
-   TYPOGRAPHY
-   ═════════════════════════════════════════════════════════════════════════ */
-html, body, [class*="css"] {
-    font-size: 17px !important;
-    color: var(--dfdd-text-body);
-}
-.stMarkdown p, .stMarkdown li, .stMarkdown td, .stMarkdown th,
-.stText, label, .stRadio label, .stCheckbox label,
-.stTextInput input, .stSelectbox select,
-div[data-testid="stWidgetLabel"] {
-    font-size: 1rem !important;
-}
-.stCaption, [data-testid="stCaptionContainer"] {
-    font-size: 0.88rem !important;
-    color: var(--dfdd-text-muted) !important;
-}
-section[data-testid="stSidebar"] * { font-size: 0.95rem !important; }
-code, pre { font-size: 0.9rem !important; }
-h1, h2, h3 { color: var(--dfdd-primary-dark) !important; }
-
-/* ═════════════════════════════════════════════════════════════════════════
-   BUTTONS — primary (run/action) vs next (navigation)
-   Next → buttons get mint-green so they stand out from action buttons.
-   ═════════════════════════════════════════════════════════════════════════ */
-
-/* Primary action buttons (Run, Prepare, Search…) — warm lilac */
-button[kind="primary"], .stButton > button[kind="primary"] {
-    background-color: var(--dfdd-primary) !important;
-    border-color: var(--dfdd-primary) !important;
-    color: #fff !important;
-    font-size: 1rem !important;
-    font-weight: 500 !important;
-    padding: 0.6rem 1.4rem !important;
-    border-radius: 10px !important;
-    transition: all 0.15s ease !important;
-    box-shadow: 0 1px 3px rgba(167,139,250,0.25) !important;
-}
-button[kind="primary"]:hover, .stButton > button[kind="primary"]:hover {
-    background-color: var(--dfdd-primary-dark) !important;
-    border-color: var(--dfdd-primary-dark) !important;
-    box-shadow: 0 2px 8px rgba(167,139,250,0.35) !important;
-    transform: translateY(-1px);
-}
-button[kind="primary"]:active, .stButton > button[kind="primary"]:active {
-    background-color: var(--dfdd-primary-darker) !important;
-    border-color: var(--dfdd-primary-darker) !important;
-    transform: translateY(0);
-}
-
-/* Next → navigation buttons — mint green via key prefix targeting.
-   Streamlit adds the key as part of the button's test-id/aria label,
-   so we target the wrapper div containing a button whose text starts with Next */
-.dfdd-next-btn button,
-.dfdd-next-btn > button,
-.dfdd-next-btn .stButton button,
-.dfdd-next-btn .stButton > button,
-div.dfdd-next-btn button[kind="primary"],
-div.dfdd-next-btn > div > button {
-    background-color: #0E7A60 !important;
-    border-color: #0E7A60 !important;
-    color: #ffffff !important;
-    font-weight: 600 !important;
-    border-radius: 12px !important;
-    letter-spacing: 0.02em !important;
-    box-shadow: 0 2px 8px rgba(14,122,96,0.30) !important;
-    transition: all 0.15s ease !important;
-    font-size: 1rem !important;
-    padding: 0.65rem 1.8rem !important;
-}
-div.dfdd-next-btn button[kind="primary"]:hover,
-div.dfdd-next-btn > div > button:hover {
-    background-color: #0a5c47 !important;
-    border-color: #0a5c47 !important;
-    box-shadow: 0 3px 12px rgba(14,122,96,0.40) !important;
-    transform: translateY(-1px) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-    .dfdd-next-btn button,
-    .dfdd-next-btn > button,
-    .dfdd-next-btn .stButton button,
-    div.dfdd-next-btn button[kind="primary"],
-    div.dfdd-next-btn > div > button {
-        background-color: #6BCFB8 !important;
-        border-color: #6BCFB8 !important;
-        color: #0a2420 !important;
-        box-shadow: 0 2px 8px rgba(107,207,184,0.25) !important;
+    /* ── Background mesh ────────────────────────────────────────────────────── */
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(ellipse 65% 50% at 8% 5%, oklch(87% 0.05 285 / 0.55) 0%, transparent 58%),
+            radial-gradient(ellipse 55% 65% at 92% 88%, oklch(91% 0.04 195 / 0.45) 0%, transparent 55%),
+            radial-gradient(ellipse 35% 40% at 55% 40%, oklch(93% 0.03 260 / 0.30) 0%, transparent 50%),
+            oklch(97% 0.012 270);
+        font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif;
     }
-    div.dfdd-next-btn button[kind="primary"]:hover,
-    div.dfdd-next-btn > div > button:hover {
-        background-color: #7de0c9 !important;
-        border-color: #7de0c9 !important;
+
+    /* ── Sidebar ────────────────────────────────────────────────────────────── */
+    [data-testid="stSidebar"] {
+        background: oklch(14% 0.065 274) !important;
+        border-right: 1px solid oklch(22% 0.06 274);
+        min-width: 252px !important;
+        max-width: 252px !important;
     }
-}
+    [data-testid="stSidebar"] * { color: oklch(62% 0.02 274); }
+    [data-testid="stSidebar"] .sb-logo-title { color: #fff !important; }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 { color: #e0e7ff !important; }
 
-button[kind="secondary"], .stButton > button[kind="secondary"] {
-    font-size: 0.95rem !important;
-    border-radius: 10px !important;
-    transition: all 0.15s ease !important;
-}
-button[kind="secondary"]:hover {
-    border-color: var(--dfdd-primary) !important;
-    color: var(--dfdd-primary-dark) !important;
-    background: var(--dfdd-primary-tint) !important;
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   STEPPER  (horizontal wizard progress bar)
-   ═════════════════════════════════════════════════════════════════════════ */
-.stepper {
-    display: flex; align-items: center; gap: 0;
-    margin: 0 0 2rem 0;
-    padding: 1rem 0.5rem;
-    background: var(--dfdd-primary-bg);
-    border-radius: 14px;
-    overflow-x: auto;
-}
-.step-item {
-    display: flex; flex-direction: column; align-items: center;
-    flex: 1; min-width: 64px;
-}
-.step-circle {
-    width: 36px; height: 36px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 500;
-    transition: all 0.25s ease;
-}
-.step-done   .step-circle { background: var(--dfdd-primary); color: #fff; }
-.step-active .step-circle {
-    background: var(--dfdd-primary); color: #fff;
-    box-shadow: 0 0 0 5px var(--dfdd-primary-tint);
-    transform: scale(1.08);
-}
-.step-todo .step-circle { background: var(--dfdd-step-todo-bg); color: var(--dfdd-step-todo-text); }
-.step-label {
-    font-size: 11px; margin-top: 6px;
-    text-align: center; color: var(--dfdd-text-muted);
-    max-width: 72px; line-height: 1.3;
-}
-.step-done .step-label, .step-active .step-label {
-    color: var(--dfdd-primary-dark); font-weight: 500;
-}
-.step-line {
-    flex: 1; height: 2px;
-    background: var(--dfdd-step-line-todo); margin: 0 2px 22px;
-    transition: background 0.3s ease; border-radius: 2px;
-}
-.step-line.done { background: var(--dfdd-primary); }
-
-/* ═════════════════════════════════════════════════════════════════════════
-   SECTION HEADERS
-   ═════════════════════════════════════════════════════════════════════════ */
-.sec-header {
-    font-size: 1.75rem; font-weight: 600;
-    color: var(--dfdd-primary-dark);
-    margin: 0 0 0.3rem; letter-spacing: -0.01em;
-}
-.sec-sub {
-    color: var(--dfdd-text-muted); font-size: 1.02rem;
-    margin: 0 0 1.75rem; line-height: 1.5;
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   CARDS — wait, mol, choice
-   ═════════════════════════════════════════════════════════════════════════ */
-.wait-card {
-    background: linear-gradient(135deg, var(--dfdd-wait-gradient-start) 0%, var(--dfdd-wait-gradient-end) 100%);
-    border: 1px solid var(--dfdd-border);
-    border-radius: 16px; padding: 2rem 2.5rem;
-    text-align: center; margin: 1.25rem 0;
-    box-shadow: 0 2px 10px rgba(167,139,250,0.06);
-}
-.wait-title {
-    font-size: 1.5rem; font-weight: 600;
-    color: var(--dfdd-primary-darker); margin-bottom: 0.6rem;
-}
-.wait-sub { color: var(--dfdd-text-muted); font-size: 1.02rem; line-height: 1.6; }
-
-.mol-card {
-    background: var(--dfdd-bg-subtle);
-    border: 1px solid var(--dfdd-border); border-radius: 12px; padding: 1rem;
-}
-.choice-card {
-    border: 2px solid var(--dfdd-choice-todo-border); border-radius: 12px;
-    padding: 1.1rem; cursor: pointer;
-    transition: all 0.18s ease; background: var(--dfdd-card-bg); font-size: 1rem;
-}
-.choice-card:hover {
-    border-color: var(--dfdd-primary); transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(167,139,250,0.12);
-}
-.choice-card.selected {
-    border-color: var(--dfdd-primary); background: var(--dfdd-primary-tint);
-    box-shadow: 0 1px 4px rgba(167,139,250,0.14);
-}
-
-/* ── Running / done state cards (pages 4 & 5) ──────────────────────────── */
-.dfdd-run-card {
-    border-radius: 13px; padding: 14px 16px; margin: 0.75rem 0;
-    display: flex; align-items: flex-start; gap: 12px;
-}
-.dfdd-run-card.going  { background: var(--dfdd-primary-tint); }
-.dfdd-run-card.ok     { background: var(--dfdd-accent-mint-bg); }
-.dfdd-run-card.fail   { background: var(--dfdd-accent-coral-bg); }
-.dfdd-run-card.queued { background: var(--dfdd-accent-sun-bg); }
-
-.dfdd-run-icon {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: white; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-}
-.dfdd-run-title { font-size: 0.95rem; font-weight: 500; }
-.dfdd-run-card.going  .dfdd-run-title { color: var(--dfdd-primary-darker); }
-.dfdd-run-card.ok     .dfdd-run-title { color: var(--dfdd-accent-mint-ink); }
-.dfdd-run-card.fail   .dfdd-run-title { color: var(--dfdd-accent-coral-ink); }
-.dfdd-run-card.queued .dfdd-run-title { color: var(--dfdd-accent-sun-ink); }
-.dfdd-run-sub { font-size: 0.85rem; margin-top: 2px; opacity: 0.85; }
-.dfdd-run-card.going  .dfdd-run-sub { color: var(--dfdd-primary-dark); }
-.dfdd-run-card.ok     .dfdd-run-sub { color: var(--dfdd-accent-mint-ink); }
-.dfdd-run-card.fail   .dfdd-run-sub { color: var(--dfdd-accent-coral-ink); }
-.dfdd-run-card.queued .dfdd-run-sub { color: var(--dfdd-accent-sun-ink); }
-
-/* Spinner for running cards */
-.dfdd-spinner {
-    width: 18px; height: 18px; border-radius: 50%;
-    border: 2.5px solid var(--dfdd-border);
-    border-top-color: var(--dfdd-primary);
-    animation: dfdd-spin 0.9s linear infinite;
-}
-@keyframes dfdd-spin { to { transform: rotate(360deg); } }
-
-/* ── Already-done strip ─────────────────────────────────────────────────── */
-.dfdd-done-strip {
-    background: var(--dfdd-accent-mint-bg);
-    border-radius: 11px; padding: 10px 13px;
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 1rem; font-size: 0.88rem;
-    color: var(--dfdd-accent-mint-ink);
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   RESULT METRICS
-   ═════════════════════════════════════════════════════════════════════════ */
-.res-metric {
-    background: var(--dfdd-primary-tint);
-    border: 1px solid var(--dfdd-border);
-    border-radius: 14px; padding: 1.3rem 1.6rem;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(167,139,250,0.08);
-}
-.res-value {
-    font-size: 2.1rem; font-weight: 600;
-    color: var(--dfdd-primary-dark);
-    line-height: 1.1; letter-spacing: -0.02em;
-}
-.res-label { color: var(--dfdd-text-muted); font-size: 0.95rem; margin-top: 0.4rem; }
-
-/* ═════════════════════════════════════════════════════════════════════════
-   PAGE 0 — INSTALL
-   ═════════════════════════════════════════════════════════════════════════ */
-
-/* Hero badge */
-.dfdd-hero-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--dfdd-primary-tint); color: var(--dfdd-primary-darker);
-    padding: 5px 14px; border-radius: 999px;
-    font-size: 0.82rem; font-weight: 500; margin-bottom: 0.85rem;
-}
-.dfdd-hero-badge-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--dfdd-primary);
-}
-
-/* Citation card */
-.dfdd-cite {
-    background: var(--dfdd-primary-tint);
-    border-radius: 10px; padding: 10px 14px;
-    margin-bottom: 1rem; font-size: 0.88rem;
-    color: var(--dfdd-primary-darker); line-height: 1.5;
-}
-.dfdd-cite a { color: var(--dfdd-primary-dark); text-decoration: none; }
-
-/* Pre-flight compact tags */
-.dfdd-pf-card {
-    background: var(--dfdd-card-bg); border: 1px solid var(--dfdd-border);
-    border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem;
-}
-.dfdd-pf-header {
-    display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 10px;
-}
-.dfdd-pf-title { font-size: 0.88rem; font-weight: 500; color: var(--dfdd-primary-darker); }
-.dfdd-pf-count { font-size: 0.82rem; color: var(--dfdd-text-muted); }
-.dfdd-pf-tags  { display: flex; flex-wrap: wrap; gap: 6px; }
-.dfdd-pf-tag {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 11px; border-radius: 999px;
-    font-size: 0.82rem; font-weight: 500;
-}
-.dfdd-pf-tag-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.dfdd-pf-tag.ok     { background: var(--dfdd-accent-mint-bg);  color: var(--dfdd-accent-mint-ink); }
-.dfdd-pf-tag.run    { background: var(--dfdd-accent-sun-bg);   color: var(--dfdd-accent-sun-ink); }
-.dfdd-pf-tag.wait   { background: var(--dfdd-pf-wait-bg); color: var(--dfdd-pf-wait-text); }
-.dfdd-pf-tag.run .dfdd-pf-tag-dot { animation: dfdd-pulse 1.3s ease-in-out infinite; }
-@keyframes dfdd-pulse { 50% { opacity: 0.4; } }
-
-/* ═════════════════════════════════════════════════════════════════════════
-   PAGE 1 — HOST CARDS
-   ═════════════════════════════════════════════════════════════════════════ */
-.dfdd-host-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px; margin-bottom: 1rem;
-}
-.dfdd-host-card {
-    background: var(--dfdd-card-bg); border: 1.5px solid var(--dfdd-border);
-    border-radius: 11px; padding: 11px 8px; cursor: pointer;
-    transition: all 0.18s ease; text-align: center;
-    display: flex; flex-direction: column; align-items: center;
-    gap: 5px; position: relative;
-}
-.dfdd-host-card:hover {
-    border-color: var(--dfdd-primary); transform: translateY(-1px);
-}
-.dfdd-host-card.selected {
-    border-color: var(--dfdd-primary); border-width: 2px;
-    background: var(--dfdd-primary-tint);
-}
-.dfdd-host-rec-badge {
-    position: absolute; top: -8px; right: 6px;
-    background: var(--dfdd-primary); color: white;
-    font-size: 0.7rem; font-weight: 500;
-    padding: 2px 7px; border-radius: 999px;
-}
-.dfdd-host-abbr { font-size: 0.78rem; font-weight: 500; line-height: 1.2; }
-.dfdd-host-ff   { font-size: 0.7rem; color: var(--dfdd-text-sub); }
-
-/* Prepare state (host auto-prepare) */
-.dfdd-prep-card {
-    border-radius: 11px; padding: 12px 14px;
-    display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;
-}
-.dfdd-prep-card.running { background: var(--dfdd-primary-tint); }
-.dfdd-prep-card.ok      { background: var(--dfdd-accent-mint-bg); }
-.dfdd-prep-icon {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: white; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-}
-.dfdd-prep-title { font-size: 0.9rem; font-weight: 500; }
-.dfdd-prep-card.running .dfdd-prep-title { color: var(--dfdd-primary-darker); }
-.dfdd-prep-card.ok      .dfdd-prep-title { color: var(--dfdd-accent-mint-ink); }
-.dfdd-prep-sub { font-size: 0.82rem; margin-top: 1px; }
-.dfdd-prep-card.running .dfdd-prep-sub { color: var(--dfdd-primary-dark); }
-.dfdd-prep-card.ok      .dfdd-prep-sub { color: var(--dfdd-accent-mint-ink); opacity: 0.85; }
-.dfdd-prep-path {
-    font-family: monospace; font-size: 0.72rem;
-    background: rgba(255,255,255,0.7); padding: 2px 6px;
-    border-radius: 4px; display: inline-block; margin-top: 3px;
-    color: var(--dfdd-accent-mint-ink);
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   PAGE 2 — GUEST
-   ═════════════════════════════════════════════════════════════════════════ */
-
-/* Input method segmented tabs */
-.dfdd-method-tabs {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 5px; margin-bottom: 1rem;
-    background: var(--dfdd-primary-bg); padding: 3px; border-radius: 10px;
-}
-.dfdd-method-tab {
-    background: transparent; border: none;
-    padding: 8px 5px; font-size: 0.82rem; border-radius: 7px;
-    cursor: pointer; font-family: inherit; color: var(--dfdd-text-muted);
-    display: flex; align-items: center; justify-content: center;
-    gap: 5px; transition: all 0.15s;
-}
-.dfdd-method-tab.active {
-    background: white; color: var(--dfdd-primary-darker); font-weight: 500;
-}
-
-/* Example SMILES pills */
-.dfdd-examples { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-.dfdd-ex-pill {
-    background: var(--dfdd-primary-bg); border: 1px solid var(--dfdd-border);
-    color: var(--dfdd-primary-darker); font-size: 0.78rem;
-    padding: 4px 11px; border-radius: 999px; cursor: pointer;
-    font-family: inherit; transition: all 0.15s;
-}
-.dfdd-ex-pill:hover { background: var(--dfdd-primary-tint); border-color: var(--dfdd-primary); }
-
-/* PubChem result cards */
-.dfdd-result-card {
-    background: var(--dfdd-card-bg); border: 1.5px solid var(--dfdd-border);
-    border-radius: 10px; padding: 10px; margin-bottom: 7px;
-    display: grid; grid-template-columns: 56px 1fr auto;
-    gap: 10px; align-items: center; cursor: pointer; transition: all 0.2s;
-}
-.dfdd-result-card:hover { border-color: var(--dfdd-primary); }
-.dfdd-result-card.selected {
-    border-color: var(--dfdd-primary); border-width: 2px;
-    background: var(--dfdd-primary-tint);
-}
-.dfdd-mol-thumb {
-    width: 56px; height: 56px; border-radius: 7px;
-    background: var(--dfdd-card-bg); border: 0.5px solid var(--dfdd-border);
-    display: flex; align-items: center; justify-content: center;
-}
-.dfdd-result-name { font-size: 0.9rem; font-weight: 500; margin-bottom: 2px; }
-.dfdd-result-meta { font-size: 0.78rem; color: var(--dfdd-text-muted); margin-bottom: 3px; }
-.dfdd-result-smi {
-    font-family: monospace; font-size: 0.72rem;
-    color: var(--dfdd-text-sub); background: var(--dfdd-primary-bg);
-    padding: 3px 6px; border-radius: 4px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.dfdd-pick-btn {
-    background: var(--dfdd-card-bg); color: var(--dfdd-primary-darker);
-    border: 1.5px solid var(--dfdd-border); padding: 6px 12px;
-    border-radius: 7px; font-size: 0.82rem; font-weight: 500;
-    cursor: pointer; font-family: inherit; white-space: nowrap;
-}
-.dfdd-pick-btn.active {
-    background: var(--dfdd-primary); color: white;
-    border-color: var(--dfdd-primary);
-}
-
-/* Estimate pills (pages 4 & 5) */
-.dfdd-est-card {
-    display: flex; gap: 8px; flex-wrap: wrap;
-    background: var(--dfdd-primary-tint); border-radius: 11px;
-    padding: 11px 13px; align-items: center; margin-bottom: 1rem;
-}
-.dfdd-est-pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--dfdd-est-pill-bg); border-radius: 7px;
-    padding: 5px 11px; font-size: 0.82rem; font-weight: 500;
-    color: var(--dfdd-primary-darker);
-}
-.dfdd-est-note { font-size: 0.78rem; color: var(--dfdd-primary-dark); margin-left: auto; }
-
-/* Cycle dots (PaCS-MD running) */
-.dfdd-cycle-dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-.dfdd-cdot { width: 10px; height: 10px; border-radius: 50%; }
-.dfdd-cdot.done    { background: var(--dfdd-primary); opacity: 0.75; }
-.dfdd-cdot.active  { background: var(--dfdd-primary); animation: dfdd-pulse 1s ease-in-out infinite; }
-.dfdd-cdot.todo    { background: var(--dfdd-cdot-todo); }
-
-/* ═════════════════════════════════════════════════════════════════════════
-   ALERTS / DIVIDERS
-   ═════════════════════════════════════════════════════════════════════════ */
-hr { margin: 1.5rem 0 !important; border-color: var(--dfdd-hr-color) !important; }
-
-div[data-testid="stAlert"] {
-    border-radius: 12px !important;
-    border-left-width: 4px !important;
-}
-div[data-testid="stInfo"] {
-    background-color: var(--dfdd-primary-tint) !important;
-    border-color: var(--dfdd-border) !important;
-    color: var(--dfdd-primary-darker) !important;
-}
-div[data-testid="stSuccess"] {
-    background-color: var(--dfdd-accent-mint-bg) !important;
-    border-color: var(--dfdd-accent-mint) !important;
-    color: var(--dfdd-accent-mint-ink) !important;
-}
-div[data-testid="stWarning"] {
-    background-color: var(--dfdd-accent-sun-bg) !important;
-    border-color: var(--dfdd-accent-sun) !important;
-    color: var(--dfdd-accent-sun-ink) !important;
-}
-div[data-testid="stError"] {
-    background-color: var(--dfdd-accent-coral-bg) !important;
-    border-color: var(--dfdd-accent-coral) !important;
-    color: var(--dfdd-accent-coral-ink) !important;
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   INPUTS
-   ═════════════════════════════════════════════════════════════════════════ */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input,
-.stTextArea textarea {
-    border-radius: 10px !important;
-    border-color: var(--dfdd-input-border-idle) !important;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
-}
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus,
-.stTextArea textarea:focus {
-    border-color: var(--dfdd-primary) !important;
-    box-shadow: 0 0 0 3px var(--dfdd-primary-tint) !important;
-}
-div[data-baseweb="select"] > div { border-radius: 10px !important; }
-div[data-baseweb="radio"]        { padding: 4px 2px !important; }
-div[data-baseweb="slider"] div[role="slider"] {
-    background: var(--dfdd-primary) !important;
-    border-color: var(--dfdd-primary) !important;
-}
-section[data-testid="stFileUploadDropzone"] {
-    border: 2px dashed var(--dfdd-border) !important;
-    background: var(--dfdd-primary-bg) !important;
-    border-radius: 12px !important;
-}
-section[data-testid="stFileUploadDropzone"]:hover {
-    border-color: var(--dfdd-primary) !important;
-    background: var(--dfdd-primary-tint) !important;
-}
-
-/* Tabs */
-.stTabs [data-baseweb="tab-list"]  { gap: 4px; }
-.stTabs [data-baseweb="tab"]       { border-radius: 10px 10px 0 0 !important; }
-.stTabs [aria-selected="true"] {
-    color: var(--dfdd-primary-dark) !important;
-    background: var(--dfdd-primary-tint) !important;
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   SIDEBAR
-   ═════════════════════════════════════════════════════════════════════════ */
-section[data-testid="stSidebar"] {
-    background: var(--dfdd-primary-bg) !important;
-    border-right: 1px solid var(--dfdd-border);
-}
-section[data-testid="stSidebar"] h2 {
-    font-size: 1.5rem !important;
-    color: var(--dfdd-primary-dark) !important;
-    margin-bottom: 0.5rem !important;
-}
-section[data-testid="stSidebar"] hr {
-    margin: 1rem 0 !important;
-    border-color: var(--dfdd-border) !important;
-}
-
-/* Progress bars */
-div[data-testid="stProgress"] > div > div > div {
-    background: var(--dfdd-primary) !important;
-}
-
-/* ── Dark mode Streamlit chrome overrides ─────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-    /* Main app background */
-    .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #0F0D1A !important;
+    /* Sidebar nav buttons */
+    [data-testid="stSidebar"] .stButton > button {
+        width: 100%;
+        text-align: left;
+        padding: 7px 10px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        background: transparent !important;
+        color: oklch(62% 0.02 274) !important;
+        font-size: 12px !important;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        transition: background 0.15s;
+        margin-bottom: 1px;
     }
-    /* Main content area */
-    [data-testid="stMain"], section.main {
-        background-color: #0F0D1A !important;
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: oklch(21% 0.06 274) !important;
+        color: #e0e7ff !important;
     }
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #1A1630 !important;
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+        background: oklch(27% 0.10 275) !important;
+        color: #e0e7ff !important;
     }
-    /* Cards and containers */
-    [data-testid="stVerticalBlock"],
-    [data-testid="stHorizontalBlock"] > div {
-        background-color: transparent !important;
+    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+        transform: none !important;
+        box-shadow: none !important;
     }
-    /* Input fields */
+
+    /* ── Main content area ──────────────────────────────────────────────────── */
+    [data-testid="stMainBlockContainer"],
+    section[data-testid="stMain"] > div {
+        padding: 0 !important;
+    }
+
+    /* ── Phase stepper ──────────────────────────────────────────────────────── */
+    .phase-strip {
+        display: flex;
+        align-items: center;
+        padding: 10px 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        overflow-x: auto;
+        scrollbar-width: none;
+        gap: 0;
+    }
+    .phase-strip::-webkit-scrollbar { display: none; }
+    .phase-chip {
+        display: flex; align-items: center; gap: 7px;
+        padding: 5px 12px; border-radius: 20px;
+        cursor: pointer; font-size: 11px; font-weight: 600;
+        color: var(--text-tertiary);
+        transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+    }
+    .phase-chip.active { color: var(--accent); background: var(--accent-soft); }
+    .phase-chip.done { color: #10b981; }
+    .phase-circle {
+        width: 19px; height: 19px; border-radius: 50%;
+        background: var(--border); color: var(--text-tertiary);
+        font-size: 9px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'JetBrains Mono', monospace; transition: all 0.2s;
+    }
+    .phase-circle.active { background: var(--accent); color: #fff; }
+    .phase-circle.done { background: #10b981; color: #fff; }
+    .phase-connector {
+        flex: 1; min-width: 18px; max-width: 50px; height: 1px;
+        background: var(--border); margin: 0 3px;
+    }
+    .phase-connector.done { background: #10b981; }
+
+    /* ── TopBar ─────────────────────────────────────────────────────────────── */
+    .topbar {
+        height: 50px; display: flex; align-items: center;
+        justify-content: space-between;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+    .topbar-breadcrumb { font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 5px; }
+    .bc-sep { color: var(--text-tertiary); font-size: 14px; }
+
+    /* ── Step header ────────────────────────────────────────────────────────── */
+    .step-header { margin-bottom: 26px; display: flex; align-items: flex-start; gap: 13px; padding: 30px 36px 0; }
+    .step-badge {
+        width: 34px; height: 34px; border-radius: 9px;
+        background: var(--accent); color: #fff;
+        font-size: 13px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+    }
+    .step-title { font-size: 21px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.2; }
+    .step-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.55; }
+
+    /* ── Content area ───────────────────────────────────────────────────────── */
+    .content-pad { padding: 0 36px 48px; }
+
+    /* ── Glass card ─────────────────────────────────────────────────────────── */
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        box-shadow: 0 2px 18px rgba(99,102,241,.06), 0 1px 3px rgba(0,0,0,.04);
+        transition: border-color .2s, box-shadow .2s;
+        margin-bottom: 16px;
+        padding: 18px 22px;
+    }
+
+    /* ── Buttons ────────────────────────────────────────────────────────────── */
+    /* Primary override */
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="baseButton-primary"] {
+        background: linear-gradient(135deg, #6366f1 0%, color-mix(in srgb, #6366f1 62%, #06b6d4) 100%) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 9px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        padding: 8px 19px !important;
+        transition: transform 0.15s, box-shadow 0.15s !important;
+        letter-spacing: 0.01em !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 5px 18px rgba(99,102,241,0.38) !important;
+        filter: brightness(1.06) !important;
+    }
+    /* Secondary */
+    .stButton > button[kind="secondary"],
+    .stButton > button[data-testid="baseButton-secondary"] {
+        border: 1px solid var(--border) !important;
+        background: var(--surface) !important;
+        color: var(--text-primary) !important;
+        border-radius: 9px !important;
+        font-size: 13px !important;
+        transition: border-color 0.15s, color 0.15s !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        border-color: var(--accent) !important;
+        color: var(--accent) !important;
+    }
+
+    /* ── Progress bar ───────────────────────────────────────────────────────── */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, var(--accent), var(--accent2)) !important;
+        border-radius: 3px !important;
+    }
+    .stProgress > div > div {
+        background: var(--border) !important;
+        border-radius: 3px !important;
+        height: 6px !important;
+    }
+
+    /* ── Inputs ─────────────────────────────────────────────────────────────── */
     .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
     .stNumberInput > div > div > input,
-    .stTextArea textarea {
-        background-color: #1A1630 !important;
-        color: #EDE5FF !important;
+    .stSelectbox > div > div {
+        background: var(--input-bg) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        font-size: 13px !important;
+        font-family: 'Noto Sans', sans-serif !important;
     }
-    /* Selectbox */
-    div[data-baseweb="select"] > div {
-        background-color: #1A1630 !important;
-        border-color: #3E3060 !important;
-        color: #EDE5FF !important;
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
     }
-    /* Metric cards */
-    [data-testid="stMetric"] {
-        background-color: #1A1630 !important;
-        border-radius: 10px;
+    .stSlider > div > div > div > div {
+        background: var(--accent) !important;
     }
-    /* Expander */
+    .stSlider > div > div > div {
+        background: var(--border) !important;
+    }
+
+    /* ── Labels ─────────────────────────────────────────────────────────────── */
+    .stTextInput label, .stTextArea label, .stNumberInput label,
+    .stSelectbox label, .stSlider label, .stRadio label {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        color: var(--text-tertiary) !important;
+    }
+
+    /* ── Step host card ─────────────────────────────────────────────────────── */
+    .host-card {
+        display: flex; align-items: center; gap: 12px;
+        padding: 13px 16px; border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+        cursor: pointer; transition: all 0.18s;
+        margin-bottom: 8px;
+        backdrop-filter: blur(12px);
+    }
+    .host-card:hover { border-color: rgba(99,102,241,0.35); transform: translateX(2px); }
+    .host-card.selected { border-width: 2px; transform: translateX(4px); }
+    .host-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .host-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .host-tag {
+        font-size: 10px; font-weight: 700; padding: 2px 8px;
+        border-radius: 20px; margin-left: auto;
+        font-family: 'JetBrains Mono', monospace;
+        background: var(--accent-soft); color: var(--accent);
+    }
+
+    /* ── Tab bar ────────────────────────────────────────────────────────────── */
+    .tab-bar {
+        display: flex; gap: 4px; margin-bottom: 16px;
+        background: var(--surface); border-radius: 10px; padding: 4px;
+        border: 1px solid var(--border);
+    }
+    .tab-btn {
+        flex: 1; padding: 6px 12px; border-radius: 7px; border: none;
+        background: transparent; color: var(--text-secondary);
+        font-size: 12px; font-weight: 500; cursor: pointer;
+        transition: all 0.15s; font-family: inherit;
+    }
+    .tab-btn.active {
+        background: var(--accent); color: #fff; font-weight: 600;
+    }
+
+    /* ── Metric card ────────────────────────────────────────────────────────── */
+    .metric-card {
+        background: var(--card-bg); border: 1px solid var(--card-border);
+        border-radius: 12px; padding: 18px 22px; text-align: center;
+        backdrop-filter: blur(20px);
+    }
+    .metric-value {
+        font-size: 30px; font-weight: 700; color: var(--accent);
+        font-family: 'JetBrains Mono', monospace; line-height: 1;
+    }
+    .metric-unit { font-size: 14px; font-weight: 400; margin-left: 3px; }
+    .metric-label { font-size: 11px; color: var(--text-tertiary); margin-top: 8px; line-height: 1.4; }
+    .metric-delta-pos { font-size: 11px; color: #10b981; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .metric-delta-neg { font-size: 11px; color: #ef4444; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Done bar ───────────────────────────────────────────────────────────── */
+    .done-bar {
+        display: flex; align-items: center; gap: 14px;
+        padding: 14px 18px; border-radius: 10px;
+        background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22);
+        margin-top: 16px;
+    }
+    .done-icon { font-size: 20px; line-height: 1; }
+    .done-text { font-size: 14px; font-weight: 600; color: #10b981; }
+    .done-file { font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
+    /* ── Terminal / log block ───────────────────────────────────────────────── */
+    .stCodeBlock pre, pre {
+        background: oklch(11% 0.04 270) !important;
+        border-radius: 10px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 12px !important;
+        border: 1px solid oklch(20% 0.04 270) !important;
+    }
+
+    /* ── Param grid label ───────────────────────────────────────────────────── */
+    .param-label {
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-tertiary);
+        margin-bottom: 7px; display: block;
+    }
+    .param-hint { font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 5px; }
+
+    /* ── File row (download) ────────────────────────────────────────────────── */
+    .file-row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .file-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); flex: 1; }
+    .file-desc { font-size: 12px; color: var(--text-secondary); flex: 2; }
+    .file-size { font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Section group label ────────────────────────────────────────────────── */
+    .group-label {
+        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 8px; margin-top: 20px;
+    }
+
+    /* ── Wait/install card ──────────────────────────────────────────────────── */
+    .wait-card {
+        text-align: center; padding: 52px 36px;
+        background: var(--card-bg); border: 1px solid var(--card-border);
+        border-radius: 12px; backdrop-filter: blur(20px); margin: 0 auto; max-width: 480px;
+    }
+    .wait-icon { font-size: 52px; margin-bottom: 18px; display: block; }
+    .wait-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+    .wait-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+
+    /* ── Summary card ───────────────────────────────────────────────────────── */
+    .summary-card {
+        padding: 14px 18px; border-radius: 10px;
+        background: var(--accent-soft); border: 1px solid var(--border);
+        font-size: 13px; color: var(--text-primary); margin-bottom: 16px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Chip / pill ────────────────────────────────────────────────────────── */
+    .chip {
+        display: inline-flex; align-items: center; padding: 4px 12px;
+        border-radius: 20px; font-size: 12px; font-weight: 500;
+        background: var(--accent-soft); border: 1px solid var(--border);
+        color: var(--accent); cursor: pointer; transition: all 0.15s;
+        margin: 3px; user-select: none;
+    }
+    .chip:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Expander override ──────────────────────────────────────────────────── */
     [data-testid="stExpander"] {
-        border-color: #3E3060 !important;
-        background-color: #1A1630 !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 10px !important;
+        background: var(--card-bg) !important;
+        backdrop-filter: blur(12px) !important;
+        margin-bottom: 12px !important;
     }
-    /* Code blocks */
-    [data-testid="stCode"], .stCode {
-        background-color: #1A1630 !important;
+    [data-testid="stExpander"] summary {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: var(--text-primary) !important;
     }
-    /* Dividers */
-    [data-testid="stDivider"] hr {
-        border-color: #2A2140 !important;
-    }
-}
 
-/* ═════════════════════════════════════════════════════════════════════════
-   RESPONSIVE
-   ═════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 640px) {
-    div[data-testid="stHorizontalBlock"] {
-        flex-direction: column !important;
-        gap: 0.75rem !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div {
-        width: 100% !important;
-        flex: 1 1 100% !important;
-    }
-    .step-circle  { width: 28px; height: 28px; font-size: 12px; }
-    .step-label   { font-size: 10px; max-width: 56px; }
-    .step-line    { margin-bottom: 16px; }
-    .stepper      { padding: 0.75rem 0.3rem; }
-    .sec-header   { font-size: 1.4rem; }
-    .wait-card    { padding: 1.25rem 1rem; border-radius: 14px; }
-    .wait-title   { font-size: 1.2rem; }
-    .res-metric   { padding: 1rem 0.8rem; }
-    .res-value    { font-size: 1.6rem; }
-    .dfdd-host-grid { grid-template-columns: repeat(2, 1fr); }
-    .dfdd-method-tabs { grid-template-columns: repeat(2, 1fr); }
-    .dfdd-result-card { grid-template-columns: 44px 1fr; grid-template-rows: auto auto; }
-    .dfdd-mol-thumb { width: 44px; height: 44px; }
-    .dfdd-est-note  { display: none; }
-    .dfdd-prep-path { display: none; }
-}
+    /* ── Divider ────────────────────────────────────────────────────────────── */
+    hr { border-color: var(--border) !important; margin: 20px 0 !important; }
 
-@media (min-width: 641px) and (max-width: 900px) {
-    .dfdd-host-grid   { grid-template-columns: repeat(3, 1fr); }
-    .dfdd-method-tabs { grid-template-columns: repeat(2, 1fr); }
-}
-</style>
-""", unsafe_allow_html=True)
+    /* ── Animation ──────────────────────────────────────────────────────────── */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .step-body { animation: fadeIn 0.22s ease; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { display: inline-block; animation: spin 1.2s linear infinite; }
+
+    /* General font override */
+    body, .stApp, * { font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+    """, unsafe_allow_html=True)
+
+_inject_css()
 
 # ─── Session state defaults ────────────────────────────────────────────────────
 DEFAULTS = {
@@ -847,60 +532,35 @@ def log_expander(key, label="📋 Log"):
             st.code(txt[-4000:])
 
 def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
-    """Render a centred mint-green Next → button that advances the wizard.
-
-    Injects a scoped <style> block keyed to the button's data-testid just
-    before rendering it, which overrides Streamlit's own button colour
-    without a second visible element.
-    """
+    """Render a centred green Next button that advances the wizard."""
     st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
-
-    _btn_key = f"next_to_{next_step}{key_suffix}"
-
-    # Inject CSS that targets this specific button by its generated test-id.
-    # Streamlit sets data-testid="stButton" on the wrapper div; the key ends
-    # up in the button's aria-label, so we match on that.
-    st.markdown(
-        f"""<style>
-div[data-testid="stButton"]:has(button[aria-label="{label}"]) button,
-div[data-testid="stButton"]:has(button[aria-label="{label}"]) button[kind="primary"] {{
-    background-color: #0E7A60 !important;
-    border-color: #0E7A60 !important;
-    color: #ffffff !important;
-    font-weight: 600 !important;
-    border-radius: 12px !important;
-    letter-spacing: 0.02em !important;
-    box-shadow: 0 2px 10px rgba(14,122,96,0.30) !important;
-    padding: 0.65rem 1.8rem !important;
-}}
-div[data-testid="stButton"]:has(button[aria-label="{label}"]) button:hover {{
-    background-color: #0a5c47 !important;
-    border-color: #0a5c47 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 3px 14px rgba(14,122,96,0.40) !important;
-}}
-</style>""",
-        unsafe_allow_html=True,
-    )
-
     col = st.columns([1, 2, 1])[1]
     with col:
-        if st.button(label, key=_btn_key, type="primary",
+        if st.button(label, key=f"next_to_{next_step}{key_suffix}", type="primary",
                      use_container_width=True):
             go_step(next_step)
 
 
-def section_header(title: str, subtitle: str = ""):
-    """Render a polished section header + optional subtitle."""
-    st.markdown(f'<div class="sec-header">{title}</div>', unsafe_allow_html=True)
-    if subtitle:
-        st.markdown(f'<div class="sec-sub">{subtitle}</div>', unsafe_allow_html=True)
+def section_header(title: str, subtitle: str = "", step_num: int = None):
+    """Render a step header with badge + title + subtitle (DFDD design system)."""
+    badge_html = ""
+    if step_num is not None:
+        badge_html = f'<div class="step-badge">{step_num}</div>'
+    st.markdown(
+        f'<div class="step-header">'
+        f'{badge_html}'
+        f'<div><div class="step-title">{title}</div>'
+        + (f'<div class="step-subtitle">{subtitle}</div>' if subtitle else "")
+        + "</div></div>",
+        unsafe_allow_html=True,
+    )
 
 
-def waiting_card(title: str, subtitle: str = ""):
-    """Render a prominent waiting card during long-running tasks."""
+def waiting_card(title: str, subtitle: str = "", icon: str = "⚙️"):
+    """Render a centred install/wait card (DFDD design system)."""
     st.markdown(
         f'''<div class="wait-card">
+            <span class="wait-icon">{icon}</span>
             <div class="wait-title">{title}</div>
             <div class="wait-sub">{subtitle}</div>
         </div>''',
@@ -1121,26 +781,54 @@ STEP_LABELS = [
 ]
 
 def render_stepper(current):
-    """Render a horizontal step progress bar."""
-    html = '<div class="stepper">'
-    for i, label in enumerate(STEP_LABELS):
-        if i < current:
-            cls = "step-done"
-            icon = "✓"
-        elif i == current:
-            cls = "step-active"
-            icon = str(i + 1)
-        else:
-            cls = "step-todo"
-            icon = str(i + 1)
-
-        html += f'<div class="step-item {cls}"><div class="step-circle">{icon}</div><div class="step-label">{label}</div></div>'
-        if i < len(STEP_LABELS) - 1:
-            line_cls = "done" if i < current else ""
-            html += f'<div class="step-line {line_cls}"></div>'
-
+    """Render the DFDD phase stepper bar with 5 phase groups."""
+    PHASES = [
+        {"label": "Setup",              "steps": [0],       "num": "1"},
+        {"label": "System Preparation", "steps": [1,2,3,4], "num": "2"},
+        {"label": "LB-PaCS-MD",         "steps": [5,6],     "num": "3"},
+        {"label": "cMD",                "steps": [7,8,9],   "num": "4"},
+        {"label": "Download",           "steps": [10],      "num": "5"},
+    ]
+    html = '<div class="phase-strip">'
+    for i, phase in enumerate(PHASES):
+        is_active = current in phase["steps"]
+        is_done   = current > max(phase["steps"])
+        chip_cls  = "phase-chip active" if is_active else ("phase-chip done" if is_done else "phase-chip")
+        circ_cls  = "phase-circle active" if is_active else ("phase-circle done" if is_done else "phase-circle")
+        icon      = "✓" if is_done else phase["num"]
+        html += (
+            f'<div class="{chip_cls}">'
+            f'<div class="{circ_cls}">{icon}</div>'
+            f'{phase["label"]}'
+            f'</div>'
+        )
+        if i < len(PHASES) - 1:
+            conn_cls = "phase-connector done" if is_done else "phase-connector"
+            html += f'<div class="{conn_cls}"></div>'
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
+
+
+def render_topbar(step_label: str, step_idx: int):
+    """Render the DFDD topbar with breadcrumb and workspace pill."""
+    ws = st.session_state.get("workdir", "~/dfdd_workspace")
+    ws_short = ws.replace(os.path.expanduser("~"), "~")
+    st.markdown(
+        f'''<div class="topbar">
+          <div class="topbar-breadcrumb">
+            <span style="color:var(--text-tertiary);font-size:13px;">DFDD</span>
+            <span class="bc-sep">›</span>
+            <span>{step_label}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="ws-pill">
+              <span>📁</span>
+              <span style="font-family:'JetBrains Mono',monospace;">{ws_short}</span>
+            </div>
+          </div>
+        </div>''',
+        unsafe_allow_html=True,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1203,14 +891,44 @@ def _run_install_step(cmd, desc, pct, progress, log_area, log, conda_cmd=None):
 
 
 def page_install():
+    render_topbar("Install dependencies", 0)
     render_stepper(0)
-    section_header("🔧 Setting up environment", "Installing scientific packages. This runs automatically — please wait.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Install dependencies", "Installing scientific packages. This runs automatically — please wait.", step_num=0)
 
     # ── Already fully done this session ──────────────────────────────────────
     if st.session_state["install_done"]:
-        st.success("✅ Environment ready!")
-        next_button(1, "Next → Select host")
+        st.markdown("""
+        <div class="done-bar" style="margin:24px 0;max-width:480px;">
+          <span class="done-icon">✅</span>
+          <div><div class="done-text">Environment ready</div>
+          <div class="done-file">All packages installed successfully</div></div>
+        </div>""", unsafe_allow_html=True)
+        next_button(1, "Next → Select host →")
         return
+
+    # ── Package list preview ─────────────────────────────────────────────────
+    PACKAGES = [
+        ("AmberTools", "antechamber · tleap · cpptraj"),
+        ("OpenBabel",  "obabel file conversion"),
+        ("RDKit",      "cheminformatics toolkit"),
+        ("xtb",        "semiempirical QM"),
+        ("PaCS-Q",     "LB-PaCS-MD engine"),
+        ("py3Dmol",    "in-browser 3D viewer"),
+        ("dimorphite_dl", "protonation states"),
+        ("netCDF4",    "trajectory storage"),
+    ]
+    pkg_items = "".join(
+        f'<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">'
+        f'<span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--accent);flex:0 0 140px;">{name}</span>'
+        f'<span style="font-size:12px;color:var(--text-tertiary);">{note}</span></div>'
+        for name, note in PACKAGES
+    )
+    st.markdown(
+        f'<div class="glass-card" style="max-width:480px;margin:0 auto 24px;padding:14px 18px;">' +
+        pkg_items + '</div>',
+        unsafe_allow_html=True,
+    )
 
     # ── Check mamba ───────────────────────────────────────────────────────────
     if not _mamba_available():
@@ -1331,8 +1049,10 @@ def _fetch_preview_pdb(url):
 
 
 def page_host():
+    render_topbar("Select Host", 1)
     render_stepper(1)
-    section_header("🏗️ Select host", "Choose the cyclodextrin host. The 3D structure loads automatically.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Select host molecule", "Choose the cyclodextrin host. The 3D structure loads automatically.", step_num=1)
 
     abbrevs = list(HOST_OPTIONS_MAP.keys())
 
@@ -1341,55 +1061,98 @@ def page_host():
     if prev not in abbrevs:
         prev = abbrevs[0]
 
-    # ── Single-row compact radio ──────────────────────────────────────────────
-    selected = st.radio(
-        "Host molecule",
-        abbrevs,
-        index=abbrevs.index(prev),
-        horizontal=True,
-        key="host_radio",
-    )
+    # Host card colors matching prototype
+    HOST_COLORS = {
+        "β-CD (DFT)":    "#6366f1",
+        "β-CD (GLYCAM)": "#8b5cf6",
+        "DM-β-CD":       "#a855f7",
+        "M-β-CD":        "#d946ef",
+        "HP-β-CD":       "#ec4899",
+    }
+    HOST_TAGS = {
+        "β-CD (DFT)":    "DFT",
+        "β-CD (GLYCAM)": "GLYCAM",
+        "DM-β-CD":       "GLYCAM",
+        "M-β-CD":        "GLYCAM",
+        "HP-β-CD":       "GLYCAM",
+    }
 
-    # Update session and clear preview cache if selection changed
-    if selected != st.session_state.get("host_option_abbrev"):
+    col_left, col_right = st.columns([1, 1], gap="large")
+
+    with col_left:
+        st.markdown('<div class="group-label">Host molecule</div>', unsafe_allow_html=True)
+        for abbrev in abbrevs:
+            is_sel   = abbrev == prev
+            color    = HOST_COLORS.get(abbrev, "#6366f1")
+            tag      = HOST_TAGS.get(abbrev, "")
+            sel_style = (
+                f"border:2px solid {color};background:rgba({','.join(str(int(color[i:i+2],16)) for i in (1,3,5))},0.06);"
+                if is_sel else ""
+            )
+            check = f'<span style="color:{color};font-weight:700;margin-left:auto;">✓</span>' if is_sel else ""
+            st.markdown(
+                f'<div class="host-card {"selected" if is_sel else ""}" style="{sel_style}">'
+                f'<div class="host-color-dot" style="background:{color};"></div>'
+                f'<div class="host-name">{abbrev}</div>'
+                f'<div class="host-tag" style="color:{color};background:rgba({",".join(str(int(color[i:i+2],16)) for i in (1,3,5))},0.1);">{tag}</div>'
+                f'{check}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(f"Select {abbrev}", key=f"host_btn_{abbrev}",
+                         type="primary" if is_sel else "secondary",
+                         use_container_width=True):
+                if abbrev != st.session_state.get("host_option_abbrev"):
+                    st.session_state["host_option_abbrev"] = abbrev
+                    st.session_state["host_option"] = HOST_FULL_NAMES[abbrev]
+                    st.session_state["host_path"] = None
+                    st.session_state["host_type"] = None
+                    st.rerun()
+
+        selected = st.session_state.get("host_option_abbrev", abbrevs[0])
         st.session_state["host_option_abbrev"] = selected
         st.session_state["host_option"] = HOST_FULL_NAMES[selected]
-        # Clear prepared host if user switches to a different one
-        if st.session_state.get("host_type") is not None:
-            prev_key = HOST_OPTIONS_MAP.get(prev)
-            new_key  = HOST_OPTIONS_MAP.get(selected)
-            if prev_key != new_key:
-                st.session_state["host_path"] = None
-                st.session_state["host_type"] = None
-    else:
-        st.session_state["host_option_abbrev"] = selected
-        st.session_state["host_option"] = HOST_FULL_NAMES[selected]
+        st.markdown(
+            f'<div class="glass-card" style="margin-top:8px;padding:12px 16px;">'
+            f'<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Description</div>'
+            f'<div style="font-size:13px;color:var(--text-primary);">{HOST_FULL_NAMES[selected]}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-    # Full name description
-    st.caption(HOST_FULL_NAMES[selected])
+    with col_right:
+        # ── 3D preview ────────────────────────────────────────────────────────
+        prepared_path = st.session_state.get("host_path")
+        if prepared_path and os.path.exists(prepared_path):
+            preview_pdb   = core.read_file(prepared_path)
+            preview_label = "Prepared structure"
+        else:
+            cache_key   = f"host_preview_pdb_{selected}"
+            preview_pdb = st.session_state.get(cache_key)
+            if not preview_pdb:
+                url = HOST_PREVIEW_URLS.get(selected)
+                if url:
+                    with st.spinner("Loading 3D preview…"):
+                        preview_pdb = _fetch_preview_pdb(url)
+                    if preview_pdb:
+                        st.session_state[cache_key] = preview_pdb
+            preview_label = f"Preview — {selected}"
 
-    # ── 3D preview ────────────────────────────────────────────────────────────
-    prepared_path = st.session_state.get("host_path")
-    if prepared_path and os.path.exists(prepared_path):
-        preview_pdb   = core.read_file(prepared_path)
-        preview_label = "**Prepared structure**"
-    else:
-        cache_key   = f"host_preview_pdb_{selected}"
-        preview_pdb = st.session_state.get(cache_key)
-        if not preview_pdb:
-            url = HOST_PREVIEW_URLS.get(selected)
-            if url:
-                with st.spinner("Loading 3D preview…"):
-                    preview_pdb = _fetch_preview_pdb(url)
-                if preview_pdb:
-                    st.session_state[cache_key] = preview_pdb
-        preview_label = f"**Preview — {selected}**"
-
-    if preview_pdb:
-        st.markdown(preview_label)
-        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420, side_view=True), height=430)
-    else:
-        st.info("3D preview unavailable — check internet connection.")
+        st.markdown(
+            f'<div style="font-size:11px;font-weight:700;text-transform:uppercase;'
+            f'letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:8px;">'
+            f'{preview_label}</div>',
+            unsafe_allow_html=True,
+        )
+        if preview_pdb:
+            st.components.v1.html(py3dmol_html(preview_pdb, 480, 380, side_view=True), height=390)
+        else:
+            st.markdown(
+                '<div class="glass-card" style="height:340px;display:flex;align-items:center;'
+                'justify-content:center;color:var(--text-tertiary);font-size:13px;">'
+                '3D preview unavailable</div>',
+                unsafe_allow_html=True,
+            )
 
     st.divider()
 
@@ -1424,7 +1187,6 @@ def page_host():
     log_expander("log_host")
 
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 2 — Guest preparation
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1454,48 +1216,94 @@ def _charge_from_file(path):
 
 
 def page_guest():
+    render_topbar("Prepare Guest", 2)
     render_stepper(2)
-    section_header("🧪 Prepare guest molecule",
-                   "Search by name, enter SMILES, draw with Ketcher, or upload a 3D file.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Prepare guest molecule", "Provide your guest ligand by SMILES, file upload, or draw with Ketcher.", step_num=2)
 
-    # ── Input mode tabs ───────────────────────────────────────────────────────
+    # Tab-bar styled radio
+    _MODES = ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
+    _MODE_ICONS = {"SMILES": "📝 SMILES", "Search by name (PubChem)": "🔬 PubChem",
+                   "Draw (Ketcher)": "✏️ Ketcher", "File upload (.pdb / .mol2)": "📁 Upload"}
     input_type = st.radio(
         "Input method",
-        ["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
+        _MODES,
+        format_func=lambda x: _MODE_ICONS.get(x, x),
         horizontal=True,
-        index=["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
-            st.session_state.get("guest_input_type", "PubChem search")
-            if st.session_state.get("guest_input_type", "PubChem search") in
-               ["PubChem search", "SMILES", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
-            else "PubChem search"
+        index=_MODES.index(
+            st.session_state.get("guest_input_type", "SMILES")
+            if st.session_state.get("guest_input_type", "SMILES") in _MODES else "SMILES"
         ),
         key="guest_input_radio",
+        label_visibility="collapsed",
     )
     st.session_state["guest_input_type"] = input_type
 
     smiles_in     = ""
     uploaded_file = None
 
-    # ── PubChem search ────────────────────────────────────────────────────────
-    if input_type == "PubChem search":
-        st.markdown("#### 🔍 Search compound by name")
-        _sq_col, _sb_col = st.columns([5, 1])
-        with _sq_col:
-            _sq = st.text_input(
+    # ── SMILES ────────────────────────────────────────────────────────────────
+    if input_type == "SMILES":
+
+        # Example guests
+        EXAMPLES = {
+            "Aspirin":      "CC(=O)OC1=CC=CC=C1C(=O)O",
+            "Caffeine":     "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
+            "Ibuprofen":    "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+            "Naproxen":     "COc1ccc2cc(ccc2c1)C(C)C(=O)O",
+            "Glucose":      "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+            "Testosterone": "O=C1CC[C@H]2[C@@H]3CCc4cc(O)cc[C@@]4(C)[C@H]3CC[C@@]12C",
+        }
+
+        st.markdown("<div class='group-label'>Quick examples</div>", unsafe_allow_html=True)
+        ex_cols = st.columns(len(EXAMPLES))
+        for col, (name, smi) in zip(ex_cols, EXAMPLES.items()):
+            with col:
+                if st.button(name, key=f"ex_{name}", use_container_width=True):
+                    st.session_state["guest_smiles"] = smi
+                    st.rerun()
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        smiles_in = st.text_input(
+            "SMILES string",
+            value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
+            help="Paste any valid SMILES or click an example above",
+            key="guest_smiles_input",
+            placeholder="e.g. CC(=O)OC1=CC=CC=C1C(=O)O",
+        )
+        if smiles_in:
+            st.markdown(
+                f'<div style="font-family:JetBrains Mono,monospace;font-size:11px;'
+                f'color:var(--accent);padding:4px 0;">{smiles_in}</div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── PubChem name search ───────────────────────────────────────────────────
+    elif input_type == "Search by name (PubChem)":
+        st.markdown(
+            "Type a compound name (common, IUPAC, or trade name) and DFDD will "
+            "fetch the structure from the "
+            "[PubChem](https://pubchem.ncbi.nlm.nih.gov/) database."
+        )
+
+        sc1, sc2 = st.columns([3, 1])
+        with sc1:
+            query = st.text_input(
                 "Compound name",
                 value=st.session_state.get("guest_pubchem_query", ""),
                 placeholder="e.g. aspirin, caffeine, ibuprofen, paracetamol…",
                 key="guest_pubchem_query_input",
                 label_visibility="collapsed",
             )
-        with _sb_col:
-            _sb = st.button("🔍 Search", key="btn_pubchem_search", type="primary")
+        with sc2:
+            do_search = st.button("🔍 Search", use_container_width=True,
+                                  key="btn_pubchem_search")
 
-        if _sb and _sq.strip():
-            st.session_state["guest_pubchem_query"] = _sq.strip()
-            with st.spinner(f"Searching PubChem for '{_sq.strip()}'…"):
+        if do_search and query.strip():
+            st.session_state["guest_pubchem_query"] = query.strip()
+            with st.spinner(f"Searching PubChem for “{query.strip()}”…"):
                 try:
-                    results = pubchem_search_by_name(_sq.strip(), max_results=5)
+                    results = pubchem_search_by_name(query.strip(), max_results=5)
                     st.session_state["guest_pubchem_results"] = results
                     st.session_state["guest_pubchem_error"]   = None
                 except Exception as e:
@@ -1510,6 +1318,8 @@ def page_guest():
 
         if results:
             st.caption(f"Found {len(results)} match(es) — click **Use this** to load.")
+
+            # Pre-select first result if nothing chosen
             sel_cid = st.session_state.get("guest_pubchem_selected_cid")
             if sel_cid is None:
                 sel_cid = results[0]["cid"]
@@ -1526,76 +1336,57 @@ def page_guest():
                             st.caption("(no image)")
                     with rc2:
                         st.markdown(f"**{r['name']}**  \n"
-                                    f"CID `{r['cid']}` · {r['formula']} · MW {r['mw']}")
+                                    f"CID `{r['cid']}` · {r['formula']} · "
+                                    f"MW {r['mw']}")
                         if r.get("iupac"):
                             st.caption(f"IUPAC: {r['iupac']}")
                         if r.get("smiles"):
                             st.code(r["smiles"], language="text")
                     with rc3:
                         label = "✓ Selected" if is_sel else "Use this"
-                        if st.button(label, key=f"pc_pick_{r['cid']}",
+                        if st.button(label,
+                                     key=f"pc_pick_{r['cid']}",
                                      type="primary" if is_sel else "secondary",
-                                     use_container_width=True, disabled=is_sel):
+                                     use_container_width=True,
+                                     disabled=is_sel):
                             st.session_state["guest_pubchem_selected_cid"] = r["cid"]
                             st.session_state["guest_smiles"] = r["smiles"]
                             st.rerun()
-                        st.markdown(f"[View on PubChem ↗]({r['pubchem_url']})")
+                        st.markdown(
+                            f"[View on PubChem ↗]({r['pubchem_url']})",
+                            help="Open the compound page in a new tab",
+                        )
 
-            chosen = next(
-                (r for r in results if r["cid"] == st.session_state.get("guest_pubchem_selected_cid")),
-                results[0],
-            )
+            # Resolve selected SMILES
+            chosen = next((r for r in results
+                           if r["cid"] == st.session_state.get("guest_pubchem_selected_cid")),
+                          results[0])
             smiles_in = chosen["smiles"]
             st.session_state["guest_smiles"] = smiles_in
-            st.success(f"Using **{chosen['name']}** (CID {chosen['cid']}) — SMILES loaded.")
-
+            st.success(f"Using **{chosen['name']}** (CID {chosen['cid']}) — "
+                       f"SMILES loaded.")
         elif st.session_state.get("guest_pubchem_query") and not err:
-            st.info("No matches found. Try a different spelling or a more common name.")
-
-    # ── SMILES input ──────────────────────────────────────────────────────────
-    elif input_type == "SMILES":
-        st.markdown("#### Paste or type a SMILES string")
-        _example_row = st.container()
-        with _example_row:
-            st.caption("Quick examples:")
-            ex_cols = st.columns(6)
-            _examples = [
-                ("Aspirin",     "CC(=O)OC1=CC=CC=C1C(=O)O"),
-                ("Caffeine",    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
-                ("Ibuprofen",   "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"),
-                ("Naproxen",    "CC(C1=CC2=CC=CC=C2C=C1)C(=O)O"),
-                ("Glucose",     "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O"),
-                ("Paracetamol", "CC(=O)NC1=CC=C(O)C=C1"),
-            ]
-            for col, (name, smi) in zip(ex_cols, _examples):
-                with col:
-                    if st.button(name, key=f"ex_{name}", use_container_width=True):
-                        st.session_state["guest_smiles"] = smi
-                        st.rerun()
-
-        smiles_in = st.text_input(
-            "SMILES string",
-            value=st.session_state.get("guest_smiles", ""),
-            placeholder="e.g. CC(=O)OC1=CC=CC=C1C(=O)O",
-            key="guest_smiles_input",
-        )
-        if smiles_in:
-            st.session_state["guest_smiles"] = smiles_in
+            st.info("No matches. Try a different spelling or a more common name.")
 
     # ── Ketcher draw ──────────────────────────────────────────────────────────
     elif input_type == "Draw (Ketcher)":
         st_ketcher = _try_import_ketcher()
+
         if st_ketcher is None:
+            # Auto-install streamlit-ketcher if not present
             with st.spinner("Installing streamlit-ketcher…"):
                 core.run_cmd(
                     [sys.executable, "-m", "pip", "install", "-q", "streamlit-ketcher"],
-                    timeout=120,
+                    timeout=120
                 )
             st.info("✅ streamlit-ketcher installed — please click **Draw (Ketcher)** again.")
             st.stop()
+
         st.markdown("**Draw your molecule below. SMILES updates automatically.**")
+        # Pre-load with last used SMILES if available
         init_smiles = st.session_state.get("guest_smiles", "")
         drawn_smiles = st_ketcher(init_smiles, height=500, key="ketcher_editor")
+
         if drawn_smiles and drawn_smiles.strip():
             smiles_in = drawn_smiles.strip()
             st.session_state["guest_smiles"] = smiles_in
@@ -1606,11 +1397,10 @@ def page_guest():
 
     # ── File upload ───────────────────────────────────────────────────────────
     else:
-        st.markdown("#### Upload a 3D molecule file")
         uploaded_file = st.file_uploader(
             "Upload molecule file (.pdb or .mol2)",
             type=["pdb", "mol2"],
-            help="Must contain 3D coordinates. Protonation at target pH will be applied.",
+            help="PDB or Mol2 format only. Must contain 3D coordinates.",
             key="guest_file_upload",
         )
         if uploaded_file:
@@ -1618,43 +1408,46 @@ def page_guest():
 
     st.divider()
 
-    # ── pH / protonation (same as anyone-can-dock style) ──────────────────────
+    # ── pH / protonation ──────────────────────────────────────────────────────
     st.markdown("#### 🧫 Protonation state")
-    st.caption(
-        "Uses Dimorphite-DL at the target pH to select the dominant microstate "
-        "before building 3D coordinates and running antechamber AM1-BCC."
-    )
 
     pc1, pc2, pc3 = st.columns([1.2, 1, 1.5])
     with pc1:
         apply_ph = st.checkbox(
             "Adjust protonation at pH",
             value=st.session_state.get("guest_apply_ph", True),
-            help="Applies to SMILES / PubChem / Ketcher input. Uploaded 3D files are used as-is.",
+            help="Applies only to SMILES/Ketcher input (not to uploaded 3D files).",
             key="guest_apply_ph_chk",
         )
         st.session_state["guest_apply_ph"] = apply_ph
+
     with pc2:
         pH_val = st.slider(
-            "Target pH", 2.0, 12.0,
-            st.session_state.get("guest_pH", 7.4), 0.1,
-            disabled=not apply_ph, key="guest_pH_slider",
+            "Target pH",
+            2.0, 12.0,
+            st.session_state.get("guest_pH", 7.4),
+            0.1,
+            disabled=not apply_ph,
+            key="guest_pH_slider",
         )
         st.session_state["guest_pH"] = pH_val
+
     with pc3:
         pH_range = st.slider(
-            "pH range (±)", 0.1, 2.0,
-            st.session_state.get("guest_pH_range", 0.5), 0.1,
+            "pH range (± around target)",
+            0.1, 2.0,
+            st.session_state.get("guest_pH_range", 0.5),
+            0.1,
             disabled=not apply_ph,
-            help="Lower = strict; higher = includes minor microspecies.",
+            help="Lower = strict protonation; higher = includes minor microspecies.",
             key="guest_pH_range_slider",
         )
         st.session_state["guest_pH_range"] = pH_range
 
-    # Live protonation preview
+    # Live protonation preview (SMILES / Ketcher only)
     if apply_ph and smiles_in and smiles_in.strip() and not input_type.startswith("File"):
         if st.button("🔬 Preview protonated SMILES", key="btn_preview_proton"):
-            with st.spinner("Scoring protonation states…"):
+            with st.spinner("Scoring protonation states via Henderson–Hasselbalch…"):
                 new_smi, changed, err = core.protonate_smiles_at_ph(
                     smiles_in.strip(), pH=pH_val, pH_range=pH_range
                 )
@@ -1662,22 +1455,32 @@ def page_guest():
                 st.warning(f"⚠️ Protonation unavailable: {err}")
             else:
                 st.session_state["guest_smiles_protonated"] = new_smi
+                # Compute formal charge on result
                 charge_str = ""
                 try:
-                    from rdkit import Chem as _Chem
-                    # Always compute from the protonated SMILES (new_smi),
-                    # NOT from the original — this is what matters for antechamber
-                    _m = _Chem.MolFromSmiles(new_smi)
-                    if _m is not None:
-                        fc = _Chem.GetFormalCharge(_m)
+                    from rdkit import Chem
+                    m = Chem.MolFromSmiles(new_smi)
+                    if m:
+                        fc = sum(a.GetFormalCharge() for a in m.GetAtoms())
                         charge_str = f"  |  Charge: **{fc:+d}**"
                 except Exception:
                     pass
+
                 if changed:
-                    st.success(f"✅ Rank-1 microstate at pH {pH_val}: `{new_smi}`{charge_str}")
-                    st.caption(f"Input: `{smiles_in.strip()}` → selected by HH ranking")
+                    st.success(
+                        f"✅ Rank-1 microstate at pH {pH_val}:  "
+                        f"`{new_smi}`{charge_str}"
+                    )
+                    st.caption(
+                        f"Input: `{smiles_in.strip()}` → selected by HH score "
+                        f"(pKaNET-style ranking)"
+                    )
                 else:
-                    st.info(f"No change at pH {pH_val} — input already matches rank-1 state.{charge_str}")
+                    st.info(
+                        f"No protonation change at pH {pH_val} — "
+                        f"input already matches rank-1 state.{charge_str}"
+                    )
+
         if st.session_state.get("guest_smiles_protonated"):
             st.caption(f"Selected microstate: `{st.session_state['guest_smiles_protonated']}`")
 
@@ -1688,34 +1491,37 @@ def page_guest():
     with c1:
         st.info("**Guest residue name:** `GST` (fixed)")
         output_name = "GST"
+
     with c2:
         st.info("**Charge method:** AM1-BCC (GAFF2)")
 
-    # Charge options — defined outside columns so always in scope below
-    if input_type.startswith("File"):
-        charge_mode = st.radio(
-            "Formal charge",
-            ["Auto-detect from file", "Set manually"],
-            horizontal=True,
-            key="guest_charge_mode",
-        )
-        manual_charge = st.number_input(
-            "Manual charge", -10, 10, 0,
-            disabled=(charge_mode == "Auto-detect from file"),
-            key="guest_manual_charge",
-        )
-    else:
-        charge_mode = st.radio(
-            "Formal charge",
-            ["Auto-detect (RDKit)", "Set manually"],
-            horizontal=True,
-            key="guest_charge_mode",
-        )
-        manual_charge = st.number_input(
-            "Manual charge", -10, 10, 0,
-            disabled=(charge_mode != "Set manually"),
-            key="guest_manual_charge",
-        )
+        # Charge options depend on input method
+        if input_type.startswith("File"):
+            charge_mode = st.radio(
+                "Charge",
+                ["Auto-detect from file", "Set manually"],
+                horizontal=True,
+                key="guest_charge_mode",
+            )
+            manual_charge = st.number_input(
+                "Manual charge",
+                -10, 10, 0,
+                disabled=(charge_mode == "Auto-detect from file"),
+                key="guest_manual_charge",
+            )
+        else:
+            charge_mode = st.radio(
+                "Charge",
+                ["Auto-detect (RDKit)", "Set manually"],
+                horizontal=True,
+                key="guest_charge_mode",
+            )
+            manual_charge = st.number_input(
+                "Manual charge",
+                -10, 10, 0,
+                disabled=(charge_mode != "Set manually"),
+                key="guest_manual_charge",
+            )
 
     # ── Prepare ───────────────────────────────────────────────────────────────
     if st.button("▶ Prepare guest", type="primary"):
@@ -1769,21 +1575,7 @@ def page_guest():
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
-                log   += f"RDKit detected charge from 3D gen: {detected}\n"
-
-                # ── Re-compute formal charge from the protonated SMILES ───────
-                # smiles_to_3d_pdb reads charge from the *original* SMILES which
-                # may be neutral even after pH adjustment (e.g. baicalein → -1).
-                # Always recompute from smi_to_use (the post-protonation SMILES).
-                try:
-                    from rdkit import Chem as _RChem
-                    _pm = _RChem.MolFromSmiles(smi_to_use)
-                    if _pm is not None:
-                        detected = _RChem.GetFormalCharge(_pm)
-                        log += f"Formal charge from protonated SMILES: {detected}\n"
-                except Exception as _ce:
-                    log += f"Charge re-read failed ({_ce}), keeping {detected}\n"
-
+                log   += f"RDKit detected charge: {detected}\n"
                 # Persist the final SMILES used
                 st.session_state["guest_smiles_protonated"] = smi_to_use
                 if charge_mode == "Set manually":
@@ -1883,8 +1675,6 @@ def page_guest():
     log_expander("log_guest")
 
 
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 3 — Build complex + solvation
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1900,117 +1690,125 @@ def _build_preview_cached(hp, gp, distance, _mtime_h, _mtime_g):
     return core.read_file(tmp), msg
 
 
-def _py3dmol_complex(pdb_str, width=760, height=500, distance=0):
-    """Full-width 3D viewer for host-guest complex with overview camera."""
-    _uid = f"v3dc_{abs(hash(str(distance) + pdb_str[:32])) % 999999}"
+def _py3dmol_complex(pdb_str, width=560, height=480, distance=0):
+    """Fixed-camera 3D viewer for host-guest complex.
 
+    Camera is set once to show the full ~55 Å Z-extent centered at origin.
+    It does NOT follow the ligand — the view stays fixed so the user can see
+    the ligand moving up/down as they adjust Z.
+
+    The Z-position bar on the right of the viewer is purely decorative (updates
+    via the Streamlit slider outside).  Click any atom for element info.
+    """
+    # Percentage for the Z-position indicator inside the viewer
+    # Map -20..+20 Ang → 0..100% (bottom to top)
     zpct = int((distance + 20) / 40 * 100)
     z_label = f"{distance:+d} Å"
-    above_below = ("above cavity" if distance < 0
-                   else ("at cavity" if distance == 0 else "below cavity"))
+    above_below = "above cavity" if distance < 0 else ("at cavity" if distance == 0 else "below cavity")
 
-    # Safely escape PDB for embedding inside a JS string literal.
-    # Replace backticks and backslashes so the template literal doesn't break.
-    pdb_safe = (pdb_str
-                .replace("\\", "\\\\")
-                .replace("`", "'")
-                .replace("${", "$\\{"))
-
-    return f"""<!DOCTYPE html>
-<html>
-<head>
+    return f"""
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-<style>
-body{{margin:0;padding:0;overflow:hidden;background:#FAFBFC;}}
-#outer{{display:flex;width:100%;height:{height}px;
-        border-radius:10px;overflow:hidden;border:1px solid #E5E7EB;box-sizing:border-box;}}
-#vwrap{{position:relative;flex:1;min-width:0;background:#FAFBFC;}}
-#{_uid}{{width:100%;height:100%;}}
-#ibox{{display:none;position:absolute;top:10px;left:10px;
-       background:rgba(91,63,209,0.92);color:#fff;
-       font-size:11px;font-family:monospace;padding:5px 10px;
-       border-radius:7px;pointer-events:none;line-height:1.6;
-       box-shadow:0 2px 8px rgba(0,0,0,0.25);max-width:220px;z-index:10;}}
-#hint{{position:absolute;bottom:8px;left:10px;font-size:10px;color:#777;
-       background:rgba(255,255,255,0.88);padding:2px 8px;border-radius:4px;
-       pointer-events:none;}}
-#zbar{{width:60px;flex-shrink:0;background:#F3F4F6;display:flex;
-       flex-direction:column;align-items:center;justify-content:space-between;
-       padding:10px 0;border-left:1px solid #E5E7EB;}}
-#zt{{font-size:10px;color:#6B7280;font-weight:500;}}
-#zb{{font-size:10px;color:#6B7280;font-weight:500;}}
-#ztrack{{position:relative;width:18px;flex:1;margin:5px 0;
-         background:#E5E7EB;border-radius:9px;overflow:hidden;}}
-#zfill{{position:absolute;bottom:0;left:0;right:0;
-        height:{zpct}%;background:#C4B5F4;border-radius:9px;}}
-#zpill{{position:absolute;left:0;right:0;
-        bottom:calc({zpct}% - 11px);height:22px;
-        background:#A78BFA;border-radius:9px;}}
-#zval{{margin-top:5px;text-align:center;line-height:1.3;}}
-</style>
-</head>
-<body>
-<div id="outer">
-  <div id="vwrap">
-    <div id="{_uid}"></div>
-    <div id="ibox"></div>
-    <div id="hint">Left-drag: rotate · Scroll: zoom · Click: info</div>
-  </div>
-  <div id="zbar">
-    <div id="zt">+20 Å</div>
-    <div id="ztrack"><div id="zfill"></div><div id="zpill"></div></div>
-    <div id="zb">-20 Å</div>
-    <div id="zval">
-      <div style="font-size:12px;font-weight:700;color:#7C5FC8;">{z_label}</div>
-      <div style="font-size:9px;color:#9CA3AF;">{above_below}</div>
+<div style="display:flex;gap:0;width:{width+64}px;height:{height}px;
+            border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;">
+
+  <!-- ── 3D viewer ───────────────────────────────────────────── -->
+  <div style="position:relative;flex:1;background:#FAFBFC;">
+    <div id="v3dc" style="width:100%;height:100%;"></div>
+
+    <!-- atom info popup -->
+    <div id="v3dc-info" style="
+         display:none;position:absolute;top:10px;left:10px;
+         background:rgba(91,63,209,0.93);color:#fff;
+         font-size:11px;font-family:monospace;padding:5px 10px;
+         border-radius:7px;pointer-events:none;line-height:1.6;
+         box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:200px;z-index:10;"></div>
+
+    <!-- camera hint -->
+    <div style="position:absolute;bottom:8px;left:10px;font-size:10px;color:#999;
+         background:rgba(255,255,255,0.8);padding:2px 7px;border-radius:4px;
+         pointer-events:none;">
+      Left-drag: rotate &nbsp;·&nbsp; Scroll: zoom &nbsp;·&nbsp; Click: info
     </div>
   </div>
+
+  <!-- ── Z-axis bar (right panel) ────────────────────────────── -->
+  <div style="width:64px;background:#F3F4F6;display:flex;flex-direction:column;
+              align-items:center;justify-content:space-between;
+              padding:10px 0;border-left:1px solid #E5E7EB;">
+
+    <!-- label top (+20) -->
+    <div style="font-size:10px;color:#6B7280;font-weight:500;">+20 Å</div>
+
+    <!-- track -->
+    <div style="position:relative;width:20px;flex:1;margin:6px 0;
+                background:#E5E7EB;border-radius:10px;overflow:hidden;">
+      <!-- filled portion below indicator -->
+      <div style="position:absolute;bottom:0;left:0;right:0;
+                  height:{zpct}%;background:#C7EDE2;border-radius:10px;
+                  transition:height .15s ease;"></div>
+      <!-- indicator pill -->
+      <div style="position:absolute;left:0;right:0;
+                  bottom:calc({zpct}% - 12px);height:24px;
+                  background:#8B6CE8;border-radius:10px;
+                  box-shadow:0 1px 4px rgba(29,158,117,0.5);
+                  transition:bottom .15s ease;"></div>
+    </div>
+
+    <!-- label bottom (-20) -->
+    <div style="font-size:10px;color:#6B7280;font-weight:500;">-20 Å</div>
+
+    <!-- current value -->
+    <div style="margin-top:6px;text-align:center;line-height:1.3;">
+      <div style="font-size:13px;font-weight:700;color:#5B3FD1;">{z_label}</div>
+      <div style="font-size:9px;color:#9CA3AF;margin-top:1px;">{above_below}</div>
+    </div>
+  </div>
+
 </div>
+
 <script>
-(function(){{
-  var el = document.getElementById("{_uid}");
-  if(!el){{ console.error("viewer div not found"); return; }}
-  if(typeof $3Dmol === "undefined"){{ console.error("3Dmol not loaded"); return; }}
+var v = $3Dmol.createViewer(document.getElementById("v3dc"),
+                            {{backgroundColor:"#FAFBFC"}});
+v.addModel(`{pdb_str}`,"pdb");
+v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.15}}}});
+v.addStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.24}}}});
+v.addStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
 
-  var pdb = `{pdb_safe}`;
-  var v = $3Dmol.createViewer(el, {{backgroundColor:"#FAFBFC"}});
-  v.addModel(pdb, "pdb");
+/* ── Fixed camera: always shows 55 Å window centred at origin ─────────── */
+/* Rotate 90° around X first so Z-axis = screen vertical */
+v.rotate(90, {{x:1, y:0, z:0}});
+/* Set a fixed zoom level — slab from -27.5 to +27.5 Å in the new Z direction.
+   zoomTo() is intentionally NOT called so the camera does not follow the ligand. */
+v.zoom(0.85);          /* tweak: smaller = more zoomed out */
+v.setView([0, 0, 0,   /* centre of rotation x,y,z */
+           0, 0, 0,   /* camera x,y offset */
+           40]);       /* camera distance — ~55 Å field of view */
 
-  /* Host — thin sticks in element colours */
-  v.setStyle({{}}, {{stick:{{colorscheme:"Jmol", radius:0.12}}}});
-
-  /* Guest — thicker cyan sticks + small spheres */
-  v.setStyle({{resn:"GST"}}, {{stick:{{colorscheme:"cyanCarbon", radius:0.28}}}});
-  v.setStyle({{resn:"GST"}}, {{sphere:{{colorscheme:"cyanCarbon", radius:0.16}}}});
-
-  /* Zoom to fit everything, then pull back slightly */
-  v.zoomTo();
-  v.zoom(0.80);
+/* atom click */
+var infoBox = document.getElementById("v3dc-info");
+v.setClickable({{}}, true, function(atom) {{
+  var tag = atom.resn === "GST" ? " [guest]" : " [host]";
+  infoBox.innerHTML = [
+    "Elem: " + (atom.elem||"?") + tag,
+    "Atom: " + (atom.atom||"?"),
+    "Res:  " + (atom.resn||"?") + " " + (atom.resi||""),
+    "XYZ: (" + (atom.x||0).toFixed(1) + ", " +
+               (atom.y||0).toFixed(1) + ", " +
+               (atom.z||0).toFixed(1) + ")"
+  ].join("<br>");
+  infoBox.style.display = "block";
+  setTimeout(function(){{ infoBox.style.display="none"; }}, 3500);
   v.render();
-
-  /* Click → atom info */
-  var ibox = document.getElementById("ibox");
-  v.setClickable({{}}, true, function(atom){{
-    var tag = (atom.resn === "GST") ? " [guest]" : " [host]";
-    ibox.innerHTML =
-      "Elem: " + (atom.elem||"?") + tag + "<br>" +
-      "Atom: " + (atom.atom||"?") + "<br>" +
-      "Res: "  + (atom.resn||"?") + " " + (atom.resi||"") + "<br>" +
-      "XYZ: (" + [(atom.x||0),(atom.y||0),(atom.z||0)]
-                  .map(function(n){{return n.toFixed(1);}}).join(", ") + ")";
-    ibox.style.display = "block";
-    setTimeout(function(){{ibox.style.display="none";}}, 3500);
-    v.render();
-  }});
-}})();
-</script>
-</body>
-</html>"""
+}});
+v.render();
+</script>"""
 
 
 def page_build():
+    render_topbar("Build & Solvate", 3)
     render_stepper(3)
-    section_header("🔗 Build complex & solvate")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Build complex & solvate", "Place guest inside host, add water box, prepare for simulation.", step_num=3)
 
     hp = st.session_state.get("host_path")
     gp = st.session_state.get("guest_path")
@@ -2042,83 +1840,55 @@ def page_build():
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown("### 📐 Stage 1 — Position guest along Z-axis")
     st.caption(
-        "Use the **vertical slider** on the left to slide the guest along the "
-        "cavity axis. The 3D view updates live. The camera is fixed so you can "
-        "always see the full host–guest complex."
+        "Use the **+** / **−** buttons or type a value to slide the guest along the "
+        "cavity axis. The 3D view and the Z-bar update live."
     )
 
+    # ── Z controller row (above viewer) ──────────────────────────────────────
     cur_dist = st.session_state.get("build_distance", -15)
 
-    # ── Z slider (horizontal, full width) ────────────────────────────────────
-    new_dist = st.slider(
-        "Guest Z offset (Å) — slide to move guest along cavity axis",
-        min_value=-20, max_value=20,
-        value=cur_dist, step=1,
-        key="z_slider_vert",
-    )
-    if new_dist != cur_dist:
-        st.session_state["build_distance"] = new_dist
-        st.rerun()
+    zc1, zc2, zc3, zc4, zc5 = st.columns([1, 1, 2, 1, 1])
+    with zc1:
+        if st.button("−5", key="z_m5", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, cur_dist - 5)
+            st.rerun()
+    with zc2:
+        if st.button("−1", key="z_m1", use_container_width=True):
+            st.session_state["build_distance"] = max(-20, cur_dist - 1)
+            st.rerun()
+    with zc3:
+        new_val = st.number_input(
+            "Z offset (Å)", min_value=-20, max_value=20,
+            value=cur_dist, step=1, label_visibility="collapsed",
+            key="z_num",
+        )
+        if new_val != cur_dist:
+            st.session_state["build_distance"] = new_val
+            st.rerun()
+    with zc4:
+        if st.button("+1", key="z_p1", use_container_width=True):
+            st.session_state["build_distance"] = min(20, cur_dist + 1)
+            st.rerun()
+    with zc5:
+        if st.button("+5", key="z_p5", use_container_width=True):
+            st.session_state["build_distance"] = min(20, cur_dist + 5)
+            st.rerun()
 
     distance = st.session_state.get("build_distance", -15)
 
-    # Z value display
-    _above_below = "above cavity" if distance < 0 else ("at cavity" if distance == 0 else "below cavity")
-    st.markdown(
-        f'<div style="text-align:center;margin:-8px 0 10px;">'
-        f'<span style="font-size:15px;font-weight:700;color:var(--dfdd-primary);">'
-        f'{distance:+d} Å</span>'
-        f'<span style="font-size:12px;color:var(--dfdd-text-muted);margin-left:8px;">'
-        f'({_above_below})</span></div>',
-        unsafe_allow_html=True,
-    )
-
-    # ── 3D preview — full width, outside any column ───────────────────────────
+    # ── Live 3D preview ───────────────────────────────────────────────────────
     mh, mg = os.path.getmtime(hp), os.path.getmtime(gp)
-    with st.spinner("Updating 3D view…"):
+    with st.spinner("Updating…"):
         preview_pdb, pmsg = _build_preview_cached(hp, gp, float(distance), mh, mg)
 
     if preview_pdb:
+        # Full-width viewer with integrated Z-bar on the right
         st.components.v1.html(
-            _py3dmol_complex(preview_pdb, 760, 500, distance),
-            height=510,
+            _py3dmol_complex(preview_pdb, 580, 480, distance),
+            height=490
         )
     else:
-        st.error(f"❌ 3D preview failed: {pmsg}")
-        st.caption(
-            "This usually means OpenMM is not installed yet (complete Step 0), "
-            "or the guest PDB has no valid atoms. Check the error above."
-        )
-        with st.expander("🔍 Debug: host / guest file info", expanded=False):
-            for label, path in [("Host", hp), ("Guest", gp)]:
-                if path and os.path.exists(path):
-                    lines = open(path).readlines()
-                    atom_lines = [l for l in lines if l.startswith(("ATOM","HETATM"))]
-                    st.caption(f"**{label}** `{path}` — {len(atom_lines)} ATOM/HETATM lines")
-                    st.code("".join(lines[:8]), language="text")
-                else:
-                    st.caption(f"**{label}** not found: `{path}`")
-
-    # Fine-tune buttons below viewer
-    bc1, bc2, bc3, bc4, bc5 = st.columns([1, 1, 3, 1, 1])
-    with bc1:
-        if st.button("−5", key="z_m5", use_container_width=True):
-            st.session_state["build_distance"] = max(-20, distance - 5); st.rerun()
-    with bc2:
-        if st.button("−1", key="z_m1", use_container_width=True):
-            st.session_state["build_distance"] = max(-20, distance - 1); st.rerun()
-    with bc3:
-        st.markdown(
-            f'<div style="text-align:center;padding:6px 0;font-size:13px;'
-            f'color:var(--dfdd-text-muted);">Fine-tune Z offset</div>',
-            unsafe_allow_html=True,
-        )
-    with bc4:
-        if st.button("+1", key="z_p1", use_container_width=True):
-            st.session_state["build_distance"] = min(20, distance + 1); st.rerun()
-    with bc5:
-        if st.button("+5", key="z_p5", use_container_width=True):
-            st.session_state["build_distance"] = min(20, distance + 5); st.rerun()
+        st.error(f"Preview failed: {pmsg}")
 
     # Stage 1 confirm
     dist_confirmed = st.session_state.get("build_dist_confirmed", False)
@@ -2133,10 +1903,7 @@ def page_build():
     else:
         c_ok, c_edit = st.columns([3, 1])
         with c_ok:
-            st.success(
-                f"✅ Guest position confirmed: Z = **{distance} Å**  "
-                f"({'above' if distance < 0 else 'at/below'} cavity)"
-            )
+            st.success(f"✅ Guest position confirmed: Z = **{distance} Å**  ({('above' if distance < 0 else 'at/below')} cavity)")
         with c_edit:
             if st.button("✏️ Change", key="btn_dist_edit", use_container_width=True):
                 st.session_state["build_dist_confirmed"] = False
@@ -2144,87 +1911,54 @@ def page_build():
 
     st.divider()
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # STAGE 2 — Water model & solvation
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown("### 💧 Stage 2 — Solvate the complex")
+    # STAGE 2 - Solvation
+    st.markdown("### Stage 2 -- Add water box")
+
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        water_type = st.selectbox(
+            "Water model", ["TIP3P", "OPC"],
+            index=0 if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else 1,
+            key="build_water_sel",
+        )
+        st.session_state["build_water_type"] = water_type
+    with sc2:
+        box_buf = st.slider("Water padding (Ang)", 4, 25,
+            st.session_state.get("build_box_buf", 5), step=1, key="build_box_buf_sl")
+        st.session_state["build_box_buf"] = box_buf
+        unit_xy = st.slider("Unit cell X/Y (Ang)", 12, 25,
+            st.session_state.get("build_unit_xy", 13), step=1, key="build_uxy_sl")
+        st.session_state["build_unit_xy"] = unit_xy
+    with sc3:
+        unit_z = st.slider("Unit cell Z (Ang)", 30, 60,
+            st.session_state.get("build_unit_z", 35), step=1, key="build_uz_sl")
+        st.session_state["build_unit_z"] = unit_z
+        translate_z = st.slider("Z-translation (Ang)", -20, 20,
+            st.session_state.get("build_translate_z", 0), step=1, key="build_tz_sl")
+        st.session_state["build_translate_z"] = translate_z
+
     st.caption(
-        "Choose your water model, then click **Prepare complex in water!** "
-        "to run tleap and build the solvated topology."
+        f"{water_type} | padding {box_buf} Ang | "
+        f"cell {unit_xy}x{unit_xy}x{unit_z} Ang | Z-shift {translate_z} Ang"
     )
-
-    # Water model — prominent choice cards
-    st.markdown("#### Water model")
-    wm_col1, wm_col2, wm_col_rest = st.columns([1, 1, 2])
-    with wm_col1:
-        tip3p_sel = st.button(
-            "💧 TIP3P\n\nFast · widely used",
-            key="wm_tip3p",
-            use_container_width=True,
-            type="primary" if st.session_state.get("build_water_type", "TIP3P") == "TIP3P" else "secondary",
-        )
-    with wm_col2:
-        opc_sel = st.button(
-            "💧 OPC\n\nMore accurate · slower",
-            key="wm_opc",
-            use_container_width=True,
-            type="primary" if st.session_state.get("build_water_type", "TIP3P") == "OPC" else "secondary",
-        )
-    if tip3p_sel:
-        st.session_state["build_water_type"] = "TIP3P"; st.rerun()
-    if opc_sel:
-        st.session_state["build_water_type"] = "OPC"; st.rerun()
-
-    water_type = st.session_state.get("build_water_type", "TIP3P")
-    st.caption(f"Selected: **{water_type}**")
-
-    # Box parameters (collapsed by default — sensible defaults for most users)
-    with st.expander("⚙️ Advanced box parameters", expanded=False):
-        sc2, sc3 = st.columns(2)
-        with sc2:
-            box_buf = st.slider("Water padding (Å)", 4, 25,
-                st.session_state.get("build_box_buf", 5), step=1, key="build_box_buf_sl")
-            st.session_state["build_box_buf"] = box_buf
-            unit_xy = st.slider("Unit cell X/Y (Å)", 12, 25,
-                st.session_state.get("build_unit_xy", 13), step=1, key="build_uxy_sl")
-            st.session_state["build_unit_xy"] = unit_xy
-        with sc3:
-            unit_z = st.slider("Unit cell Z (Å)", 30, 60,
-                st.session_state.get("build_unit_z", 35), step=1, key="build_uz_sl")
-            st.session_state["build_unit_z"] = unit_z
-            translate_z = st.slider("Z-translation (Å)", -20, 20,
-                st.session_state.get("build_translate_z", 0), step=1, key="build_tz_sl")
-            st.session_state["build_translate_z"] = translate_z
-        st.caption(
-            f"{water_type} · padding {box_buf} Å · "
-            f"cell {unit_xy}×{unit_xy}×{unit_z} Å · Z-shift {translate_z} Å"
-        )
-
-    # Always read from session state so values survive expander collapse
-    box_buf    = st.session_state.get("build_box_buf", 5)
-    unit_xy    = st.session_state.get("build_unit_xy", 13)
-    unit_z     = st.session_state.get("build_unit_z", 35)
-    translate_z = st.session_state.get("build_translate_z", 0)
 
     water_ff  = "leaprc.water.tip3p" if water_type == "TIP3P" else "leaprc.water.opc"
     water_box = "TIP3PBOX"           if water_type == "TIP3P" else "OPCBOX"
 
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-    if st.button("🌊 Prepare complex in water!", type="primary", key="btn_solvate",
-                 use_container_width=False):
+    if st.button("OK -- build complex & add water", type="primary", key="btn_solvate"):
         cx_out = wpath("complex.pdb")
-        with st.spinner("Building host–guest complex…"):
+        with st.spinner("Building complex..."):
             ok, msg = core.build_host_guest_complex(hp, gp, distance, cx_out)
         if not ok:
             st.error(f"Build failed: {msg}"); st.stop()
-        st.success("✅ Complex assembled")
+        st.success("Complex built")
 
         ht  = st.session_state.get("host_type", "BCD_DFT")
         hff = st.session_state.get("host_forcefield", "DFT")
         if hff == "GLYCAM06":
             core.insert_ter_records(cx_out)
 
-        with st.spinner(f"Running tleap with {water_type}… (~30 s)"):
+        with st.spinner("Running tleap... (~30 s)"):
             script = core.write_tleap_script(
                 workdir=WD(), host_forcefield=hff,
                 host_prep=st.session_state.get("host_prep", ""),
@@ -2246,7 +1980,7 @@ def page_build():
 
         st.session_state["build_done"] = True
         st.session_state["topo_done"]  = True
-        st.success(f"🌊 Solvated system ready! ({water_type} water box)")
+        st.success("Solvated system ready!")
 
         mc1, mc2, mc3 = st.columns(3)
         for col, fname in zip([mc1, mc2, mc3],
@@ -2254,38 +1988,49 @@ def page_build():
             p = wpath(fname)
             with col:
                 st.metric(fname, f"{core.file_mb(p):.2f} MB" if os.path.exists(p) else "---")
-        next_button(4, "Next → Minimization & heating", key_suffix="_built")
+        next_button(4, "Next -> Minimization & heating", key_suffix="_built")
 
     log_expander("log_tleap")
 
 
 def page_minimize():
+    render_topbar("Minimize", 4)
     render_stepper(4)
-    section_header("🔥 Minimization & heating", "Energy minimization, NVT heating 0→300 K, short equilibration.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Minimize & heat", "Energy minimization, NVT heating 0→300 K, short equilibration.", step_num=4)
 
-    c1, c2 = st.columns(2)
+    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
     with c1:
         min_iters  = st.number_input("Max minimization steps", 100, 50000, 5000)
-        heat_steps = st.number_input("Steps per heating stage (×6)", 1000, 50000, 10000)
     with c2:
+        heat_steps = st.number_input("Steps per heating stage (×6)", 1000, 50000, 10000)
         nvt_steps  = st.number_input("NVT steps", 10000, 500000, 50000)
+    with c3:
         prod_steps = st.number_input("Restrained production steps", 10000, 500000, 100000)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     total_ns = (heat_steps * 6 + nvt_steps + prod_steps) * 2 / 1e6
-    st.info(f"Estimated time: **{total_ns:.2f} ns**  (~1–2 min on GPU)")
+    st.markdown(
+        f'<div class="summary-card">'
+        f'Est. simulation time: <b>{total_ns:.2f} ns</b> &nbsp;·&nbsp; ~1–2 min on GPU'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.get("min_done") and os.path.exists(wpath("last_frame.rst7")):
-        st.success(f"✅ Already minimized — `last_frame.rst7` ({core.file_mb(wpath('last_frame.rst7')):.2f} MB)")
-        next_button(5, "Next → LB-PaCS-MD")
+        st.markdown(
+            f'<div class="done-bar"><span class="done-icon">✅</span>'
+            f'<div><div class="done-text">Minimization complete</div>'
+            f'<div class="done-file">last_frame.rst7 · {core.file_mb(wpath("last_frame.rst7")):.2f} MB</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        next_button(5, "Next → LB-PaCS-MD →")
         return
 
     if st.button("▶ Run minimization & heating", type="primary"):
-        st.markdown("""
-        <div class="wait-card">
-            <div class="wait-title">⏳ Running OpenMM minimization + heating</div>
-            <div class="wait-sub">This takes ~1–2 minutes on GPU. Please don't close this tab.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        waiting_card("Running OpenMM minimization + heating",
+                     "This takes ~1–2 minutes on GPU. Please don't close this tab.", icon="⏳")
 
         progress = st.progress(0, text="Starting OpenMM…")
 
@@ -2300,7 +2045,12 @@ def page_minimize():
         if ok:
             progress.progress(100, text="Done!")
             st.session_state["min_done"] = True
-            st.success("✅ Minimization complete!  `last_frame.rst7` saved.")
+            st.markdown(
+                '<div class="done-bar"><span class="done-icon">✅</span>'
+                '<div><div class="done-text">Minimization complete</div>'
+                '<div class="done-file">last_frame.rst7 saved</div></div></div>',
+                unsafe_allow_html=True,
+            )
             next_button(5, "Next → LB-PaCS-MD")
         else:
             progress.progress(100, text="Failed")
@@ -2314,9 +2064,12 @@ def page_minimize():
 # STEP 5 — LB-PaCS-MD  (config + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd():
+    render_topbar("LB-PaCS-MD", 5)
     render_stepper(5)
-    section_header("🚀 LB-PaCS-MD sampling", "Configure and run the LB-PaCS-MD enhanced sampling cycles.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("LB-PaCS-MD sampling", "Configure and run the LB-PaCS-MD enhanced sampling cycles.", step_num=5)
 
+    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         cycle    = st.slider("Cycles", 2, 100,
@@ -2331,14 +2084,26 @@ def page_pacsmd():
     with c3:
         temperature = st.number_input("Temperature (K)", value=float(st.session_state.get("pacsmd_temp", 300.0)))
         pressure    = st.number_input("Pressure (bar)",  value=float(st.session_state.get("pacsmd_pressure", 1.0)))
+    st.markdown('</div>', unsafe_allow_html=True)
 
     steps_cycle = int(sim_time / (timestep / 1000))
     total_ns    = sim_time * cycle / 1000
-    st.info(f"Steps / cycle: **{steps_cycle:,}**  |  Total: **{total_ns:.2f} ns**")
+    st.markdown(
+        f'<div class="summary-card">'
+        f'<b>{cycle}</b> cycles × <b>{sim_time}</b> ps = <b>{total_ns:.2f} ns</b> total'
+        f' &nbsp;·&nbsp; <b>{steps_cycle:,}</b> steps / cycle'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.get("pacsmd_done") and os.path.exists(wpath("sum.nc")):
-        st.success(f"✅ LB-PaCS-MD done — `sum.nc` ({core.file_mb(wpath('sum.nc')):.1f} MB)")
-        next_button(6, "Next → PaCS-MD analysis")
+        st.markdown(
+            f'<div class="done-bar"><span class="done-icon">✅</span>'
+            f'<div><div class="done-text">LB-PaCS-MD complete</div>'
+            f'<div class="done-file">sum.nc · {core.file_mb(wpath("sum.nc")):.1f} MB</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        next_button(6, "Next → PaCS-MD analysis →")
         return
 
     if st.button("▶ Run LB-PaCS-MD", type="primary"):
@@ -2352,13 +2117,9 @@ def page_pacsmd():
         host_sel  = core.PACSMD_HOST_SEL.get(host_type, "resid 1-7")
         guest_sel = "resname GST"
 
-        st.markdown("""
-        <div class="wait-card">
-            <div class="wait-title">🚀 Running LB-PaCS-MD</div>
-            <div class="wait-sub">Enhanced sampling in progress. Each cycle selects candidates closest to the host cavity.<br>
-            This takes ~12 min (40 cycles, Colab GPU). Please keep this tab open.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        waiting_card("Running LB-PaCS-MD",
+                     "Enhanced sampling in progress — ~12 min (40 cycles, Colab GPU). Please keep this tab open.",
+                     icon="🚀")
 
         progress = st.progress(0, text=f"Starting {cycle} LB-PaCS-MD cycles…")
 
@@ -2372,8 +2133,12 @@ def page_pacsmd():
         if rc == 0:
             progress.progress(100, text="LB-PaCS-MD complete!")
             st.session_state["pacsmd_done"] = True
-            st.success("✅ LB-PaCS-MD complete!")
-            next_button(6, "Next → PaCS-MD analysis")
+            st.markdown(
+                '<div class="done-bar"><span class="done-icon">✅</span>'
+                '<div><div class="done-text">LB-PaCS-MD complete!</div></div></div>',
+                unsafe_allow_html=True,
+            )
+            next_button(6, "Next → PaCS-MD analysis →")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ PaCS-Q failed")
@@ -2386,8 +2151,10 @@ def page_pacsmd():
 # STEP 6 — PaCS-MD analysis + optional extend
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd_analysis():
+    render_topbar("PaCS-MD Analysis", 6)
     render_stepper(6)
-    section_header("📊 PaCS-MD analysis")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("PaCS-MD analysis", "Evaluate trajectories, distances, RMSD, and radius of gyration.", step_num=6)
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
@@ -2415,24 +2182,66 @@ def page_pacsmd_analysis():
         dis = np.loadtxt(dis_dat, usecols=0)
         last_d = float(dis[-1])
 
+        # ── Metric cards ──────────────────────────────────────────────────────
+        n_cyc = st.session_state.get("pacsmd_cycles", 40)
+        total_ps = n_cyc * st.session_state.get("pacsmd_sim_time", 10)
+        d_clr = "#10b981" if last_d < 5 else ("#f59e0b" if last_d < 10 else "#6366f1")
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-value" style="color:{d_clr};">{last_d:.1f}'
+                f'<span class="metric-unit">Å</span></div>'
+                f'<div class="metric-label">Final COM distance<br>host–guest</div></div>',
+                unsafe_allow_html=True,
+            )
+        with m2:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-value" style="color:#8b5cf6;">{n_cyc}'
+                f'<span class="metric-unit">cyc</span></div>'
+                f'<div class="metric-label">LB-PaCS-MD cycles<br>completed</div></div>',
+                unsafe_allow_html=True,
+            )
+        with m3:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-value" style="color:#06b6d4;">{total_ps/1000:.2f}'
+                f'<span class="metric-unit">ns</span></div>'
+                f'<div class="metric-label">Total simulation time<br>sampled</div></div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
         if _plotly_ok:
             fig = go.Figure(go.Scatter(
                 x=list(range(1, len(dis) + 1)), y=dis.tolist(),
                 mode="lines+markers",
-                line=dict(color="#8B6CE8", width=2),
-                marker=dict(size=4),
+                line=dict(color="#6366f1", width=2),
+                marker=dict(size=4, color="#6366f1"),
+                fill="tozeroy",
+                fillcolor="rgba(99,102,241,0.08)",
             ))
-            fig.add_hline(y=5, line_dash="dot", line_color="#E24B4A",
-                          annotation_text="5 Å threshold")
+            fig.add_hline(y=5, line_dash="dot", line_color="#ef4444",
+                          annotation_text="5 Å threshold",
+                          annotation_font_color="#ef4444")
             fig.update_layout(
                 xaxis_title="Cycle", yaxis_title="COM Distance (Å)",
                 title="Host–Guest COM Distance Profile",
-                height=380, plot_bgcolor="white",
+                height=320,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(255,255,255,0.6)",
+                font=dict(family="Noto Sans, sans-serif", size=12),
+                xaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
+                yaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
+                margin=dict(l=0, r=0, t=36, b=0),
             )
             st.plotly_chart(fig, use_container_width=True)
 
         if last_d < 5:
-            st.success(f"🎉 Guest complexed! Final distance = **{last_d:.1f} Å**")
+            st.markdown(
+                '<div class="done-bar"><span class="done-icon">🎉</span>'
+                f'<div><div class="done-text">Guest complexed!</div>'
+                f'<div class="done-file">Final COM distance = {last_d:.1f} Å</div></div></div>',
+                unsafe_allow_html=True,
+            )
         elif last_d < 10:
             st.info(f"Guest approaching cavity — distance = **{last_d:.1f} Å**")
         else:
@@ -2453,14 +2262,17 @@ def page_pacsmd_analysis():
             ))
             fig2d.update_layout(
                 xaxis_title="Host–Guest Distance (Å)", yaxis_title="Host Rg (Å)",
-                title="2D Free Energy Landscape", height=440
+                title="2D Free Energy Landscape", height=420,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(255,255,255,0.6)",
+                font=dict(family="Noto Sans, sans-serif", size=12),
             )
             st.plotly_chart(fig2d, use_container_width=True)
 
     # --- Extend? ---
     st.divider()
     if last_d is None or last_d >= 5:
-        st.subheader("🔄 Extend simulation?")
+        st.markdown('<div class="group-label" style="margin-top:20px;">Extend simulation?</div>', unsafe_allow_html=True)
         want_extend = st.radio(
             "Guest has not fully complexed. Do you want to extend the simulation?",
             ["Yes, extend", "No, continue to cMD"],
@@ -2480,12 +2292,7 @@ def page_pacsmd_analysis():
                 st_c      = st.session_state.get("pacsmd_sim_time", 10)
                 steps_c   = int(st_c / (ts / 1000))
 
-                st.markdown("""
-                <div class="wait-card">
-                    <div class="wait-title">🔄 Extending LB-PaCS-MD…</div>
-                    <div class="wait-sub">Running additional cycles. Please wait.</div>
-                </div>
-                """, unsafe_allow_html=True)
+                waiting_card("Extending LB-PaCS-MD…", "Running additional cycles. Please wait.", icon="🔄")
 
                 core.write_pacsmd_config(
                     WD(),
@@ -2513,7 +2320,11 @@ def page_pacsmd_analysis():
             next_button(7, "Next → Classical MD")
     else:
         # Guest complexed
-        st.success("Guest is complexed. Proceeding to cMD.")
+        st.markdown(
+            '<div class="done-bar"><span class="done-icon">🎉</span>'
+            '<div><div class="done-text">Guest complexed — ready for cMD</div></div></div>',
+            unsafe_allow_html=True,
+        )
         next_button(7, "Next → Classical MD")
 
     log_expander("log_cv")
@@ -2523,36 +2334,49 @@ def page_pacsmd_analysis():
 # STEP 7 — Classical MD  (ask length + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_cmd():
+    render_topbar("Classical MD", 7)
     render_stepper(7)
-    section_header("🔬 Classical MD (NPT)", "Run unbiased NPT molecular dynamics from the best PaCS-MD frame.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Classical MD (NPT)", "Run unbiased NPT molecular dynamics from the best PaCS-MD frame.", step_num=7)
 
     if st.session_state.get("cmd_done") and os.path.exists(wpath("md.dcd")):
-        st.success(f"✅ cMD done — `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
-        next_button(8, "Next → Analysis & MM-PBSA")
+        st.markdown(
+            f'<div class="done-bar"><span class="done-icon">✅</span>'
+            f'<div><div class="done-text">cMD complete</div>'
+            f'<div class="done-file">md.dcd · {core.file_mb(wpath("md.dcd")):.1f} MB</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        next_button(8, "Next → Analysis & MM-PBSA →")
         return
 
-    c1, c2 = st.columns(2)
+    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         length_ns   = st.number_input("Simulation length (ns)", 0.1, 100.0, 2.0, step=0.5)
-        temperature = st.number_input("Temperature (K)", value=300.0)
     with c2:
+        temperature = st.number_input("Temperature (K)", value=300.0)
+    with c3:
         pressure    = st.number_input("Pressure (bar)", value=1.0)
+    with c4:
         report_int  = st.number_input("Reporter interval (steps)", 1000, 50000, 5000)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     steps_est = int(length_ns * 1e6 / 2)
-    st.info(f"{length_ns} ns ≈ **{steps_est:,}** steps at dt=2 fs")
+    st.markdown(
+        f'<div class="summary-card">'
+        f'<b>{length_ns}</b> ns &nbsp;·&nbsp; '
+        f'<b>{steps_est:,}</b> steps at dt=2 fs &nbsp;·&nbsp; '
+        f'est. <b>{length_ns*7:.0f}–{length_ns*15:.0f} min</b> on GPU'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.button("▶ Run cMD", type="primary"):
-        st.markdown(f"""
-        <div class="wait-card">
-            <div class="wait-title">🔬 Running {length_ns} ns cMD</div>
-            <div class="wait-sub">
-                NPT simulation in progress.<br>
-                Estimated time: ~{length_ns*7:.0f}–{length_ns*15:.0f} min on Colab GPU.<br>
-                Please keep this tab open.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        waiting_card(
+            f"Running {length_ns} ns cMD (NPT)",
+            f"~{length_ns*7:.0f}–{length_ns*15:.0f} min on Colab GPU. Please keep this tab open.",
+            icon="🔬",
+        )
 
         progress = st.progress(0, text="Extracting last PaCS-MD frame…")
 
@@ -2581,8 +2405,12 @@ def page_cmd():
         if ok:
             progress.progress(100, text="cMD complete!")
             st.session_state["cmd_done"] = True
-            st.success("✅ cMD complete!")
-            next_button(8, "Next → Analysis & MM-PBSA")
+            st.markdown(
+                '<div class="done-bar"><span class="done-icon">✅</span>'
+                '<div><div class="done-text">cMD complete</div></div></div>',
+                unsafe_allow_html=True,
+            )
+            next_button(8, "Next → Analysis & MM-PBSA →")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ cMD failed")
@@ -2595,8 +2423,10 @@ def page_cmd():
 # STEP 8 — cMD Analysis + MM-PBSA/GBSA (auto-run all)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_analysis():
+    render_topbar("Analysis & MM-PBSA", 8)
     render_stepper(8)
-    section_header("📈 Analysis & binding energy", "RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy — running automatically.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Analysis & binding energy", "RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy.", step_num=8)
 
     host_type = st.session_state.get("host_type", "BCD_DFT")
     host_mask = core.HOST_SEL_MAP.get(host_type, ":1-7")
@@ -2610,7 +2440,12 @@ def page_analysis():
             )
         if rc != 0:
             st.error("❌ cpptraj failed"); st.code(out[-2000:]); st.stop()
-        st.success("✅ Trajectory analysis done")
+        st.markdown(
+            '<div class="done-bar" style="margin-bottom:16px;">'
+            '<span class="done-icon">✅</span>'
+            '<div><div class="done-text">Trajectory analysis done</div></div></div>',
+            unsafe_allow_html=True,
+        )
 
     # --- Plots ---
     if _plotly_ok and _numpy_ok:
@@ -2630,7 +2465,7 @@ def page_analysis():
                     pass
 
         if charts:
-            colors = ["#8B6CE8", "#D85A30", "#378ADD"]
+            colors = ["#6366f1", "#06b6d4", "#10b981"]
             fig = make_subplots(
                 rows=len(charts), cols=1,
                 subplot_titles=[c[3] for c in charts],
@@ -2644,15 +2479,22 @@ def page_analysis():
                 )
                 fig.update_yaxes(title_text=ylabel, row=i, col=1)
                 fig.update_xaxes(title_text="Frame", row=i, col=1)
-            fig.update_layout(height=300 * len(charts), showlegend=False,
-                              plot_bgcolor="white")
+            fig.update_layout(
+                height=300 * len(charts), showlegend=False,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(255,255,255,0.6)",
+                font=dict(family="Noto Sans, sans-serif", size=12),
+            )
+            for i in range(1, len(charts)+1):
+                fig.update_xaxes(gridcolor="rgba(99,102,241,0.08)", row=i, col=1)
+                fig.update_yaxes(gridcolor="rgba(99,102,241,0.08)", row=i, col=1)
             st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
     # --- Auto-run MM-PBSA if not done ---
     if not st.session_state.get("mmpbsa_done"):
-        st.subheader("⚡ MM-PBSA/GBSA binding energy")
+        st.markdown('<div class="group-label">MM-PBSA / GBSA Binding Energy</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
             n_frames = st.number_input("Last N frames to analyse", 5, 100, 10)
@@ -2682,21 +2524,36 @@ def page_analysis():
         gb = st.session_state.get("gb_result")
         pb = st.session_state.get("pb_result")
 
-        st.subheader("⚡ MM-PBSA/GBSA results")
+        st.markdown(
+            '<div class="group-label" style="margin-top:8px;">MM-PBSA / MM-GBSA Binding Free Energy</div>',
+            unsafe_allow_html=True,
+        )
         c1, c2 = st.columns(2)
         with c1:
             if gb:
+                delta_clr = "metric-delta-neg" if gb[0] < 0 else "metric-delta-pos"
+                delta_arr = "▼" if gb[0] < 0 else "▲"
                 st.markdown(
-                    f'<div class="res-metric"><div class="res-value">{gb[0]:.2f} kcal/mol</div>'
-                    f'<div class="res-label">ΔG (MM-GBSA)  ±{gb[1]:.2f}</div></div>',
-                    unsafe_allow_html=True
+                    f'<div class="metric-card">'
+                    f'<div class="metric-value" style="color:#6366f1;">{gb[0]:.2f}'
+                    f'<span class="metric-unit">kcal/mol</span></div>'
+                    f'<div class="{delta_clr}">{delta_arr} ±{gb[1]:.2f} kcal/mol</div>'
+                    f'<div class="metric-label">ΔG (MM-GBSA)<br>Generalized Born</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
                 )
         with c2:
             if pb:
+                delta_clr = "metric-delta-neg" if pb[0] < 0 else "metric-delta-pos"
+                delta_arr = "▼" if pb[0] < 0 else "▲"
                 st.markdown(
-                    f'<div class="res-metric"><div class="res-value">{pb[0]:.2f} kcal/mol</div>'
-                    f'<div class="res-label">ΔG (MM-PBSA)  ±{pb[1]:.2f}</div></div>',
-                    unsafe_allow_html=True
+                    f'<div class="metric-card">'
+                    f'<div class="metric-value" style="color:#06b6d4;">{pb[0]:.2f}'
+                    f'<span class="metric-unit">kcal/mol</span></div>'
+                    f'<div class="{delta_clr}">{delta_arr} ±{pb[1]:.2f} kcal/mol</div>'
+                    f'<div class="metric-label">ΔG (MM-PBSA)<br>Poisson-Boltzmann</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
                 )
 
         # Energy decomposition bar chart
@@ -2714,8 +2571,15 @@ def page_analysis():
                     textposition="outside",
                 ))
                 fig.add_hline(y=0, line_width=1, line_dash="dot")
-                fig.update_layout(title=title, height=360,
-                                  yaxis_title="kcal/mol", plot_bgcolor="white")
+                fig.update_layout(
+                    title=title, height=360,
+                    yaxis_title="kcal/mol",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(255,255,255,0.6)",
+                    font=dict(family="Noto Sans, sans-serif", size=12),
+                    xaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
+                    yaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
+                )
                 return fig
 
             if any(v is not None for v in gb_d.values()):
@@ -2735,8 +2599,10 @@ def page_analysis():
 # STEP 9 — DBFE (ask first)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_dbfe():
+    render_topbar("DBFE", 9)
     render_stepper(9)
-    section_header("🧮 DBFE — absolute binding free energy")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("DBFE — absolute binding free energy", "BAR-based absolute binding free energy calculation.", step_num=9)
 
     # Ask once
     if not st.session_state.get("dbfe_asked"):
@@ -2824,17 +2690,27 @@ def page_dbfe():
 
         res_path = wpath("DBFE_results.json")
         if os.path.exists(res_path):
-            st.success("✅ DBFE results found!")
+            st.markdown(
+                '<div class="done-bar"><span class="done-icon">✅</span>'
+                '<div><div class="done-text">DBFE results ready</div></div></div>',
+                unsafe_allow_html=True,
+            )
             results = json.loads(core.read_file(res_path))
             cols = st.columns(len(results)) if results else []
             for col, r in zip(cols, results):
-                with col:
-                    st.markdown(
-                        f'<div class="res-metric">'
-                        f'<div class="res-value">{r.get("dG_bind", 0):.2f}</div>'
-                        f'<div class="res-label">ΔG_bind ({r.get("source","?")})<br>kcal/mol</div>'
-                        f'</div>', unsafe_allow_html=True
-                    )
+                dg = r.get("dG_bind", 0)
+                delta_clr = "metric-delta-neg" if dg < 0 else "metric-delta-pos"
+                delta_arr = "▼" if dg < 0 else "▲"
+                binding_txt = "favorable" if dg < 0 else "unfavorable"
+                col.markdown(
+                    f'<div class="metric-card">'
+                    f'<div class="metric-value" style="color:#6366f1;">{dg:.2f}'
+                    f'<span class="metric-unit">kcal/mol</span></div>'
+                    f'<div class="{delta_clr}">{delta_arr} binding {binding_txt}</div>'
+                    f'<div class="metric-label">ΔG_bind ({r.get("source","?")})</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
             st.session_state["dbfe_done"] = True
 
     st.divider()
@@ -2845,51 +2721,140 @@ def page_dbfe():
 # STEP 10 — Download results
 # ══════════════════════════════════════════════════════════════════════════════
 def page_download():
+    render_topbar("Download", 10)
     render_stepper(10)
-    section_header("📦 Download results", "All generated files are listed below.")
+    st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
+    section_header("Download results", "All generated files are listed below.", step_num=10)
 
-    FILE_DESC = {
-        "complex.top":                   "Topology (solvated complex)",
-        "complex.crd":                   "Coordinates (solvated complex)",
-        "complex.pdb":                   "Complex PDB (dry)",
-        "complex_leap.pdb":              "Complex PDB (solvated)",
-        "host.pdb":                      "Host PDB",
-        "guest.pdb":                     "Guest PDB",
-        "guest.prep":                    "Guest PREP (AmberTools)",
-        "guest.frcmod":                  "Guest FRCMOD",
-        "last_frame.rst7":               "Restart after heating",
-        "sum.nc":                        "LB-PaCS-MD trajectory (NetCDF)",
-        "md.dcd":                        "cMD trajectory (DCD)",
-        "md-cMD.dcd":                    "cMD processed trajectory",
-        "dis_plot.dat":                  "PaCS-MD distance vs cycle",
-        "dis.dat":                       "Host–guest COM distance",
-        "rg.dat":                        "Host radius of gyration",
-        "rmsd.dat":                      "RMSD data",
-        "FINAL_RESULTS_MMPBSA_LB.dat":   "MM-PBSA results (LB-PaCS-MD)",
-        "FINAL_RESULTS_MMPBSA_cMD.dat":  "MM-PBSA results (cMD)",
-        "DBFE_results.json":             "DBFE results",
+    FILE_GROUPS = {
+        "System Files": {
+            "color": "#6366f1",
+            "files": {
+                "complex.top":       "Topology (solvated complex)",
+                "complex.crd":       "Coordinates (solvated complex)",
+                "complex.pdb":       "Complex PDB (dry)",
+                "complex_leap.pdb":  "Complex PDB (solvated)",
+                "host.pdb":          "Host PDB",
+                "guest.pdb":         "Guest PDB",
+                "guest.prep":        "Guest PREP (AmberTools)",
+                "guest.frcmod":      "Guest FRCMOD",
+                "last_frame.rst7":   "Restart after heating",
+            },
+        },
+        "Trajectories": {
+            "color": "#06b6d4",
+            "files": {
+                "sum.nc":            "LB-PaCS-MD trajectory (NetCDF)",
+                "md.dcd":            "cMD trajectory (DCD)",
+                "md-cMD.dcd":        "cMD processed trajectory",
+            },
+        },
+        "Analysis Data": {
+            "color": "#10b981",
+            "files": {
+                "dis_plot.dat":      "PaCS-MD distance vs cycle",
+                "dis.dat":           "Host–guest COM distance",
+                "rg.dat":            "Host radius of gyration",
+                "rmsd.dat":          "RMSD data",
+            },
+        },
+        "Energy Results": {
+            "color": "#f59e0b",
+            "files": {
+                "FINAL_RESULTS_MMPBSA_LB.dat":  "MM-PBSA results (LB-PaCS-MD)",
+                "FINAL_RESULTS_MMPBSA_cMD.dat": "MM-PBSA results (cMD)",
+                "DBFE_results.json":             "DBFE results",
+            },
+        },
     }
 
-    found   = {k: wpath(k) for k in FILE_DESC if os.path.exists(wpath(k))}
-    missing = [k for k in FILE_DESC if k not in found]
+    # Count all files
+    all_files = {k: v for g in FILE_GROUPS.values() for k, v in g["files"].items()}
+    found   = {k: wpath(k) for k in all_files if os.path.exists(wpath(k))}
+    missing = [k for k in all_files if k not in found]
+    total_mb = sum(os.path.getsize(p) for p in found.values()) / 1024 / 1024
 
-    st.metric("Files ready", f"{len(found)} / {len(FILE_DESC)}")
-    st.divider()
+    # ── Summary bar ───────────────────────────────────────────────────────────
+    st.markdown(
+        f'<div class="glass-card" style="display:flex;align-items:center;gap:24px;padding:14px 22px;margin-bottom:20px;">'
+        f'<div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#6366f1;'
+        f'font-family:\'JetBrains Mono\',monospace;">{len(found)}</div>'
+        f'<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">files ready</div></div>'
+        f'<div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#06b6d4;'
+        f'font-family:\'JetBrains Mono\',monospace;">{total_mb:.1f}</div>'
+        f'<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">MB total</div></div>'
+        f'<div style="margin-left:auto;">',
+        unsafe_allow_html=True,
+    )
 
-    for fname, path in found.items():
-        c1, c2, c3 = st.columns([4, 1, 1])
-        with c1:
-            st.write(f"**{FILE_DESC[fname]}**  —  `{fname}`")
-        with c2:
-            st.caption(f"{core.file_mb(path):.2f} MB")
-        with c3:
-            with open(path, "rb") as f:
-                st.download_button("⬇", data=f, file_name=fname, key=f"dl_{fname}")
+    # ZIP bundle button
+    if found:
+        import io, zipfile
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for fname, path in found.items():
+                zf.write(path, fname)
+        zip_buf.seek(0)
+        st.download_button(
+            "⬇ Download all as ZIP",
+            data=zip_buf,
+            file_name="dfdd_results.zip",
+            mime="application/zip",
+            type="primary",
+            key="dl_zip_all",
+        )
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+    # ── File groups ───────────────────────────────────────────────────────────
+    for group_name, group_data in FILE_GROUPS.items():
+        color = group_data["color"]
+        files = group_data["files"]
+        group_found = {k: v for k, v in files.items() if k in found}
+        if not group_found:
+            continue
+
+        st.markdown(
+            f'<div class="group-label" style="color:{color};">{group_name}</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(f'<div class="glass-card" style="padding:4px 18px;">', unsafe_allow_html=True)
+
+        for fname, desc in files.items():
+            if fname not in found:
+                continue
+            path = found[fname]
+            mb   = os.path.getsize(path) / 1024 / 1024
+            c1, c2, c3, c4 = st.columns([3, 5, 1.5, 1.2])
+            with c1:
+                st.markdown(
+                    f'<div class="file-name" style="color:{color};padding:8px 0;">{fname}</div>',
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                st.markdown(
+                    f'<div class="file-desc" style="padding:8px 0;">{desc}</div>',
+                    unsafe_allow_html=True,
+                )
+            with c3:
+                st.markdown(
+                    f'<div class="file-size" style="padding:8px 0;">{mb:.2f} MB</div>',
+                    unsafe_allow_html=True,
+                )
+            with c4:
+                with open(path, "rb") as f:
+                    st.download_button(
+                        "⬇", data=f, file_name=fname,
+                        key=f"dl_{fname}",
+                        use_container_width=True,
+                    )
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if missing:
         with st.expander(f"⬜ {len(missing)} files not yet generated"):
             for m in missing:
-                st.caption(f"- {m}")
+                st.caption(f"— {m}  ·  {all_files[m]}")
 
     st.divider()
     st.subheader("🗜️ Download everything as ZIP")
@@ -2910,40 +2875,91 @@ def page_download():
 # SIDEBAR — minimal nav + status
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## 🧬 DFDD")
-    st.markdown(
-        "Hengphasatporn et al., *JCIM* 2026  \n"
-        "Cite this: *J. Chem. Inf. Model.* 2026, **66**, 4, 1955–1963  \n"
-        "[https://doi.org/10.1021/acs.jcim.5c02852](https://doi.org/10.1021/acs.jcim.5c02852)"
-    )
+    cur_step = st.session_state["step"]
 
-    st.divider()
-    st.markdown("**Jump to step**")
-    step_map = {
-        "0 · Install":          0,
-        "1 · Host":             1,
-        "2 · Guest":            2,
-        "3 · Build & Solvate":  3,
-        "4 · Minimize":         4,
-        "5 · LB-PaCS-MD":       5,
-        "6 · PaCS-MD Analysis": 6,
-        "7 · cMD":              7,
-        "8 · Analysis + PBSA":  8,
-        "9 · DBFE":             9,
-        "10 · Download":        10,
+    # ── Logo + header ─────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="padding:18px 14px 14px; border-bottom:1px solid oklch(21% 0.055 274); margin-bottom:6px;">
+      <div style="font-size:17px; font-weight:700; color:#fff; letter-spacing:-0.3px; margin-bottom:2px;">🧬 DFDD</div>
+      <div style="font-size:10px; color:oklch(48% 0.04 274); line-height:1.4;">
+        Cyclodextrin–Drug Binding<br>Free Energy Wizard
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Phase nav groups ──────────────────────────────────────────────────────
+    NAV_GROUPS = [
+        ("Setup", [
+            ("0", "Install", 0),
+        ]),
+        ("System Preparation", [
+            ("1", "Host", 1),
+            ("2", "Guest", 2),
+            ("3", "Build & Solvate", 3),
+            ("4", "Minimize", 4),
+        ]),
+        ("LB-PaCS-MD", [
+            ("5", "LB-PaCS-MD", 5),
+            ("6", "Analysis", 6),
+        ]),
+        ("cMD", [
+            ("7", "cMD", 7),
+            ("8", "MM-PBSA", 8),
+            ("9", "DBFE", 9),
+        ]),
+        ("Download", [
+            ("10", "Download", 10),
+        ]),
+    ]
+
+    # Track which steps are done
+    STEP_DONE = {
+        0:  st.session_state.get("install_done", False),
+        1:  bool(st.session_state.get("host_path")),
+        2:  bool(st.session_state.get("guest_path")),
+        3:  st.session_state.get("build_done", False),
+        4:  st.session_state.get("min_done", False),
+        5:  st.session_state.get("pacsmd_done", False),
+        6:  st.session_state.get("pacsmd_done", False),
+        7:  st.session_state.get("cmd_done", False),
+        8:  st.session_state.get("mmpbsa_done", False),
+        9:  st.session_state.get("dbfe_done", False),
+        10: False,
     }
-    for label, idx in step_map.items():
-        is_cur = st.session_state["step"] == idx
-        if st.button(label, key=f"nav_{idx}",
-                     type="primary" if is_cur else "secondary",
-                     use_container_width=True):
-            go_step(idx)
 
-    st.divider()
-    st.markdown("**Status**")
+    for grp_label, steps in NAV_GROUPS:
+        # Group label
+        st.markdown(
+            f'<div style="font-size:9px;font-weight:700;text-transform:uppercase;'
+            f'letter-spacing:.1em;color:oklch(38% 0.04 274);padding:9px 9px 3px;">'
+            f'{grp_label}</div>',
+            unsafe_allow_html=True,
+        )
+        for num, label, idx in steps:
+            is_cur  = cur_step == idx
+            is_done = STEP_DONE.get(idx, False)
+            pill_bg = "#6366f1" if is_cur else ("#10b981" if is_done else "oklch(21% 0.06 274)")
+            pill_clr= "#fff" if (is_cur or is_done) else "oklch(55% 0.04 274)"
+            pill_lbl= "✓" if is_done else num
+            if st.button(
+                f"  {pill_lbl}  {label}",
+                key=f"nav_{idx}",
+                type="primary" if is_cur else "secondary",
+                use_container_width=True,
+            ):
+                go_step(idx)
+
+    # ── Status panel ──────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="border-top:1px solid oklch(20% 0.055 274); margin-top:8px; padding:13px 14px 8px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+                  color:oklch(37% 0.04 274);margin-bottom:8px;">Status</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     checks = [
-        ("Host",     st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or "")),
-        ("Guest",    st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or "")),
+        ("Host",     bool(st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or ""))),
+        ("Guest",    bool(st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or ""))),
         ("Complex",  os.path.exists(wpath("complex.pdb"))),
         ("Topology", os.path.exists(wpath("complex.top"))),
         ("Minimized",os.path.exists(wpath("last_frame.rst7"))),
@@ -2951,15 +2967,39 @@ with st.sidebar:
         ("cMD",      os.path.exists(wpath("md.dcd"))),
         ("MM-PBSA",  st.session_state.get("mmpbsa_done", False)),
     ]
-    for label, ok in checks:
-        st.markdown(f"{'✅' if ok else '⬜'} {label}")
+    status_html = ""
+    for lbl, ok in checks:
+        dot_clr = "#10b981" if ok else "oklch(28% 0.04 274)"
+        dot_shadow = "box-shadow:0 0 5px #10b98155;" if ok else ""
+        status_html += (
+            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 14px;'
+            f'font-size:11px;color:oklch(48% 0.03 274);">'
+            f'<div style="width:5px;height:5px;border-radius:50%;background:{dot_clr};{dot_shadow}flex-shrink:0;"></div>'
+            f'{lbl}</div>'
+        )
+    st.markdown(status_html, unsafe_allow_html=True)
 
-    st.divider()
-    new_wd = st.text_input("Workspace path", value=WD(), key="_wd_in")
-    if st.button("Set workspace"):
+    # ── Workspace ──────────────────────────────────────────────────────────────
+    st.markdown('<div style="border-top:1px solid oklch(18% 0.05 274);padding:8px 14px 0;margin-top:8px;"></div>', unsafe_allow_html=True)
+    new_wd = st.text_input("Workspace path", value=WD(), key="_wd_in", label_visibility="collapsed")
+    if st.button("Set workspace", key="set_wd"):
         os.makedirs(new_wd, exist_ok=True)
         st.session_state["workdir"] = new_wd
         st.rerun()
+
+    # ── Citation ───────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="border-top:1px solid oklch(18% 0.05 274);padding:10px 14px;margin-top:8px;">
+      <div style="font-size:9px;color:oklch(32% 0.04 274);line-height:1.55;">
+        Hengphasatporn et al.<br>
+        <em>J. Chem. Inf. Model.</em> 2026, <strong>66</strong>, 4, 1955–1963<br>
+        <a href="https://doi.org/10.1021/acs.jcim.5c02852"
+           style="color:oklch(46% 0.06 274);text-decoration:none;">
+          doi:10.1021/acs.jcim.5c02852
+        </a>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
