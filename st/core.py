@@ -714,6 +714,7 @@ def _supplement_missed_sites(base_smiles, dimorphite_results, ion_sites, target_
     return supplemented
 
 
+
 def _dimorphite_enumerate(smiles, ph_min, ph_max):
     """Call dimorphite-dl via Python API or CLI. Returns list of canonical SMILES."""
     try:
@@ -995,51 +996,139 @@ def fix_pdb_residue_name(pdb_path, residue_name):
 
 def build_host_guest_complex(host_pdb, guest_pdb, distance, output_pdb):
     """
-    SVD-based cavity-axis detection; translate guest by `distance` Å
-    along that axis. Returns (ok, log).
+    SVD-based cavity-axis detection; translate guest by `distance` Å along that axis.
+    Uses openmm when available; falls back to pure numpy + PDB I/O otherwise.
+    Returns (ok, message).
     """
     try:
-        from openmm.app import PDBFile, Modeller
-        from openmm import unit
-
-        pdb_host  = PDBFile(host_pdb)
-        pdb_guest = PDBFile(guest_pdb)
-
-        host_coords  = np.array(pdb_host.positions.value_in_unit(unit.angstrom))
-        guest_coords = np.array(pdb_guest.positions.value_in_unit(unit.angstrom))
-
-        host_center  = host_coords.mean(axis=0)
-        _, _, vh     = np.linalg.svd(host_coords - host_center)
-
-        z_axis    = np.array([0., 0., 1.])
-        best      = int(np.argmax([abs(np.dot(vh[i], z_axis)) for i in range(3)]))
-        normal    = vh[best]
-
-        guest_cent    = guest_coords - guest_coords.mean(axis=0) + host_center
-        guest_shifted = guest_cent + normal * distance
-
-        shifted_pdb = output_pdb + "_tmp_guest.pdb"
-        with open(shifted_pdb, "w") as f:
-            for i, atom in enumerate(pdb_guest.topology.atoms()):
-                x, y, z = guest_shifted[i]
-                f.write(
-                    f"ATOM  {i+1:5d} {atom.name:>4s} GST A   1    "
-                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           "
-                    f"{atom.element.symbol:>2s}\n"
-                )
-            f.write("END\n")
-
-        pdb_gs = PDBFile(shifted_pdb)
-        mod = Modeller(pdb_host.topology, pdb_host.positions)
-        mod.add(pdb_gs.topology, pdb_gs.positions)
-        with open(output_pdb, "w") as f:
-            PDBFile.writeFile(mod.topology, mod.positions, f)
-
-        os.remove(shifted_pdb)
-        return True, f"Complex saved to {output_pdb}"
-
+        return _build_complex_openmm(host_pdb, guest_pdb, distance, output_pdb)
+    except Exception:
+        pass
+    try:
+        return _build_complex_numpy(host_pdb, guest_pdb, distance, output_pdb)
     except Exception as e:
         return False, str(e)
+
+
+def _parse_pdb_coords(pdb_path):
+    """Parse ATOM/HETATM records; return (lines, coords_array, atom_indices)."""
+    lines, coords, atom_idx = [], [], []
+    with open(pdb_path) as f:
+        for i, line in enumerate(f):
+            lines.append(line)
+            if line[:6].strip() in ("ATOM", "HETATM"):
+                try:
+                    x = float(line[30:38])
+                    y = float(line[38:46])
+                    z = float(line[46:54])
+                    coords.append([x, y, z])
+                    atom_idx.append(i)
+                except ValueError:
+                    pass
+    return lines, np.array(coords) if coords else np.zeros((0, 3)), atom_idx
+
+
+def _build_complex_numpy(host_pdb, guest_pdb, distance, output_pdb):
+    """Pure numpy fallback — no openmm required."""
+    host_lines, host_coords, _ = _parse_pdb_coords(host_pdb)
+    guest_lines, guest_coords, guest_atom_idx = _parse_pdb_coords(guest_pdb)
+
+    if len(host_coords) == 0:
+        return False, "Host PDB has no ATOM/HETATM records"
+    if len(guest_coords) == 0:
+        return False, "Guest PDB has no ATOM/HETATM records"
+
+    # SVD to find cavity axis
+    host_center = host_coords.mean(axis=0)
+    _, _, vh = np.linalg.svd(host_coords - host_center)
+    z_axis = np.array([0., 0., 1.])
+    best = int(np.argmax([abs(np.dot(vh[i], z_axis)) for i in range(3)]))
+    normal = vh[best]
+
+    # Centre guest on host, then shift along cavity axis
+    guest_center = guest_coords.mean(axis=0)
+    shift = host_center - guest_center + normal * distance
+    guest_shifted = guest_coords + shift
+
+    # Write combined PDB
+    with open(output_pdb, "w") as f:
+        # Host lines (skip END/TER at end)
+        serial = 1
+        for line in host_lines:
+            rec = line[:6].strip()
+            if rec in ("END", "TER"):
+                continue
+            if rec in ("ATOM", "HETATM"):
+                f.write(f"{line[:6]}{serial:5d}{line[11:]}")
+                serial += 1
+            else:
+                f.write(line)
+
+        # Guest lines with shifted coordinates
+        gi = 0
+        for line in guest_lines:
+            rec = line[:6].strip()
+            if rec in ("END", "TER"):
+                continue
+            if rec in ("ATOM", "HETATM"):
+                x, y, z = guest_shifted[gi]
+                # Patch residue name to GST
+                new_line = (
+                    f"{line[:6]}{serial:5d} {line[12:16]} GST {line[21]}{line[22:30]}"
+                    f"{x:8.3f}{y:8.3f}{z:8.3f}{line[54:]}"
+                )
+                if not new_line.endswith("\n"):
+                    new_line += "\n"
+                f.write(new_line)
+                serial += 1
+                gi += 1
+            else:
+                f.write(line)
+        f.write("END\n")
+
+    return True, f"Complex saved to {output_pdb} (numpy fallback)"
+
+
+def _build_complex_openmm(host_pdb, guest_pdb, distance, output_pdb):
+    """openmm-based builder (original implementation)."""
+    from openmm.app import PDBFile, Modeller
+    from openmm import unit
+
+    pdb_host  = PDBFile(host_pdb)
+    pdb_guest = PDBFile(guest_pdb)
+
+    host_coords  = np.array(pdb_host.positions.value_in_unit(unit.angstrom))
+    guest_coords = np.array(pdb_guest.positions.value_in_unit(unit.angstrom))
+
+    host_center  = host_coords.mean(axis=0)
+    _, _, vh     = np.linalg.svd(host_coords - host_center)
+
+    z_axis    = np.array([0., 0., 1.])
+    best      = int(np.argmax([abs(np.dot(vh[i], z_axis)) for i in range(3)]))
+    normal    = vh[best]
+
+    guest_cent    = guest_coords - guest_coords.mean(axis=0) + host_center
+    guest_shifted = guest_cent + normal * distance
+
+    shifted_pdb = output_pdb + "_tmp_guest.pdb"
+    with open(shifted_pdb, "w") as f:
+        for i, atom in enumerate(pdb_guest.topology.atoms()):
+            x, y, z = guest_shifted[i]
+            f.write(
+                f"ATOM  {i+1:5d} {atom.name:>4s} GST A   1    "
+                f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           "
+                f"{atom.element.symbol:>2s}\n"
+            )
+        f.write("END\n")
+
+    pdb_gs = PDBFile(shifted_pdb)
+    mod = Modeller(pdb_host.topology, pdb_host.positions)
+    mod.add(pdb_gs.topology, pdb_gs.positions)
+    with open(output_pdb, "w") as f:
+        PDBFile.writeFile(mod.topology, mod.positions, f)
+
+    os.remove(shifted_pdb)
+    return True, f"Complex saved to {output_pdb}"
 
 
 # ─── Topology (tleap) ─────────────────────────────────────────────────────────
