@@ -1,7 +1,6 @@
 """
 app.py — DFDD Streamlit UI  (wizard / linear-flow rewrite)
 All computation is delegated to core.py
-Design system: DFDD hi-fi prototype (Hengphasatporn et al., JCIM 2026)
 """
 
 import streamlit as st
@@ -49,419 +48,210 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Design system CSS injection ───────────────────────────────────────────────
-def _inject_css():
-    st.markdown("""<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+# ─── Design-system CSS ────────────────────────────────────────────────────────
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-    /* ── Streamlit chrome reset ─────────────────────────────────────────────── */
-    #MainMenu, footer, header { visibility: hidden; }
-    .block-container { padding: 0 !important; max-width: 100% !important; }
-    [data-testid="stAppViewContainer"] { padding: 0; }
+/* reset chrome */
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 0 !important; max-width: 100% !important; }
+[data-testid="stAppViewContainer"] { padding: 0; }
 
-    /* ── Theme tokens ───────────────────────────────────────────────────────── */
-    :root {
-        --accent:        #6366f1;
-        --accent2:       #06b6d4;
-        --accent-soft:   rgba(99,102,241,0.08);
-        --card-bg:       rgba(255,255,255,0.72);
-        --card-border:   rgba(255,255,255,0.88);
-        --border:        rgba(99,102,241,0.14);
-        --surface:       rgba(255,255,255,0.78);
-        --input-bg:      rgba(255,255,255,0.95);
-        --terminal-bg:   oklch(11% 0.04 270);
-        --text-primary:  oklch(14% 0.025 270);
-        --text-secondary:oklch(40% 0.015 270);
-        --text-tertiary: oklch(60% 0.008 270);
-        --sidebar-bg:    oklch(14% 0.065 274);
-        --sidebar-border:oklch(22% 0.06 274);
-    }
+/* tokens */
+:root {
+  --accent:      #6366f1;
+  --accent2:     #06b6d4;
+  --accent-soft: rgba(99,102,241,0.08);
+  --card-bg:     rgba(255,255,255,0.72);
+  --card-border: rgba(255,255,255,0.88);
+  --border:      rgba(99,102,241,0.14);
+  --surface:     rgba(255,255,255,0.78);
+}
 
-    /* ── Background mesh ────────────────────────────────────────────────────── */
-    [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(ellipse 65% 50% at 8% 5%, oklch(87% 0.05 285 / 0.55) 0%, transparent 58%),
-            radial-gradient(ellipse 55% 65% at 92% 88%, oklch(91% 0.04 195 / 0.45) 0%, transparent 55%),
-            radial-gradient(ellipse 35% 40% at 55% 40%, oklch(93% 0.03 260 / 0.30) 0%, transparent 50%),
-            oklch(97% 0.012 270);
-        font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif;
-    }
+/* background */
+[data-testid="stAppViewContainer"] {
+  background:
+    radial-gradient(ellipse 65% 50% at 8% 5%,  oklch(87% 0.05 285 / 0.55) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 65% at 92% 88%, oklch(91% 0.04 195 / 0.45) 0%, transparent 55%),
+    oklch(97% 0.012 270);
+  font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif;
+}
 
-    /* ── Sidebar ────────────────────────────────────────────────────────────── */
-    [data-testid="stSidebar"] {
-        background: oklch(14% 0.065 274) !important;
-        border-right: 1px solid oklch(22% 0.06 274);
-        min-width: 252px !important;
-        max-width: 252px !important;
-    }
-    [data-testid="stSidebar"] * { color: #94a3b8; }
-    [data-testid="stSidebar"] .sb-logo-title { color: #fff !important; }
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 { color: #e0e7ff !important; }
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] div { color: #94a3b8; }
-    [data-testid="stSidebar"] a { color: #818cf8 !important; }
-    [data-testid="stSidebarContent"] { color: #94a3b8; }
+/* sidebar */
+[data-testid="stSidebar"] {
+  background: oklch(14% 0.065 274) !important;
+  border-right: 1px solid oklch(22% 0.06 274);
+  min-width: 252px !important; max-width: 252px !important;
+}
+[data-testid="stSidebar"] * { color: #94a3b8; }
+[data-testid="stSidebar"] a { color: #818cf8 !important; }
 
-    /* Sidebar nav buttons */
-    [data-testid="stSidebar"] .stButton > button {
-        width: 100%;
-        text-align: left;
-        padding: 7px 10px !important;
-        border-radius: 8px !important;
-        border: 1px solid rgba(255,255,255,0.08) !important;
-        background: rgba(255,255,255,0.04) !important;
-        color: #a5b4fc !important;
-        font-size: 12px !important;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        transition: background 0.15s;
-        margin-bottom: 2px;
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(99,102,241,0.18) !important;
-        color: #e0e7ff !important;
-        border-color: rgba(99,102,241,0.4) !important;
-    }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background: rgba(99,102,241,0.30) !important;
-        color: #fff !important;
-        border-color: rgba(99,102,241,0.6) !important;
-        font-weight: 600 !important;
-    }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
-        transform: none !important;
-        box-shadow: none !important;
-        background: rgba(99,102,241,0.42) !important;
-    }
+/* sidebar buttons */
+[data-testid="stSidebar"] .stButton > button {
+  width: 100%; text-align: left;
+  padding: 7px 10px !important; border-radius: 8px !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  background: rgba(255,255,255,0.04) !important;
+  color: #a5b4fc !important; font-size: 12px !important;
+  font-weight: 500; transition: background 0.15s; margin-bottom: 2px;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+  background: rgba(99,102,241,0.18) !important;
+  color: #e0e7ff !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  background: rgba(99,102,241,0.30) !important;
+  color: #fff !important;
+  border-color: rgba(99,102,241,0.55) !important;
+  font-weight: 600 !important;
+}
 
-    /* ── Main content area ──────────────────────────────────────────────────── */
-    [data-testid="stMainBlockContainer"],
-    section[data-testid="stMain"] > div {
-        padding: 0 !important;
-    }
+/* body text */
+body, .stApp { font-family: 'Noto Sans','Noto Sans Thai',system-ui,sans-serif; color: #1e293b; }
+[data-testid="stMarkdownContainer"] p { color: #1e293b; }
+[data-testid="stMarkdownContainer"] li { color: #334155; }
+.stTextInput label, .stSelectbox label, .stSlider label,
+.stNumberInput label, .stRadio label, .stCheckbox label { color: #475569 !important; }
+code, pre { font-family: 'JetBrains Mono', monospace; }
 
-    /* ── Phase stepper ──────────────────────────────────────────────────────── */
-    .phase-strip {
-        display: flex;
-        align-items: center;
-        padding: 10px 28px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        overflow-x: auto;
-        scrollbar-width: none;
-        gap: 0;
-    }
-    .phase-strip::-webkit-scrollbar { display: none; }
-    .phase-chip {
-        display: flex; align-items: center; gap: 7px;
-        padding: 5px 12px; border-radius: 20px;
-        cursor: pointer; font-size: 11px; font-weight: 600;
-        color: #64748b;
-        transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
-    }
-    .phase-chip.active { color: #6366f1; background: rgba(99,102,241,0.10); font-weight: 700; }
-    .phase-chip.done { color: #10b981; }
-    .phase-circle {
-        width: 19px; height: 19px; border-radius: 50%;
-        background: var(--border); color: var(--text-tertiary);
-        font-size: 9px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'JetBrains Mono', monospace; transition: all 0.2s;
-    }
-    .phase-circle.active { background: var(--accent); color: #fff; }
-    .phase-circle.done { background: #10b981; color: #fff; }
-    .phase-connector {
-        flex: 1; min-width: 18px; max-width: 50px; height: 1px;
-        background: var(--border); margin: 0 3px;
-    }
-    .phase-connector.done { background: #10b981; }
+/* phase stepper */
+.phase-strip {
+  display: flex; align-items: center; padding: 10px 28px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  backdrop-filter: blur(20px); overflow-x: auto; scrollbar-width: none; gap: 0;
+}
+.phase-strip::-webkit-scrollbar { display: none; }
+.phase-chip {
+  display: flex; align-items: center; gap: 7px; padding: 5px 12px;
+  border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 600;
+  color: #64748b; white-space: nowrap; flex-shrink: 0; transition: all .2s;
+}
+.phase-chip.active { color: #6366f1; background: rgba(99,102,241,0.10); font-weight: 700; }
+.phase-chip.done   { color: #10b981; }
+.phase-circle {
+  width: 19px; height: 19px; border-radius: 50%; background: #e2e8f0;
+  color: #64748b; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; transition: all .2s;
+}
+.phase-circle.active { background: #6366f1; color: #fff; }
+.phase-circle.done   { background: #10b981; color: #fff; }
+.phase-connector { flex: 1; min-width: 18px; max-width: 50px; height: 1px; background: #e2e8f0; margin: 0 3px; }
+.phase-connector.done { background: #10b981; }
 
-    /* ── TopBar ─────────────────────────────────────────────────────────────── */
-    .topbar {
-        height: 50px; display: flex; align-items: center;
-        justify-content: space-between;
-        padding: 0 28px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-    }
-    .topbar-breadcrumb { font-size: 13px; color: #1e293b; display: flex; align-items: center; gap: 5px; }
-    .bc-sep { color: #94a3b8; font-size: 14px; }
+/* topbar */
+.topbar {
+  height: 50px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; border-bottom: 1px solid var(--border);
+  background: var(--surface); backdrop-filter: blur(20px);
+}
+.topbar-breadcrumb { font-size: 13px; color: #1e293b; display: flex; align-items: center; gap: 5px; }
+.bc-sep { color: #94a3b8; font-size: 14px; }
 
-    /* ── Step header ────────────────────────────────────────────────────────── */
-    .step-header { margin-bottom: 26px; display: flex; align-items: flex-start; gap: 13px; padding: 30px 36px 0; }
-    .step-badge {
-        width: 34px; height: 34px; border-radius: 9px;
-        background: var(--accent); color: #fff;
-        font-size: 13px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
-        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-    }
-    .step-title { font-size: 21px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; line-height: 1.2; }
-    .step-subtitle { font-size: 13px; color: #475569; margin-top: 4px; line-height: 1.55; }
+/* step header */
+.step-header  { margin-bottom: 26px; display: flex; align-items: flex-start; gap: 13px; padding: 28px 36px 0; }
+.step-badge   { width: 34px; height: 34px; border-radius: 9px; background: #6366f1; color: #fff;
+                font-size: 13px; font-weight: 700; display: flex; align-items: center;
+                justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+                box-shadow: 0 4px 14px rgba(99,102,241,0.35); }
+.step-title   { font-size: 21px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; line-height: 1.2; }
+.step-subtitle{ font-size: 13px; color: #475569; margin-top: 4px; line-height: 1.55; }
 
-    /* ── Content area ───────────────────────────────────────────────────────── */
-    .content-pad { padding: 0 36px 48px; }
+/* content */
+.content-pad { padding: 0 36px 48px; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.step-body { animation: fadeIn .22s ease; }
 
-    /* ── Glass card ─────────────────────────────────────────────────────────── */
-    .glass-card {
-        background: var(--card-bg);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--card-border);
-        border-radius: 12px;
-        box-shadow: 0 2px 18px rgba(99,102,241,.06), 0 1px 3px rgba(0,0,0,.04);
-        transition: border-color .2s, box-shadow .2s;
-        margin-bottom: 16px;
-        padding: 18px 22px;
-    }
+/* glass card */
+.glass-card {
+  background: var(--card-bg); backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border); border-radius: 12px;
+  box-shadow: 0 2px 18px rgba(99,102,241,.06), 0 1px 3px rgba(0,0,0,.04);
+  margin-bottom: 16px; padding: 18px 22px;
+}
 
-    /* ── Buttons ────────────────────────────────────────────────────────────── */
-    /* Primary override */
-    .stButton > button[kind="primary"],
-    .stButton > button[data-testid="baseButton-primary"] {
-        background: linear-gradient(135deg, #6366f1 0%, color-mix(in srgb, #6366f1 62%, #06b6d4) 100%) !important;
-        color: #fff !important;
-        border: none !important;
-        border-radius: 9px !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
-        padding: 8px 19px !important;
-        transition: transform 0.15s, box-shadow 0.15s !important;
-        letter-spacing: 0.01em !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 5px 18px rgba(99,102,241,0.38) !important;
-        filter: brightness(1.06) !important;
-    }
-    /* Secondary */
-    .stButton > button[kind="secondary"],
-    .stButton > button[data-testid="baseButton-secondary"] {
-        border: 1px solid var(--border) !important;
-        background: var(--surface) !important;
-        color: var(--text-primary) !important;
-        border-radius: 9px !important;
-        font-size: 13px !important;
-        transition: border-color 0.15s, color 0.15s !important;
-    }
-    .stButton > button[kind="secondary"]:hover {
-        border-color: var(--accent) !important;
-        color: var(--accent) !important;
-    }
+/* primary button */
+.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg,#6366f1,#818cf8) !important;
+  color: #fff !important; border: none !important; border-radius: 9px !important;
+  font-weight: 600 !important; font-size: 13px !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+.stButton > button[kind="primary"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 5px 18px rgba(99,102,241,0.38) !important;
+}
+/* secondary button */
+.stButton > button[kind="secondary"] {
+  border: 1px solid var(--border) !important; background: var(--surface) !important;
+  color: #334155 !important; border-radius: 9px !important; font-size: 13px !important;
+}
+.stButton > button[kind="secondary"]:hover {
+  border-color: #6366f1 !important; color: #6366f1 !important;
+}
 
-    /* ── Progress bar ───────────────────────────────────────────────────────── */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, var(--accent), var(--accent2)) !important;
-        border-radius: 3px !important;
-    }
-    .stProgress > div > div {
-        background: var(--border) !important;
-        border-radius: 3px !important;
-        height: 6px !important;
-    }
+/* inputs */
+.stTextInput > div > div > input,
+.stTextArea  > div > div > textarea,
+.stNumberInput > div > div > input,
+.stSelectbox   > div > div {
+  background: rgba(255,255,255,0.95) !important; border: 1px solid var(--border) !important;
+  border-radius: 8px !important; color: #0f172a !important; font-size: 13px !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea  > div > div > textarea:focus {
+  border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+}
+.stSlider > div > div > div > div { background: #6366f1 !important; }
 
-    /* ── Inputs ─────────────────────────────────────────────────────────────── */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stNumberInput > div > div > input,
-    .stSelectbox > div > div {
-        background: var(--input-bg) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 8px !important;
-        color: var(--text-primary) !important;
-        font-size: 13px !important;
-        font-family: 'Noto Sans', sans-serif !important;
-    }
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stNumberInput > div > div > input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
-    }
-    .stSlider > div > div > div > div {
-        background: var(--accent) !important;
-    }
-    .stSlider > div > div > div {
-        background: var(--border) !important;
-    }
+/* progress */
+.stProgress > div > div > div  { background: linear-gradient(90deg,#6366f1,#06b6d4) !important; border-radius: 3px !important; }
+.stProgress > div > div        { background: #e2e8f0 !important; border-radius: 3px !important; height: 6px !important; }
 
-    /* ── Labels ─────────────────────────────────────────────────────────────── */
-    .stTextInput label, .stTextArea label, .stNumberInput label,
-    .stSelectbox label, .stSlider label, .stRadio label {
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.06em !important;
-        color: var(--text-tertiary) !important;
-    }
+/* metric / done / summary cards */
+.metric-card  { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px 22px; text-align: center; backdrop-filter: blur(20px); }
+.metric-value { font-size: 30px; font-weight: 700; color: #6366f1; font-family: 'JetBrains Mono',monospace; line-height: 1; }
+.metric-unit  { font-size: 14px; font-weight: 400; margin-left: 3px; }
+.metric-label { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; }
+.metric-delta-pos { font-size: 11px; color: #ef4444; margin-top: 4px; font-family: 'JetBrains Mono',monospace; }
+.metric-delta-neg { font-size: 11px; color: #10b981; margin-top: 4px; font-family: 'JetBrains Mono',monospace; }
+.done-bar  { display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;
+             background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);margin-top:16px; }
+.done-icon { font-size: 20px; line-height: 1; }
+.done-text { font-size: 14px; font-weight: 600; color: #10b981; }
+.done-file { font-size: 11px; color: #64748b; font-family: 'JetBrains Mono',monospace; margin-top: 2px; }
+.summary-card { padding:14px 18px;border-radius:10px;background:rgba(99,102,241,0.07);
+                border:1px solid rgba(99,102,241,0.18);font-size:13px;color:#1e293b;
+                margin-bottom:16px;font-family:'JetBrains Mono',monospace; }
+.wait-card    { text-align:center;padding:52px 36px;background:var(--card-bg);
+                border:1px solid var(--card-border);border-radius:12px;
+                backdrop-filter:blur(20px);margin:0 auto;max-width:480px; }
+.wait-icon    { font-size:52px;margin-bottom:18px;display:block; }
+.wait-title   { font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px; }
+.wait-sub     { font-size:13px;color:#475569;line-height:1.55; }
 
-    /* ── Step host card ─────────────────────────────────────────────────────── */
-    .host-card {
-        display: flex; align-items: center; gap: 12px;
-        padding: 13px 16px; border-radius: 10px;
-        border: 1px solid var(--card-border);
-        background: var(--card-bg);
-        cursor: pointer; transition: all 0.18s;
-        margin-bottom: 8px;
-        backdrop-filter: blur(12px);
-    }
-    .host-card:hover { border-color: rgba(99,102,241,0.35); transform: translateX(2px); }
-    .host-card.selected { border-width: 2px; transform: translateX(4px); }
-    .host-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .host-name { font-size: 13px; font-weight: 600; color: #0f172a; }
-    .host-tag {
-        font-size: 10px; font-weight: 700; padding: 2px 8px;
-        border-radius: 20px; margin-left: auto;
-        font-family: 'JetBrains Mono', monospace;
-        background: var(--accent-soft); color: var(--accent);
-    }
-
-    /* ── Tab bar ────────────────────────────────────────────────────────────── */
-    .tab-bar {
-        display: flex; gap: 4px; margin-bottom: 16px;
-        background: var(--surface); border-radius: 10px; padding: 4px;
-        border: 1px solid var(--border);
-    }
-    .tab-btn {
-        flex: 1; padding: 6px 12px; border-radius: 7px; border: none;
-        background: transparent; color: var(--text-secondary);
-        font-size: 12px; font-weight: 500; cursor: pointer;
-        transition: all 0.15s; font-family: inherit;
-    }
-    .tab-btn.active {
-        background: var(--accent); color: #fff; font-weight: 600;
-    }
-
-    /* ── Metric card ────────────────────────────────────────────────────────── */
-    .metric-card {
-        background: var(--card-bg); border: 1px solid var(--card-border);
-        border-radius: 12px; padding: 18px 22px; text-align: center;
-        backdrop-filter: blur(20px);
-    }
-    .metric-value {
-        font-size: 30px; font-weight: 700; color: var(--accent);
-        font-family: 'JetBrains Mono', monospace; line-height: 1;
-    }
-    .metric-unit { font-size: 14px; font-weight: 400; margin-left: 3px; }
-    .metric-label { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; }
-    .metric-delta-pos { font-size: 11px; color: #10b981; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
-    .metric-delta-neg { font-size: 11px; color: #ef4444; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
-
-    /* ── Done bar ───────────────────────────────────────────────────────────── */
-    .done-bar {
-        display: flex; align-items: center; gap: 14px;
-        padding: 14px 18px; border-radius: 10px;
-        background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22);
-        margin-top: 16px;
-    }
-    .done-icon { font-size: 20px; line-height: 1; }
-    .done-text { font-size: 14px; font-weight: 600; color: #10b981; }
-    .done-file { font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
-
-    /* ── Terminal / log block ───────────────────────────────────────────────── */
-    .stCodeBlock pre, pre {
-        background: oklch(11% 0.04 270) !important;
-        border-radius: 10px !important;
-        font-family: 'JetBrains Mono', monospace !important;
-        font-size: 12px !important;
-        border: 1px solid oklch(20% 0.04 270) !important;
-    }
-
-    /* ── Param grid label ───────────────────────────────────────────────────── */
-    .param-label {
-        font-size: 11px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.06em; color: #64748b;
-        margin-bottom: 7px; display: block;
-    }
-    .param-hint { font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 5px; }
-
-    /* ── File row (download) ────────────────────────────────────────────────── */
-    .file-row {
-        display: flex; align-items: center; gap: 12px;
-        padding: 9px 0; border-bottom: 1px solid var(--border);
-    }
-    .file-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6366f1; flex: 1; }
-    .file-desc { font-size: 12px; color: #475569; flex: 2; }
-    .file-size { font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; }
-
-    /* ── Section group label ────────────────────────────────────────────────── */
-    .group-label {
-        font-size: 10px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px; margin-top: 20px;
-    }
-
-    /* ── Wait/install card ──────────────────────────────────────────────────── */
-    .wait-card {
-        text-align: center; padding: 52px 36px;
-        background: var(--card-bg); border: 1px solid var(--card-border);
-        border-radius: 12px; backdrop-filter: blur(20px); margin: 0 auto; max-width: 480px;
-    }
-    .wait-icon { font-size: 52px; margin-bottom: 18px; display: block; }
-    .wait-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
-    .wait-sub { font-size: 13px; color: #475569; line-height: 1.55; }
-
-    /* ── Summary card ───────────────────────────────────────────────────────── */
-    .summary-card {
-        padding: 14px 18px; border-radius: 10px;
-        background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.18);
-        font-size: 13px; color: #1e293b; margin-bottom: 16px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* ── Chip / pill ────────────────────────────────────────────────────────── */
-    .chip {
-        display: inline-flex; align-items: center; padding: 4px 12px;
-        border-radius: 20px; font-size: 12px; font-weight: 500;
-        background: var(--accent-soft); border: 1px solid var(--border);
-        color: var(--accent); cursor: pointer; transition: all 0.15s;
-        margin: 3px; user-select: none;
-    }
-    .chip:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-    /* ── Expander override ──────────────────────────────────────────────────── */
-    [data-testid="stExpander"] {
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-        background: var(--card-bg) !important;
-        backdrop-filter: blur(12px) !important;
-        margin-bottom: 12px !important;
-    }
-    [data-testid="stExpander"] summary {
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        color: var(--text-primary) !important;
-    }
-
-    /* ── Divider ────────────────────────────────────────────────────────────── */
-    hr { border-color: var(--border) !important; margin: 20px 0 !important; }
-
-    /* ── Animation ──────────────────────────────────────────────────────────── */
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    .step-body { animation: fadeIn 0.22s ease; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { display: inline-block; animation: spin 1.2s linear infinite; }
-
-    /* General font override */
-    body, .stApp { font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif; color: #1e293b; }
-    p, span, div, label { color: #1e293b; }
-    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
-    /* Streamlit native widget text */
-    [data-testid="stMarkdownContainer"] p { color: #1e293b; }
-    [data-testid="stMarkdownContainer"] li { color: #334155; }
-    .stTextInput label, .stSelectbox label, .stSlider label,
-    .stNumberInput label, .stRadio label, .stCheckbox label { color: #475569 !important; }
-    </style>""", unsafe_allow_html=True)
-_inject_css()
+/* misc */
+.group-label  { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:8px;margin-top:20px; }
+.host-card    { display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:10px;
+                border:1px solid var(--card-border);background:var(--card-bg);
+                cursor:pointer;transition:all .18s;margin-bottom:8px; }
+.host-card:hover { border-color:rgba(99,102,241,0.35); transform:translateX(2px); }
+.host-name    { font-size:13px;font-weight:600;color:#0f172a; }
+.host-color-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+.host-tag     { font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+                margin-left:auto;font-family:'JetBrains Mono',monospace;
+                background:var(--accent-soft);color:#6366f1; }
+.file-name    { font-family:'JetBrains Mono',monospace;font-size:12px;color:#6366f1;flex:1; }
+.file-desc    { font-size:12px;color:#475569;flex:2; }
+.file-size    { font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace; }
+.chip         { display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;
+                font-size:12px;font-weight:500;background:var(--accent-soft);
+                border:1px solid var(--border);color:#6366f1;cursor:pointer;
+                transition:all .15s;margin:3px;user-select:none; }
+.chip:hover   { background:#6366f1;color:#fff;border-color:#6366f1; }
+[data-testid="stExpander"] { border:1px solid var(--border) !important;border-radius:10px !important;background:var(--card-bg) !important;margin-bottom:12px !important; }
+hr { border-color:var(--border) !important; margin:20px 0 !important; }
+</style>""", unsafe_allow_html=True)
 
 # ─── Session state defaults ────────────────────────────────────────────────────
 DEFAULTS = {
@@ -553,13 +343,9 @@ def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
 
 
 def section_header(title: str, subtitle: str = "", step_num: int = None):
-    """Render a step header with badge + title + subtitle (DFDD design system)."""
-    badge_html = ""
-    if step_num is not None:
-        badge_html = f'<div class="step-badge">{step_num}</div>'
+    badge = f'<div class="step-badge">{step_num}</div>' if step_num is not None else ""
     st.markdown(
-        f'<div class="step-header">'
-        f'{badge_html}'
+        f'<div class="step-header">{badge}'
         f'<div><div class="step-title">{title}</div>'
         + (f'<div class="step-subtitle">{subtitle}</div>' if subtitle else "")
         + "</div></div>",
@@ -568,13 +354,10 @@ def section_header(title: str, subtitle: str = "", step_num: int = None):
 
 
 def waiting_card(title: str, subtitle: str = "", icon: str = "⚙️"):
-    """Render a centred install/wait card (DFDD design system)."""
     st.markdown(
-        f'''<div class="wait-card">
-            <span class="wait-icon">{icon}</span>
-            <div class="wait-title">{title}</div>
-            <div class="wait-sub">{subtitle}</div>
-        </div>''',
+        f'<div class="wait-card"><span class="wait-icon">{icon}</span>'
+        f'<div class="wait-title">{title}</div>'
+        f'<div class="wait-sub">{subtitle}</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -792,7 +575,7 @@ STEP_LABELS = [
 ]
 
 def render_stepper(current):
-    """Render the DFDD phase stepper bar with 5 phase groups."""
+    """Render the DFDD phase stepper bar."""
     PHASES = [
         {"label": "Setup",              "steps": [0],       "num": "1"},
         {"label": "System Preparation", "steps": [1,2,3,4], "num": "2"},
@@ -807,37 +590,21 @@ def render_stepper(current):
         chip_cls  = "phase-chip active" if is_active else ("phase-chip done" if is_done else "phase-chip")
         circ_cls  = "phase-circle active" if is_active else ("phase-circle done" if is_done else "phase-circle")
         icon      = "✓" if is_done else phase["num"]
-        html += (
-            f'<div class="{chip_cls}">'
-            f'<div class="{circ_cls}">{icon}</div>'
-            f'{phase["label"]}'
-            f'</div>'
-        )
+        html += f'<div class="{chip_cls}"><div class="{circ_cls}">{icon}</div>{phase["label"]}</div>'
         if i < len(PHASES) - 1:
-            conn_cls = "phase-connector done" if is_done else "phase-connector"
-            html += f'<div class="{conn_cls}"></div>'
+            html += f'<div class="{"phase-connector done" if is_done else "phase-connector"}"></div>'
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
 
-def render_topbar(step_label: str, step_idx: int):
-    """Render the DFDD topbar with breadcrumb and workspace pill."""
-    ws = st.session_state.get("workdir", "~/dfdd_workspace")
-    ws_short = ws.replace(os.path.expanduser("~"), "~")
+def render_topbar(label: str):
+    ws = st.session_state.get("workdir", "~/dfdd_workspace").replace(os.path.expanduser("~"), "~")
     st.markdown(
-        f'''<div class="topbar">
-          <div class="topbar-breadcrumb">
-            <span style="color:var(--text-tertiary);font-size:13px;">DFDD</span>
-            <span class="bc-sep">›</span>
-            <span>{step_label}</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <div class="ws-pill">
-              <span>📁</span>
-              <span style="font-family:'JetBrains Mono',monospace;">{ws_short}</span>
-            </div>
-          </div>
-        </div>''',
+        f'<div class="topbar"><div class="topbar-breadcrumb">'
+        f'<span style="color:#94a3b8">DFDD</span><span class="bc-sep">›</span>'
+        f'<span>{label}</span></div>'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#94a3b8;">📁 {ws}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
@@ -902,44 +669,16 @@ def _run_install_step(cmd, desc, pct, progress, log_area, log, conda_cmd=None):
 
 
 def page_install():
-    render_topbar("Install dependencies", 0)
+    render_topbar("Install")
     render_stepper(0)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Install dependencies", "Installing scientific packages. This runs automatically — please wait.", step_num=0)
 
     # ── Already fully done this session ──────────────────────────────────────
     if st.session_state["install_done"]:
-        st.markdown("""
-        <div class="done-bar" style="margin:24px 0;max-width:480px;">
-          <span class="done-icon">✅</span>
-          <div><div class="done-text">Environment ready</div>
-          <div class="done-file">All packages installed successfully</div></div>
-        </div>""", unsafe_allow_html=True)
-        next_button(1, "Next → Select host →")
+        st.success("✅ Environment ready!")
+        next_button(1, "Next → Select host")
         return
-
-    # ── Package list preview ─────────────────────────────────────────────────
-    PACKAGES = [
-        ("AmberTools", "antechamber · tleap · cpptraj"),
-        ("OpenBabel",  "obabel file conversion"),
-        ("RDKit",      "cheminformatics toolkit"),
-        ("xtb",        "semiempirical QM"),
-        ("PaCS-Q",     "LB-PaCS-MD engine"),
-        ("py3Dmol",    "in-browser 3D viewer"),
-        ("dimorphite_dl", "protonation states"),
-        ("netCDF4",    "trajectory storage"),
-    ]
-    pkg_items = "".join(
-        f'<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">'
-        f'<span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--accent);flex:0 0 140px;">{name}</span>'
-        f'<span style="font-size:12px;color:var(--text-tertiary);">{note}</span></div>'
-        for name, note in PACKAGES
-    )
-    st.markdown(
-        f'<div class="glass-card" style="max-width:480px;margin:0 auto 24px;padding:14px 18px;">' +
-        pkg_items + '</div>',
-        unsafe_allow_html=True,
-    )
 
     # ── Check mamba ───────────────────────────────────────────────────────────
     if not _mamba_available():
@@ -1060,7 +799,7 @@ def _fetch_preview_pdb(url):
 
 
 def page_host():
-    render_topbar("Select Host", 1)
+    render_topbar("Select Host")
     render_stepper(1)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Select host molecule", "Choose the cyclodextrin host. The 3D structure loads automatically.", step_num=1)
@@ -1072,98 +811,55 @@ def page_host():
     if prev not in abbrevs:
         prev = abbrevs[0]
 
-    # Host card colors matching prototype
-    HOST_COLORS = {
-        "β-CD (DFT)":    "#6366f1",
-        "β-CD (GLYCAM)": "#8b5cf6",
-        "DM-β-CD":       "#a855f7",
-        "M-β-CD":        "#d946ef",
-        "HP-β-CD":       "#ec4899",
-    }
-    HOST_TAGS = {
-        "β-CD (DFT)":    "DFT",
-        "β-CD (GLYCAM)": "GLYCAM",
-        "DM-β-CD":       "GLYCAM",
-        "M-β-CD":        "GLYCAM",
-        "HP-β-CD":       "GLYCAM",
-    }
+    # ── Single-row compact radio ──────────────────────────────────────────────
+    selected = st.radio(
+        "Host molecule",
+        abbrevs,
+        index=abbrevs.index(prev),
+        horizontal=True,
+        key="host_radio",
+    )
 
-    col_left, col_right = st.columns([1, 1], gap="large")
-
-    with col_left:
-        st.markdown('<div class="group-label">Host molecule</div>', unsafe_allow_html=True)
-        for abbrev in abbrevs:
-            is_sel   = abbrev == prev
-            color    = HOST_COLORS.get(abbrev, "#6366f1")
-            tag      = HOST_TAGS.get(abbrev, "")
-            sel_style = (
-                f"border:2px solid {color};background:rgba({','.join(str(int(color[i:i+2],16)) for i in (1,3,5))},0.06);"
-                if is_sel else ""
-            )
-            check = f'<span style="color:{color};font-weight:700;margin-left:auto;">✓</span>' if is_sel else ""
-            st.markdown(
-                f'<div class="host-card {"selected" if is_sel else ""}" style="{sel_style}">'
-                f'<div class="host-color-dot" style="background:{color};"></div>'
-                f'<div class="host-name">{abbrev}</div>'
-                f'<div class="host-tag" style="color:{color};background:rgba({",".join(str(int(color[i:i+2],16)) for i in (1,3,5))},0.1);">{tag}</div>'
-                f'{check}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button(f"Select {abbrev}", key=f"host_btn_{abbrev}",
-                         type="primary" if is_sel else "secondary",
-                         use_container_width=True):
-                if abbrev != st.session_state.get("host_option_abbrev"):
-                    st.session_state["host_option_abbrev"] = abbrev
-                    st.session_state["host_option"] = HOST_FULL_NAMES[abbrev]
-                    st.session_state["host_path"] = None
-                    st.session_state["host_type"] = None
-                    st.rerun()
-
-        selected = st.session_state.get("host_option_abbrev", abbrevs[0])
+    # Update session and clear preview cache if selection changed
+    if selected != st.session_state.get("host_option_abbrev"):
         st.session_state["host_option_abbrev"] = selected
         st.session_state["host_option"] = HOST_FULL_NAMES[selected]
-        st.markdown(
-            f'<div class="glass-card" style="margin-top:8px;padding:12px 16px;">'
-            f'<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Description</div>'
-            f'<div style="font-size:13px;color:var(--text-primary);">{HOST_FULL_NAMES[selected]}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        # Clear prepared host if user switches to a different one
+        if st.session_state.get("host_type") is not None:
+            prev_key = HOST_OPTIONS_MAP.get(prev)
+            new_key  = HOST_OPTIONS_MAP.get(selected)
+            if prev_key != new_key:
+                st.session_state["host_path"] = None
+                st.session_state["host_type"] = None
+    else:
+        st.session_state["host_option_abbrev"] = selected
+        st.session_state["host_option"] = HOST_FULL_NAMES[selected]
 
-    with col_right:
-        # ── 3D preview ────────────────────────────────────────────────────────
-        prepared_path = st.session_state.get("host_path")
-        if prepared_path and os.path.exists(prepared_path):
-            preview_pdb   = core.read_file(prepared_path)
-            preview_label = "Prepared structure"
-        else:
-            cache_key   = f"host_preview_pdb_{selected}"
-            preview_pdb = st.session_state.get(cache_key)
-            if not preview_pdb:
-                url = HOST_PREVIEW_URLS.get(selected)
-                if url:
-                    with st.spinner("Loading 3D preview…"):
-                        preview_pdb = _fetch_preview_pdb(url)
-                    if preview_pdb:
-                        st.session_state[cache_key] = preview_pdb
-            preview_label = f"Preview — {selected}"
+    # Full name description
+    st.caption(HOST_FULL_NAMES[selected])
 
-        st.markdown(
-            f'<div style="font-size:11px;font-weight:700;text-transform:uppercase;'
-            f'letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:8px;">'
-            f'{preview_label}</div>',
-            unsafe_allow_html=True,
-        )
-        if preview_pdb:
-            st.components.v1.html(py3dmol_html(preview_pdb, 480, 380, side_view=True), height=390)
-        else:
-            st.markdown(
-                '<div class="glass-card" style="height:340px;display:flex;align-items:center;'
-                'justify-content:center;color:var(--text-tertiary);font-size:13px;">'
-                '3D preview unavailable</div>',
-                unsafe_allow_html=True,
-            )
+    # ── 3D preview ────────────────────────────────────────────────────────────
+    prepared_path = st.session_state.get("host_path")
+    if prepared_path and os.path.exists(prepared_path):
+        preview_pdb   = core.read_file(prepared_path)
+        preview_label = "**Prepared structure**"
+    else:
+        cache_key   = f"host_preview_pdb_{selected}"
+        preview_pdb = st.session_state.get(cache_key)
+        if not preview_pdb:
+            url = HOST_PREVIEW_URLS.get(selected)
+            if url:
+                with st.spinner("Loading 3D preview…"):
+                    preview_pdb = _fetch_preview_pdb(url)
+                if preview_pdb:
+                    st.session_state[cache_key] = preview_pdb
+        preview_label = f"**Preview — {selected}**"
+
+    if preview_pdb:
+        st.markdown(preview_label)
+        st.components.v1.html(py3dmol_html(preview_pdb, 680, 420, side_view=True), height=430)
+    else:
+        st.info("3D preview unavailable — check internet connection.")
 
     st.divider()
 
@@ -1227,26 +923,22 @@ def _charge_from_file(path):
 
 
 def page_guest():
-    render_topbar("Prepare Guest", 2)
+    render_topbar("Prepare Guest")
     render_stepper(2)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Prepare guest molecule", "Provide your guest ligand by SMILES, file upload, or draw with Ketcher.", step_num=2)
 
-    # Tab-bar styled radio
-    _MODES = ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
-    _MODE_ICONS = {"SMILES": "📝 SMILES", "Search by name (PubChem)": "🔬 PubChem",
-                   "Draw (Ketcher)": "✏️ Ketcher", "File upload (.pdb / .mol2)": "📁 Upload"}
     input_type = st.radio(
         "Input method",
-        _MODES,
-        format_func=lambda x: _MODE_ICONS.get(x, x),
+        ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"],
         horizontal=True,
-        index=_MODES.index(
+        index=["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"].index(
             st.session_state.get("guest_input_type", "SMILES")
-            if st.session_state.get("guest_input_type", "SMILES") in _MODES else "SMILES"
+            if st.session_state.get("guest_input_type", "SMILES") in
+               ["SMILES", "Search by name (PubChem)", "Draw (Ketcher)", "File upload (.pdb / .mol2)"]
+            else "SMILES"
         ),
         key="guest_input_radio",
-        label_visibility="collapsed",
     )
     st.session_state["guest_input_type"] = input_type
 
@@ -1259,14 +951,14 @@ def page_guest():
         # Example guests
         EXAMPLES = {
             "Aspirin":      "CC(=O)OC1=CC=CC=C1C(=O)O",
-            "Caffeine":     "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
             "Ibuprofen":    "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
             "Naproxen":     "COc1ccc2cc(ccc2c1)C(C)C(=O)O",
+            "Caffeine":     "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
             "Glucose":      "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
             "Testosterone": "O=C1CC[C@H]2[C@@H]3CCc4cc(O)cc[C@@]4(C)[C@H]3CC[C@@]12C",
         }
 
-        st.markdown("<div class='group-label'>Quick examples</div>", unsafe_allow_html=True)
+        st.markdown("**Quick examples** — click to load:")
         ex_cols = st.columns(len(EXAMPLES))
         for col, (name, smi) in zip(ex_cols, EXAMPLES.items()):
             with col:
@@ -1274,20 +966,14 @@ def page_guest():
                     st.session_state["guest_smiles"] = smi
                     st.rerun()
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         smiles_in = st.text_input(
             "SMILES string",
             value=st.session_state.get("guest_smiles", "CC(=O)OC1=CC=CC=C1C(=O)O"),
             help="Paste any valid SMILES or click an example above",
             key="guest_smiles_input",
-            placeholder="e.g. CC(=O)OC1=CC=CC=C1C(=O)O",
         )
         if smiles_in:
-            st.markdown(
-                f'<div style="font-family:JetBrains Mono,monospace;font-size:11px;'
-                f'color:var(--accent);padding:4px 0;">{smiles_in}</div>',
-                unsafe_allow_html=True,
-            )
+            st.caption(f"`{smiles_in}`")
 
     # ── PubChem name search ───────────────────────────────────────────────────
     elif input_type == "Search by name (PubChem)":
@@ -1816,7 +1502,7 @@ v.render();
 
 
 def page_build():
-    render_topbar("Build & Solvate", 3)
+    render_topbar("Build & Solvate")
     render_stepper(3)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Build complex & solvate", "Place guest inside host, add water box, prepare for simulation.", step_num=3)
@@ -2005,43 +1691,34 @@ def page_build():
 
 
 def page_minimize():
-    render_topbar("Minimize", 4)
+    render_topbar("Minimize")
     render_stepper(4)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Minimize & heat", "Energy minimization, NVT heating 0→300 K, short equilibration.", step_num=4)
 
-    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     with c1:
         min_iters  = st.number_input("Max minimization steps", 100, 50000, 5000)
-    with c2:
         heat_steps = st.number_input("Steps per heating stage (×6)", 1000, 50000, 10000)
+    with c2:
         nvt_steps  = st.number_input("NVT steps", 10000, 500000, 50000)
-    with c3:
         prod_steps = st.number_input("Restrained production steps", 10000, 500000, 100000)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     total_ns = (heat_steps * 6 + nvt_steps + prod_steps) * 2 / 1e6
-    st.markdown(
-        f'<div class="summary-card">'
-        f'Est. simulation time: <b>{total_ns:.2f} ns</b> &nbsp;·&nbsp; ~1–2 min on GPU'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    st.info(f"Estimated time: **{total_ns:.2f} ns**  (~1–2 min on GPU)")
 
     if st.session_state.get("min_done") and os.path.exists(wpath("last_frame.rst7")):
-        st.markdown(
-            f'<div class="done-bar"><span class="done-icon">✅</span>'
-            f'<div><div class="done-text">Minimization complete</div>'
-            f'<div class="done-file">last_frame.rst7 · {core.file_mb(wpath("last_frame.rst7")):.2f} MB</div></div></div>',
-            unsafe_allow_html=True,
-        )
-        next_button(5, "Next → LB-PaCS-MD →")
+        st.success(f"✅ Already minimized — `last_frame.rst7` ({core.file_mb(wpath('last_frame.rst7')):.2f} MB)")
+        next_button(5, "Next → LB-PaCS-MD")
         return
 
     if st.button("▶ Run minimization & heating", type="primary"):
-        waiting_card("Running OpenMM minimization + heating",
-                     "This takes ~1–2 minutes on GPU. Please don't close this tab.", icon="⏳")
+        st.markdown("""
+        <div class="wait-card">
+            <div class="wait-title">⏳ Running OpenMM minimization + heating</div>
+            <div class="wait-sub">This takes ~1–2 minutes on GPU. Please don't close this tab.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         progress = st.progress(0, text="Starting OpenMM…")
 
@@ -2056,12 +1733,7 @@ def page_minimize():
         if ok:
             progress.progress(100, text="Done!")
             st.session_state["min_done"] = True
-            st.markdown(
-                '<div class="done-bar"><span class="done-icon">✅</span>'
-                '<div><div class="done-text">Minimization complete</div>'
-                '<div class="done-file">last_frame.rst7 saved</div></div></div>',
-                unsafe_allow_html=True,
-            )
+            st.success("✅ Minimization complete!  `last_frame.rst7` saved.")
             next_button(5, "Next → LB-PaCS-MD")
         else:
             progress.progress(100, text="Failed")
@@ -2075,12 +1747,11 @@ def page_minimize():
 # STEP 5 — LB-PaCS-MD  (config + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd():
-    render_topbar("LB-PaCS-MD", 5)
+    render_topbar("LB-PaCS-MD")
     render_stepper(5)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("LB-PaCS-MD sampling", "Configure and run the LB-PaCS-MD enhanced sampling cycles.", step_num=5)
 
-    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         cycle    = st.slider("Cycles", 2, 100,
@@ -2095,26 +1766,14 @@ def page_pacsmd():
     with c3:
         temperature = st.number_input("Temperature (K)", value=float(st.session_state.get("pacsmd_temp", 300.0)))
         pressure    = st.number_input("Pressure (bar)",  value=float(st.session_state.get("pacsmd_pressure", 1.0)))
-    st.markdown('</div>', unsafe_allow_html=True)
 
     steps_cycle = int(sim_time / (timestep / 1000))
     total_ns    = sim_time * cycle / 1000
-    st.markdown(
-        f'<div class="summary-card">'
-        f'<b>{cycle}</b> cycles × <b>{sim_time}</b> ps = <b>{total_ns:.2f} ns</b> total'
-        f' &nbsp;·&nbsp; <b>{steps_cycle:,}</b> steps / cycle'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    st.info(f"Steps / cycle: **{steps_cycle:,}**  |  Total: **{total_ns:.2f} ns**")
 
     if st.session_state.get("pacsmd_done") and os.path.exists(wpath("sum.nc")):
-        st.markdown(
-            f'<div class="done-bar"><span class="done-icon">✅</span>'
-            f'<div><div class="done-text">LB-PaCS-MD complete</div>'
-            f'<div class="done-file">sum.nc · {core.file_mb(wpath("sum.nc")):.1f} MB</div></div></div>',
-            unsafe_allow_html=True,
-        )
-        next_button(6, "Next → PaCS-MD analysis →")
+        st.success(f"✅ LB-PaCS-MD done — `sum.nc` ({core.file_mb(wpath('sum.nc')):.1f} MB)")
+        next_button(6, "Next → PaCS-MD analysis")
         return
 
     if st.button("▶ Run LB-PaCS-MD", type="primary"):
@@ -2128,9 +1787,13 @@ def page_pacsmd():
         host_sel  = core.PACSMD_HOST_SEL.get(host_type, "resid 1-7")
         guest_sel = "resname GST"
 
-        waiting_card("Running LB-PaCS-MD",
-                     "Enhanced sampling in progress — ~12 min (40 cycles, Colab GPU). Please keep this tab open.",
-                     icon="🚀")
+        st.markdown("""
+        <div class="wait-card">
+            <div class="wait-title">🚀 Running LB-PaCS-MD</div>
+            <div class="wait-sub">Enhanced sampling in progress. Each cycle selects candidates closest to the host cavity.<br>
+            This takes ~12 min (40 cycles, Colab GPU). Please keep this tab open.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         progress = st.progress(0, text=f"Starting {cycle} LB-PaCS-MD cycles…")
 
@@ -2144,12 +1807,8 @@ def page_pacsmd():
         if rc == 0:
             progress.progress(100, text="LB-PaCS-MD complete!")
             st.session_state["pacsmd_done"] = True
-            st.markdown(
-                '<div class="done-bar"><span class="done-icon">✅</span>'
-                '<div><div class="done-text">LB-PaCS-MD complete!</div></div></div>',
-                unsafe_allow_html=True,
-            )
-            next_button(6, "Next → PaCS-MD analysis →")
+            st.success("✅ LB-PaCS-MD complete!")
+            next_button(6, "Next → PaCS-MD analysis")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ PaCS-Q failed")
@@ -2162,7 +1821,7 @@ def page_pacsmd():
 # STEP 6 — PaCS-MD analysis + optional extend
 # ══════════════════════════════════════════════════════════════════════════════
 def page_pacsmd_analysis():
-    render_topbar("PaCS-MD Analysis", 6)
+    render_topbar("PaCS-MD Analysis")
     render_stepper(6)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("PaCS-MD analysis", "Evaluate trajectories, distances, RMSD, and radius of gyration.", step_num=6)
@@ -2193,66 +1852,24 @@ def page_pacsmd_analysis():
         dis = np.loadtxt(dis_dat, usecols=0)
         last_d = float(dis[-1])
 
-        # ── Metric cards ──────────────────────────────────────────────────────
-        n_cyc = st.session_state.get("pacsmd_cycles", 40)
-        total_ps = n_cyc * st.session_state.get("pacsmd_sim_time", 10)
-        d_clr = "#10b981" if last_d < 5 else ("#f59e0b" if last_d < 10 else "#6366f1")
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(
-                f'<div class="metric-card"><div class="metric-value" style="color:{d_clr};">{last_d:.1f}'
-                f'<span class="metric-unit">Å</span></div>'
-                f'<div class="metric-label">Final COM distance<br>host–guest</div></div>',
-                unsafe_allow_html=True,
-            )
-        with m2:
-            st.markdown(
-                f'<div class="metric-card"><div class="metric-value" style="color:#8b5cf6;">{n_cyc}'
-                f'<span class="metric-unit">cyc</span></div>'
-                f'<div class="metric-label">LB-PaCS-MD cycles<br>completed</div></div>',
-                unsafe_allow_html=True,
-            )
-        with m3:
-            st.markdown(
-                f'<div class="metric-card"><div class="metric-value" style="color:#06b6d4;">{total_ps/1000:.2f}'
-                f'<span class="metric-unit">ns</span></div>'
-                f'<div class="metric-label">Total simulation time<br>sampled</div></div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
         if _plotly_ok:
             fig = go.Figure(go.Scatter(
                 x=list(range(1, len(dis) + 1)), y=dis.tolist(),
                 mode="lines+markers",
-                line=dict(color="#6366f1", width=2),
-                marker=dict(size=4, color="#6366f1"),
-                fill="tozeroy",
-                fillcolor="rgba(99,102,241,0.08)",
+                line=dict(color="#8B6CE8", width=2),
+                marker=dict(size=4),
             ))
-            fig.add_hline(y=5, line_dash="dot", line_color="#ef4444",
-                          annotation_text="5 Å threshold",
-                          annotation_font_color="#ef4444")
+            fig.add_hline(y=5, line_dash="dot", line_color="#E24B4A",
+                          annotation_text="5 Å threshold")
             fig.update_layout(
                 xaxis_title="Cycle", yaxis_title="COM Distance (Å)",
                 title="Host–Guest COM Distance Profile",
-                height=320,
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(255,255,255,0.6)",
-                font=dict(family="Noto Sans, sans-serif", size=12),
-                xaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
-                yaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
-                margin=dict(l=0, r=0, t=36, b=0),
+                height=380, plot_bgcolor="white",
             )
             st.plotly_chart(fig, use_container_width=True)
 
         if last_d < 5:
-            st.markdown(
-                '<div class="done-bar"><span class="done-icon">🎉</span>'
-                f'<div><div class="done-text">Guest complexed!</div>'
-                f'<div class="done-file">Final COM distance = {last_d:.1f} Å</div></div></div>',
-                unsafe_allow_html=True,
-            )
+            st.success(f"🎉 Guest complexed! Final distance = **{last_d:.1f} Å**")
         elif last_d < 10:
             st.info(f"Guest approaching cavity — distance = **{last_d:.1f} Å**")
         else:
@@ -2273,17 +1890,14 @@ def page_pacsmd_analysis():
             ))
             fig2d.update_layout(
                 xaxis_title="Host–Guest Distance (Å)", yaxis_title="Host Rg (Å)",
-                title="2D Free Energy Landscape", height=420,
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(255,255,255,0.6)",
-                font=dict(family="Noto Sans, sans-serif", size=12),
+                title="2D Free Energy Landscape", height=440
             )
             st.plotly_chart(fig2d, use_container_width=True)
 
     # --- Extend? ---
     st.divider()
     if last_d is None or last_d >= 5:
-        st.markdown('<div class="group-label" style="margin-top:20px;">Extend simulation?</div>', unsafe_allow_html=True)
+        st.subheader("🔄 Extend simulation?")
         want_extend = st.radio(
             "Guest has not fully complexed. Do you want to extend the simulation?",
             ["Yes, extend", "No, continue to cMD"],
@@ -2303,7 +1917,12 @@ def page_pacsmd_analysis():
                 st_c      = st.session_state.get("pacsmd_sim_time", 10)
                 steps_c   = int(st_c / (ts / 1000))
 
-                waiting_card("Extending LB-PaCS-MD…", "Running additional cycles. Please wait.", icon="🔄")
+                st.markdown("""
+                <div class="wait-card">
+                    <div class="wait-title">🔄 Extending LB-PaCS-MD…</div>
+                    <div class="wait-sub">Running additional cycles. Please wait.</div>
+                </div>
+                """, unsafe_allow_html=True)
 
                 core.write_pacsmd_config(
                     WD(),
@@ -2331,11 +1950,7 @@ def page_pacsmd_analysis():
             next_button(7, "Next → Classical MD")
     else:
         # Guest complexed
-        st.markdown(
-            '<div class="done-bar"><span class="done-icon">🎉</span>'
-            '<div><div class="done-text">Guest complexed — ready for cMD</div></div></div>',
-            unsafe_allow_html=True,
-        )
+        st.success("Guest is complexed. Proceeding to cMD.")
         next_button(7, "Next → Classical MD")
 
     log_expander("log_cv")
@@ -2345,49 +1960,38 @@ def page_pacsmd_analysis():
 # STEP 7 — Classical MD  (ask length + waiting page)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_cmd():
-    render_topbar("Classical MD", 7)
+    render_topbar("Classical MD")
     render_stepper(7)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Classical MD (NPT)", "Run unbiased NPT molecular dynamics from the best PaCS-MD frame.", step_num=7)
 
     if st.session_state.get("cmd_done") and os.path.exists(wpath("md.dcd")):
-        st.markdown(
-            f'<div class="done-bar"><span class="done-icon">✅</span>'
-            f'<div><div class="done-text">cMD complete</div>'
-            f'<div class="done-file">md.dcd · {core.file_mb(wpath("md.dcd")):.1f} MB</div></div></div>',
-            unsafe_allow_html=True,
-        )
-        next_button(8, "Next → Analysis & MM-PBSA →")
+        st.success(f"✅ cMD done — `md.dcd` ({core.file_mb(wpath('md.dcd')):.1f} MB)")
+        next_button(8, "Next → Analysis & MM-PBSA")
         return
 
-    st.markdown('<div class="glass-card" style="margin-bottom:20px;">', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2 = st.columns(2)
     with c1:
         length_ns   = st.number_input("Simulation length (ns)", 0.1, 100.0, 2.0, step=0.5)
-    with c2:
         temperature = st.number_input("Temperature (K)", value=300.0)
-    with c3:
+    with c2:
         pressure    = st.number_input("Pressure (bar)", value=1.0)
-    with c4:
         report_int  = st.number_input("Reporter interval (steps)", 1000, 50000, 5000)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     steps_est = int(length_ns * 1e6 / 2)
-    st.markdown(
-        f'<div class="summary-card">'
-        f'<b>{length_ns}</b> ns &nbsp;·&nbsp; '
-        f'<b>{steps_est:,}</b> steps at dt=2 fs &nbsp;·&nbsp; '
-        f'est. <b>{length_ns*7:.0f}–{length_ns*15:.0f} min</b> on GPU'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    st.info(f"{length_ns} ns ≈ **{steps_est:,}** steps at dt=2 fs")
 
     if st.button("▶ Run cMD", type="primary"):
-        waiting_card(
-            f"Running {length_ns} ns cMD (NPT)",
-            f"~{length_ns*7:.0f}–{length_ns*15:.0f} min on Colab GPU. Please keep this tab open.",
-            icon="🔬",
-        )
+        st.markdown(f"""
+        <div class="wait-card">
+            <div class="wait-title">🔬 Running {length_ns} ns cMD</div>
+            <div class="wait-sub">
+                NPT simulation in progress.<br>
+                Estimated time: ~{length_ns*7:.0f}–{length_ns*15:.0f} min on Colab GPU.<br>
+                Please keep this tab open.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         progress = st.progress(0, text="Extracting last PaCS-MD frame…")
 
@@ -2416,12 +2020,8 @@ def page_cmd():
         if ok:
             progress.progress(100, text="cMD complete!")
             st.session_state["cmd_done"] = True
-            st.markdown(
-                '<div class="done-bar"><span class="done-icon">✅</span>'
-                '<div><div class="done-text">cMD complete</div></div></div>',
-                unsafe_allow_html=True,
-            )
-            next_button(8, "Next → Analysis & MM-PBSA →")
+            st.success("✅ cMD complete!")
+            next_button(8, "Next → Analysis & MM-PBSA")
         else:
             progress.progress(100, text="Failed")
             st.error("❌ cMD failed")
@@ -2434,7 +2034,7 @@ def page_cmd():
 # STEP 8 — cMD Analysis + MM-PBSA/GBSA (auto-run all)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_analysis():
-    render_topbar("Analysis & MM-PBSA", 8)
+    render_topbar("Analysis & MM-PBSA")
     render_stepper(8)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Analysis & binding energy", "RMSD · Rg · distance analysis and MM-PBSA/GBSA binding free energy.", step_num=8)
@@ -2451,12 +2051,7 @@ def page_analysis():
             )
         if rc != 0:
             st.error("❌ cpptraj failed"); st.code(out[-2000:]); st.stop()
-        st.markdown(
-            '<div class="done-bar" style="margin-bottom:16px;">'
-            '<span class="done-icon">✅</span>'
-            '<div><div class="done-text">Trajectory analysis done</div></div></div>',
-            unsafe_allow_html=True,
-        )
+        st.success("✅ Trajectory analysis done")
 
     # --- Plots ---
     if _plotly_ok and _numpy_ok:
@@ -2476,7 +2071,7 @@ def page_analysis():
                     pass
 
         if charts:
-            colors = ["#6366f1", "#06b6d4", "#10b981"]
+            colors = ["#8B6CE8", "#D85A30", "#378ADD"]
             fig = make_subplots(
                 rows=len(charts), cols=1,
                 subplot_titles=[c[3] for c in charts],
@@ -2490,22 +2085,15 @@ def page_analysis():
                 )
                 fig.update_yaxes(title_text=ylabel, row=i, col=1)
                 fig.update_xaxes(title_text="Frame", row=i, col=1)
-            fig.update_layout(
-                height=300 * len(charts), showlegend=False,
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(255,255,255,0.6)",
-                font=dict(family="Noto Sans, sans-serif", size=12),
-            )
-            for i in range(1, len(charts)+1):
-                fig.update_xaxes(gridcolor="rgba(99,102,241,0.08)", row=i, col=1)
-                fig.update_yaxes(gridcolor="rgba(99,102,241,0.08)", row=i, col=1)
+            fig.update_layout(height=300 * len(charts), showlegend=False,
+                              plot_bgcolor="white")
             st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
     # --- Auto-run MM-PBSA if not done ---
     if not st.session_state.get("mmpbsa_done"):
-        st.markdown('<div class="group-label">MM-PBSA / GBSA Binding Energy</div>', unsafe_allow_html=True)
+        st.subheader("⚡ MM-PBSA/GBSA binding energy")
         c1, c2 = st.columns(2)
         with c1:
             n_frames = st.number_input("Last N frames to analyse", 5, 100, 10)
@@ -2535,36 +2123,21 @@ def page_analysis():
         gb = st.session_state.get("gb_result")
         pb = st.session_state.get("pb_result")
 
-        st.markdown(
-            '<div class="group-label" style="margin-top:8px;">MM-PBSA / MM-GBSA Binding Free Energy</div>',
-            unsafe_allow_html=True,
-        )
+        st.subheader("⚡ MM-PBSA/GBSA results")
         c1, c2 = st.columns(2)
         with c1:
             if gb:
-                delta_clr = "metric-delta-neg" if gb[0] < 0 else "metric-delta-pos"
-                delta_arr = "▼" if gb[0] < 0 else "▲"
                 st.markdown(
-                    f'<div class="metric-card">'
-                    f'<div class="metric-value" style="color:#6366f1;">{gb[0]:.2f}'
-                    f'<span class="metric-unit">kcal/mol</span></div>'
-                    f'<div class="{delta_clr}">{delta_arr} ±{gb[1]:.2f} kcal/mol</div>'
-                    f'<div class="metric-label">ΔG (MM-GBSA)<br>Generalized Born</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'<div class="res-metric"><div class="res-value">{gb[0]:.2f} kcal/mol</div>'
+                    f'<div class="res-label">ΔG (MM-GBSA)  ±{gb[1]:.2f}</div></div>',
+                    unsafe_allow_html=True
                 )
         with c2:
             if pb:
-                delta_clr = "metric-delta-neg" if pb[0] < 0 else "metric-delta-pos"
-                delta_arr = "▼" if pb[0] < 0 else "▲"
                 st.markdown(
-                    f'<div class="metric-card">'
-                    f'<div class="metric-value" style="color:#06b6d4;">{pb[0]:.2f}'
-                    f'<span class="metric-unit">kcal/mol</span></div>'
-                    f'<div class="{delta_clr}">{delta_arr} ±{pb[1]:.2f} kcal/mol</div>'
-                    f'<div class="metric-label">ΔG (MM-PBSA)<br>Poisson-Boltzmann</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'<div class="res-metric"><div class="res-value">{pb[0]:.2f} kcal/mol</div>'
+                    f'<div class="res-label">ΔG (MM-PBSA)  ±{pb[1]:.2f}</div></div>',
+                    unsafe_allow_html=True
                 )
 
         # Energy decomposition bar chart
@@ -2582,15 +2155,8 @@ def page_analysis():
                     textposition="outside",
                 ))
                 fig.add_hline(y=0, line_width=1, line_dash="dot")
-                fig.update_layout(
-                    title=title, height=360,
-                    yaxis_title="kcal/mol",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(255,255,255,0.6)",
-                    font=dict(family="Noto Sans, sans-serif", size=12),
-                    xaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
-                    yaxis=dict(gridcolor="rgba(99,102,241,0.08)"),
-                )
+                fig.update_layout(title=title, height=360,
+                                  yaxis_title="kcal/mol", plot_bgcolor="white")
                 return fig
 
             if any(v is not None for v in gb_d.values()):
@@ -2610,7 +2176,7 @@ def page_analysis():
 # STEP 9 — DBFE (ask first)
 # ══════════════════════════════════════════════════════════════════════════════
 def page_dbfe():
-    render_topbar("DBFE", 9)
+    render_topbar("DBFE")
     render_stepper(9)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("DBFE — absolute binding free energy", "BAR-based absolute binding free energy calculation.", step_num=9)
@@ -2701,27 +2267,17 @@ def page_dbfe():
 
         res_path = wpath("DBFE_results.json")
         if os.path.exists(res_path):
-            st.markdown(
-                '<div class="done-bar"><span class="done-icon">✅</span>'
-                '<div><div class="done-text">DBFE results ready</div></div></div>',
-                unsafe_allow_html=True,
-            )
+            st.success("✅ DBFE results found!")
             results = json.loads(core.read_file(res_path))
             cols = st.columns(len(results)) if results else []
             for col, r in zip(cols, results):
-                dg = r.get("dG_bind", 0)
-                delta_clr = "metric-delta-neg" if dg < 0 else "metric-delta-pos"
-                delta_arr = "▼" if dg < 0 else "▲"
-                binding_txt = "favorable" if dg < 0 else "unfavorable"
-                col.markdown(
-                    f'<div class="metric-card">'
-                    f'<div class="metric-value" style="color:#6366f1;">{dg:.2f}'
-                    f'<span class="metric-unit">kcal/mol</span></div>'
-                    f'<div class="{delta_clr}">{delta_arr} binding {binding_txt}</div>'
-                    f'<div class="metric-label">ΔG_bind ({r.get("source","?")})</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+                with col:
+                    st.markdown(
+                        f'<div class="res-metric">'
+                        f'<div class="res-value">{r.get("dG_bind", 0):.2f}</div>'
+                        f'<div class="res-label">ΔG_bind ({r.get("source","?")})<br>kcal/mol</div>'
+                        f'</div>', unsafe_allow_html=True
+                    )
             st.session_state["dbfe_done"] = True
 
     st.divider()
@@ -2732,140 +2288,53 @@ def page_dbfe():
 # STEP 10 — Download results
 # ══════════════════════════════════════════════════════════════════════════════
 def page_download():
-    render_topbar("Download", 10)
+    render_topbar("Download")
     render_stepper(10)
     st.markdown('<div class="content-pad step-body">', unsafe_allow_html=True)
     section_header("Download results", "All generated files are listed below.", step_num=10)
 
-    FILE_GROUPS = {
-        "System Files": {
-            "color": "#6366f1",
-            "files": {
-                "complex.top":       "Topology (solvated complex)",
-                "complex.crd":       "Coordinates (solvated complex)",
-                "complex.pdb":       "Complex PDB (dry)",
-                "complex_leap.pdb":  "Complex PDB (solvated)",
-                "host.pdb":          "Host PDB",
-                "guest.pdb":         "Guest PDB",
-                "guest.prep":        "Guest PREP (AmberTools)",
-                "guest.frcmod":      "Guest FRCMOD",
-                "last_frame.rst7":   "Restart after heating",
-            },
-        },
-        "Trajectories": {
-            "color": "#06b6d4",
-            "files": {
-                "sum.nc":            "LB-PaCS-MD trajectory (NetCDF)",
-                "md.dcd":            "cMD trajectory (DCD)",
-                "md-cMD.dcd":        "cMD processed trajectory",
-            },
-        },
-        "Analysis Data": {
-            "color": "#10b981",
-            "files": {
-                "dis_plot.dat":      "PaCS-MD distance vs cycle",
-                "dis.dat":           "Host–guest COM distance",
-                "rg.dat":            "Host radius of gyration",
-                "rmsd.dat":          "RMSD data",
-            },
-        },
-        "Energy Results": {
-            "color": "#f59e0b",
-            "files": {
-                "FINAL_RESULTS_MMPBSA_LB.dat":  "MM-PBSA results (LB-PaCS-MD)",
-                "FINAL_RESULTS_MMPBSA_cMD.dat": "MM-PBSA results (cMD)",
-                "DBFE_results.json":             "DBFE results",
-            },
-        },
+    FILE_DESC = {
+        "complex.top":                   "Topology (solvated complex)",
+        "complex.crd":                   "Coordinates (solvated complex)",
+        "complex.pdb":                   "Complex PDB (dry)",
+        "complex_leap.pdb":              "Complex PDB (solvated)",
+        "host.pdb":                      "Host PDB",
+        "guest.pdb":                     "Guest PDB",
+        "guest.prep":                    "Guest PREP (AmberTools)",
+        "guest.frcmod":                  "Guest FRCMOD",
+        "last_frame.rst7":               "Restart after heating",
+        "sum.nc":                        "LB-PaCS-MD trajectory (NetCDF)",
+        "md.dcd":                        "cMD trajectory (DCD)",
+        "md-cMD.dcd":                    "cMD processed trajectory",
+        "dis_plot.dat":                  "PaCS-MD distance vs cycle",
+        "dis.dat":                       "Host–guest COM distance",
+        "rg.dat":                        "Host radius of gyration",
+        "rmsd.dat":                      "RMSD data",
+        "FINAL_RESULTS_MMPBSA_LB.dat":   "MM-PBSA results (LB-PaCS-MD)",
+        "FINAL_RESULTS_MMPBSA_cMD.dat":  "MM-PBSA results (cMD)",
+        "DBFE_results.json":             "DBFE results",
     }
 
-    # Count all files
-    all_files = {k: v for g in FILE_GROUPS.values() for k, v in g["files"].items()}
-    found   = {k: wpath(k) for k in all_files if os.path.exists(wpath(k))}
-    missing = [k for k in all_files if k not in found]
-    total_mb = sum(os.path.getsize(p) for p in found.values()) / 1024 / 1024
+    found   = {k: wpath(k) for k in FILE_DESC if os.path.exists(wpath(k))}
+    missing = [k for k in FILE_DESC if k not in found]
 
-    # ── Summary bar ───────────────────────────────────────────────────────────
-    st.markdown(
-        f'<div class="glass-card" style="display:flex;align-items:center;gap:24px;padding:14px 22px;margin-bottom:20px;">'
-        f'<div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#6366f1;'
-        f'font-family:\'JetBrains Mono\',monospace;">{len(found)}</div>'
-        f'<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">files ready</div></div>'
-        f'<div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#06b6d4;'
-        f'font-family:\'JetBrains Mono\',monospace;">{total_mb:.1f}</div>'
-        f'<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">MB total</div></div>'
-        f'<div style="margin-left:auto;">',
-        unsafe_allow_html=True,
-    )
+    st.metric("Files ready", f"{len(found)} / {len(FILE_DESC)}")
+    st.divider()
 
-    # ZIP bundle button
-    if found:
-        import io, zipfile
-        zip_buf = io.BytesIO()
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for fname, path in found.items():
-                zf.write(path, fname)
-        zip_buf.seek(0)
-        st.download_button(
-            "⬇ Download all as ZIP",
-            data=zip_buf,
-            file_name="dfdd_results.zip",
-            mime="application/zip",
-            type="primary",
-            key="dl_zip_all",
-        )
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-    # ── File groups ───────────────────────────────────────────────────────────
-    for group_name, group_data in FILE_GROUPS.items():
-        color = group_data["color"]
-        files = group_data["files"]
-        group_found = {k: v for k, v in files.items() if k in found}
-        if not group_found:
-            continue
-
-        st.markdown(
-            f'<div class="group-label" style="color:{color};">{group_name}</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(f'<div class="glass-card" style="padding:4px 18px;">', unsafe_allow_html=True)
-
-        for fname, desc in files.items():
-            if fname not in found:
-                continue
-            path = found[fname]
-            mb   = os.path.getsize(path) / 1024 / 1024
-            c1, c2, c3, c4 = st.columns([3, 5, 1.5, 1.2])
-            with c1:
-                st.markdown(
-                    f'<div class="file-name" style="color:{color};padding:8px 0;">{fname}</div>',
-                    unsafe_allow_html=True,
-                )
-            with c2:
-                st.markdown(
-                    f'<div class="file-desc" style="padding:8px 0;">{desc}</div>',
-                    unsafe_allow_html=True,
-                )
-            with c3:
-                st.markdown(
-                    f'<div class="file-size" style="padding:8px 0;">{mb:.2f} MB</div>',
-                    unsafe_allow_html=True,
-                )
-            with c4:
-                with open(path, "rb") as f:
-                    st.download_button(
-                        "⬇", data=f, file_name=fname,
-                        key=f"dl_{fname}",
-                        use_container_width=True,
-                    )
-
-        st.markdown("</div>", unsafe_allow_html=True)
+    for fname, path in found.items():
+        c1, c2, c3 = st.columns([4, 1, 1])
+        with c1:
+            st.write(f"**{FILE_DESC[fname]}**  —  `{fname}`")
+        with c2:
+            st.caption(f"{core.file_mb(path):.2f} MB")
+        with c3:
+            with open(path, "rb") as f:
+                st.download_button("⬇", data=f, file_name=fname, key=f"dl_{fname}")
 
     if missing:
         with st.expander(f"⬜ {len(missing)} files not yet generated"):
             for m in missing:
-                st.caption(f"— {m}  ·  {all_files[m]}")
+                st.caption(f"- {m}")
 
     st.divider()
     st.subheader("🗜️ Download everything as ZIP")
@@ -2888,126 +2357,75 @@ def page_download():
 with st.sidebar:
     cur_step = st.session_state["step"]
 
-    # ── Logo + header ─────────────────────────────────────────────────────────
+    # Logo
     st.markdown("""
-    <div style="padding:18px 14px 14px; border-bottom:1px solid oklch(21% 0.055 274); margin-bottom:6px;">
-      <div style="font-size:17px; font-weight:700; color:#fff; letter-spacing:-0.3px; margin-bottom:2px;">🧬 DFDD</div>
-      <div style="font-size:10px; color:oklch(48% 0.04 274); line-height:1.4;">
-        Cyclodextrin–Drug Binding<br>Free Energy Wizard
-      </div>
+    <div style="padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:6px;">
+      <div style="font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.3px;margin-bottom:2px;">🧬 DFDD</div>
+      <div style="font-size:10px;color:#475569;line-height:1.4;">Cyclodextrin–Drug Binding<br>Free Energy Wizard</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Phase nav groups ──────────────────────────────────────────────────────
-    NAV_GROUPS = [
-        ("Setup", [
-            ("0", "Install", 0),
-        ]),
-        ("System Preparation", [
-            ("1", "Host", 1),
-            ("2", "Guest", 2),
-            ("3", "Build & Solvate", 3),
-            ("4", "Minimize", 4),
-        ]),
-        ("LB-PaCS-MD", [
-            ("5", "LB-PaCS-MD", 5),
-            ("6", "Analysis", 6),
-        ]),
-        ("cMD", [
-            ("7", "cMD", 7),
-            ("8", "MM-PBSA", 8),
-            ("9", "DBFE", 9),
-        ]),
-        ("Download", [
-            ("10", "Download", 10),
-        ]),
+    # Nav groups
+    NAV = [
+        ("SETUP",              [("Install",        0)]),
+        ("SYSTEM PREPARATION", [("Host",           1), ("Guest",      2),
+                                 ("Build & Solvate",3), ("Minimize",   4)]),
+        ("LB-PACS-MD",         [("LB-PaCS-MD",    5), ("Analysis",   6)]),
+        ("CMD",                [("cMD",            7), ("MM-PBSA",    8), ("DBFE", 9)]),
+        ("DOWNLOAD",           [("Download",       10)]),
     ]
-
-    # Track which steps are done
-    STEP_DONE = {
-        0:  st.session_state.get("install_done", False),
-        1:  bool(st.session_state.get("host_path")),
-        2:  bool(st.session_state.get("guest_path")),
-        3:  st.session_state.get("build_done", False),
-        4:  st.session_state.get("min_done", False),
-        5:  st.session_state.get("pacsmd_done", False),
-        6:  st.session_state.get("pacsmd_done", False),
-        7:  st.session_state.get("cmd_done", False),
-        8:  st.session_state.get("mmpbsa_done", False),
-        9:  st.session_state.get("dbfe_done", False),
-        10: False,
-    }
-
-    for grp_label, steps in NAV_GROUPS:
-        # Group label
+    for grp, steps in NAV:
         st.markdown(
             f'<div style="font-size:9px;font-weight:700;text-transform:uppercase;'
-            f'letter-spacing:.1em;color:oklch(38% 0.04 274);padding:9px 9px 3px;">'
-            f'{grp_label}</div>',
+            f'letter-spacing:.1em;color:#374151;padding:9px 9px 3px;">{grp}</div>',
             unsafe_allow_html=True,
         )
-        for num, label, idx in steps:
-            is_cur  = cur_step == idx
-            is_done = STEP_DONE.get(idx, False)
-            pill_bg = "#6366f1" if is_cur else ("#10b981" if is_done else "oklch(21% 0.06 274)")
-            pill_clr= "#fff" if (is_cur or is_done) else "oklch(55% 0.04 274)"
-            pill_lbl= "✓" if is_done else num
-            if st.button(
-                f"  {pill_lbl}  {label}",
-                key=f"nav_{idx}",
-                type="primary" if is_cur else "secondary",
-                use_container_width=True,
-            ):
+        for label, idx in steps:
+            is_cur = cur_step == idx
+            if st.button(label, key=f"nav_{idx}",
+                         type="primary" if is_cur else "secondary",
+                         use_container_width=True):
                 go_step(idx)
 
-    # ── Status panel ──────────────────────────────────────────────────────────
-    st.markdown("""
-    <div style="border-top:1px solid oklch(20% 0.055 274); margin-top:8px; padding:13px 14px 8px;">
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
-                  color:oklch(37% 0.04 274);margin-bottom:8px;">Status</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    # Status dots
+    st.markdown('<div style="border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 4px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#374151;padding:4px 9px 6px;">Status</div>', unsafe_allow_html=True)
     checks = [
-        ("Host",     bool(st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or ""))),
-        ("Guest",    bool(st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or ""))),
-        ("Complex",  os.path.exists(wpath("complex.pdb"))),
-        ("Topology", os.path.exists(wpath("complex.top"))),
-        ("Minimized",os.path.exists(wpath("last_frame.rst7"))),
-        ("PaCS-MD",  os.path.exists(wpath("sum.nc"))),
-        ("cMD",      os.path.exists(wpath("md.dcd"))),
-        ("MM-PBSA",  st.session_state.get("mmpbsa_done", False)),
+        ("Host",      bool(st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or ""))),
+        ("Guest",     bool(st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or ""))),
+        ("Complex",   os.path.exists(wpath("complex.pdb"))),
+        ("Topology",  os.path.exists(wpath("complex.top"))),
+        ("Minimized", os.path.exists(wpath("last_frame.rst7"))),
+        ("PaCS-MD",   os.path.exists(wpath("sum.nc"))),
+        ("cMD",       os.path.exists(wpath("md.dcd"))),
+        ("MM-PBSA",   st.session_state.get("mmpbsa_done", False)),
     ]
-    status_html = ""
+    dots_html = ""
     for lbl, ok in checks:
-        dot_clr = "#10b981" if ok else "oklch(28% 0.04 274)"
-        dot_shadow = "box-shadow:0 0 5px #10b98155;" if ok else ""
-        status_html += (
-            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 14px;'
-            f'font-size:11px;color:oklch(48% 0.03 274);">'
-            f'<div style="width:5px;height:5px;border-radius:50%;background:{dot_clr};{dot_shadow}flex-shrink:0;"></div>'
+        clr = "#10b981" if ok else "#374151"
+        shadow = "box-shadow:0 0 5px #10b98155;" if ok else ""
+        dots_html += (
+            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 9px;font-size:11px;color:#64748b;">'
+            f'<div style="width:5px;height:5px;border-radius:50%;background:{clr};{shadow}flex-shrink:0;"></div>'
             f'{lbl}</div>'
         )
-    st.markdown(status_html, unsafe_allow_html=True)
+    st.markdown(dots_html, unsafe_allow_html=True)
 
-    # ── Workspace ──────────────────────────────────────────────────────────────
-    st.markdown('<div style="border-top:1px solid oklch(18% 0.05 274);padding:8px 14px 0;margin-top:8px;"></div>', unsafe_allow_html=True)
-    new_wd = st.text_input("Workspace path", value=WD(), key="_wd_in", label_visibility="collapsed")
+    # Workspace
+    st.markdown('<div style="border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 0;padding:8px 9px 0;"></div>', unsafe_allow_html=True)
+    new_wd = st.text_input("Workspace", value=WD(), key="_wd_in", label_visibility="collapsed")
     if st.button("Set workspace", key="set_wd"):
         os.makedirs(new_wd, exist_ok=True)
         st.session_state["workdir"] = new_wd
         st.rerun()
 
-    # ── Citation ───────────────────────────────────────────────────────────────
+    # Citation
     st.markdown("""
-    <div style="border-top:1px solid oklch(18% 0.05 274);padding:10px 14px;margin-top:8px;">
-      <div style="font-size:9px;color:oklch(32% 0.04 274);line-height:1.55;">
+    <div style="border-top:1px solid rgba(255,255,255,0.07);padding:10px 9px;margin-top:8px;">
+      <div style="font-size:9px;color:#374151;line-height:1.55;">
         Hengphasatporn et al.<br>
-        <em>J. Chem. Inf. Model.</em> 2026, <strong>66</strong>, 4, 1955–1963<br>
-        <a href="https://doi.org/10.1021/acs.jcim.5c02852"
-           style="color:oklch(46% 0.06 274);text-decoration:none;">
-          doi:10.1021/acs.jcim.5c02852
-        </a>
+        <em>J. Chem. Inf. Model.</em> 2026, <strong style="color:#475569;">66</strong>, 4, 1955–1963<br>
+        <a href="https://doi.org/10.1021/acs.jcim.5c02852" style="color:#6366f1;text-decoration:none;">doi:10.1021/acs.jcim.5c02852</a>
       </div>
     </div>
     """, unsafe_allow_html=True)
