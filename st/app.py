@@ -48,210 +48,311 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Design-system CSS ────────────────────────────────────────────────────────
-st.markdown("""<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+# ══════════════════════════════════════════════════════════════════════════════
+#  DESIGN SYSTEM — injected from prototype (DFDD_App.html)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* reset chrome */
-#MainMenu, footer, header { visibility: hidden; }
-.block-container { padding: 0 !important; max-width: 100% !important; }
-[data-testid="stAppViewContainer"] { padding: 0; }
+/* ── Streamlit chrome ── */
+#MainMenu,footer,header{visibility:hidden}
+.block-container{padding:0!important;max-width:100%!important}
+[data-testid="stAppViewContainer"]{padding:0}
+[data-testid="stMainBlockContainer"],section[data-testid="stMain"]>div{padding:0!important}
 
-/* tokens */
-:root {
-  --accent:      #6366f1;
-  --accent2:     #06b6d4;
-  --accent-soft: rgba(99,102,241,0.08);
-  --card-bg:     rgba(255,255,255,0.72);
-  --card-border: rgba(255,255,255,0.88);
-  --border:      rgba(99,102,241,0.14);
-  --surface:     rgba(255,255,255,0.78);
+/* ── Theme tokens ── */
+:root{
+  --accent:#6366f1;--accent2:#06b6d4;
+  --accent-soft:rgba(99,102,241,0.08);
+  --card-bg:rgba(255,255,255,0.72);
+  --card-border:rgba(255,255,255,0.88);
+  --border:rgba(99,102,241,0.14);
+  --surface:rgba(255,255,255,0.78);
+  --input-bg:rgba(255,255,255,0.95);
+  --terminal-bg:oklch(11% 0.04 270);
 }
 
-/* background */
-[data-testid="stAppViewContainer"] {
+/* ── Background mesh ── */
+[data-testid="stAppViewContainer"]{
   background:
-    radial-gradient(ellipse 65% 50% at 8% 5%,  oklch(87% 0.05 285 / 0.55) 0%, transparent 58%),
-    radial-gradient(ellipse 55% 65% at 92% 88%, oklch(91% 0.04 195 / 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 65% 50% at 8% 5%, oklch(87% 0.05 285 / 0.55) 0%,transparent 58%),
+    radial-gradient(ellipse 55% 65% at 92% 88%, oklch(91% 0.04 195 / 0.45) 0%,transparent 55%),
+    radial-gradient(ellipse 35% 40% at 55% 40%, oklch(93% 0.03 260 / 0.30) 0%,transparent 50%),
     oklch(97% 0.012 270);
-  font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, sans-serif;
+  font-family:'Noto Sans','Noto Sans Thai',system-ui,sans-serif;
+  color:#0f172a;
 }
 
-/* sidebar */
-[data-testid="stSidebar"] {
-  background: oklch(14% 0.065 274) !important;
-  border-right: 1px solid oklch(22% 0.06 274);
-  min-width: 252px !important; max-width: 252px !important;
+/* ── Sidebar ── */
+[data-testid="stSidebar"]{
+  background:oklch(14% 0.065 274)!important;
+  border-right:1px solid oklch(22% 0.06 274);
+  min-width:252px!important;max-width:252px!important;
 }
-[data-testid="stSidebar"] * { color: #94a3b8; }
-[data-testid="stSidebar"] a { color: #818cf8 !important; }
-
-/* sidebar buttons */
-[data-testid="stSidebar"] .stButton > button {
-  width: 100%; text-align: left;
-  padding: 7px 10px !important; border-radius: 8px !important;
-  border: 1px solid rgba(255,255,255,0.07) !important;
-  background: rgba(255,255,255,0.04) !important;
-  color: #a5b4fc !important; font-size: 12px !important;
-  font-weight: 500; transition: background 0.15s; margin-bottom: 2px;
+[data-testid="stSidebar"] *{color:#94a3b8!important}
+[data-testid="stSidebar"] a{color:#818cf8!important}
+[data-testid="stSidebar"] strong{color:#e0e7ff!important}
+[data-testid="stSidebar"] .stButton>button{
+  width:100%;text-align:left;padding:7px 9px!important;
+  border-radius:8px!important;border:none!important;
+  background:transparent!important;color:#94a3b8!important;
+  font-size:12px!important;font-weight:500;
+  transition:background .15s;margin-bottom:1px;
+  display:flex;align-items:center;gap:9px;
 }
-[data-testid="stSidebar"] .stButton > button:hover {
-  background: rgba(99,102,241,0.18) !important;
-  color: #e0e7ff !important;
+[data-testid="stSidebar"] .stButton>button:hover{
+  background:oklch(21% 0.06 274)!important;color:#e0e7ff!important;
 }
-[data-testid="stSidebar"] .stButton > button[kind="primary"] {
-  background: rgba(99,102,241,0.30) !important;
-  color: #fff !important;
-  border-color: rgba(99,102,241,0.55) !important;
-  font-weight: 600 !important;
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{
+  background:oklch(27% 0.10 275)!important;color:#e0e7ff!important;
+  font-weight:600!important;
 }
 
-/* body text */
-body, .stApp { font-family: 'Noto Sans','Noto Sans Thai',system-ui,sans-serif; color: #1e293b; }
-[data-testid="stMarkdownContainer"] p { color: #1e293b; }
-[data-testid="stMarkdownContainer"] li { color: #334155; }
-.stTextInput label, .stSelectbox label, .stSlider label,
-.stNumberInput label, .stRadio label, .stCheckbox label { color: #475569 !important; }
-code, pre { font-family: 'JetBrains Mono', monospace; }
-
-/* phase stepper */
-.phase-strip {
-  display: flex; align-items: center; padding: 10px 28px;
-  border-bottom: 1px solid var(--border); background: var(--surface);
-  backdrop-filter: blur(20px); overflow-x: auto; scrollbar-width: none; gap: 0;
-}
-.phase-strip::-webkit-scrollbar { display: none; }
-.phase-chip {
-  display: flex; align-items: center; gap: 7px; padding: 5px 12px;
-  border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 600;
-  color: #64748b; white-space: nowrap; flex-shrink: 0; transition: all .2s;
-}
-.phase-chip.active { color: #6366f1; background: rgba(99,102,241,0.10); font-weight: 700; }
-.phase-chip.done   { color: #10b981; }
-.phase-circle {
-  width: 19px; height: 19px; border-radius: 50%; background: #e2e8f0;
-  color: #64748b; font-size: 9px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; transition: all .2s;
-}
-.phase-circle.active { background: #6366f1; color: #fff; }
-.phase-circle.done   { background: #10b981; color: #fff; }
-.phase-connector { flex: 1; min-width: 18px; max-width: 50px; height: 1px; background: #e2e8f0; margin: 0 3px; }
-.phase-connector.done { background: #10b981; }
-
-/* topbar */
-.topbar {
-  height: 50px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 28px; border-bottom: 1px solid var(--border);
-  background: var(--surface); backdrop-filter: blur(20px);
-}
-.topbar-breadcrumb { font-size: 13px; color: #1e293b; display: flex; align-items: center; gap: 5px; }
-.bc-sep { color: #94a3b8; font-size: 14px; }
-
-/* step header */
-.step-header  { margin-bottom: 26px; display: flex; align-items: flex-start; gap: 13px; padding: 28px 36px 0; }
-.step-badge   { width: 34px; height: 34px; border-radius: 9px; background: #6366f1; color: #fff;
-                font-size: 13px; font-weight: 700; display: flex; align-items: center;
-                justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
-                box-shadow: 0 4px 14px rgba(99,102,241,0.35); }
-.step-title   { font-size: 21px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; line-height: 1.2; }
-.step-subtitle{ font-size: 13px; color: #475569; margin-top: 4px; line-height: 1.55; }
-
-/* content */
-.content-pad { padding: 0 36px 48px; }
-@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-.step-body { animation: fadeIn .22s ease; }
-
-/* glass card */
-.glass-card {
-  background: var(--card-bg); backdrop-filter: blur(20px);
-  border: 1px solid var(--card-border); border-radius: 12px;
-  box-shadow: 0 2px 18px rgba(99,102,241,.06), 0 1px 3px rgba(0,0,0,.04);
-  margin-bottom: 16px; padding: 18px 22px;
+/* ── Body text ── */
+body,.stApp{font-family:'Noto Sans','Noto Sans Thai',system-ui,sans-serif;color:#0f172a}
+p,span,div,li{color:#1e293b}
+[data-testid="stMarkdownContainer"] p{color:#1e293b;line-height:1.65;font-size:14px}
+[data-testid="stMarkdownContainer"] h1,[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3{color:#0f172a;font-weight:700;letter-spacing:-.3px}
+code,pre,.mono{font-family:'JetBrains Mono',monospace!important}
+.stCodeBlock pre{
+  background:oklch(11% 0.04 270)!important;
+  border-radius:10px!important;font-size:12px!important;
+  border:1px solid oklch(20% 0.04 270)!important;
 }
 
-/* primary button */
-.stButton > button[kind="primary"] {
-  background: linear-gradient(135deg,#6366f1,#818cf8) !important;
-  color: #fff !important; border: none !important; border-radius: 9px !important;
-  font-weight: 600 !important; font-size: 13px !important;
-  transition: transform .15s, box-shadow .15s !important;
+/* ── Primary button ── */
+.stButton>button[kind="primary"],
+.stButton>button[data-testid="baseButton-primary"]{
+  background:linear-gradient(135deg,#6366f1,#818cf8)!important;
+  color:#fff!important;border:none!important;border-radius:9px!important;
+  font-weight:600!important;font-size:14px!important;
+  padding:10px 22px!important;letter-spacing:.01em!important;
+  transition:transform .15s,box-shadow .15s!important;
+  font-family:'Noto Sans',sans-serif!important;
 }
-.stButton > button[kind="primary"]:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 5px 18px rgba(99,102,241,0.38) !important;
+.stButton>button[kind="primary"]:hover{
+  transform:translateY(-1px)!important;
+  box-shadow:0 6px 20px rgba(99,102,241,0.40)!important;
+  filter:brightness(1.08)!important;
 }
-/* secondary button */
-.stButton > button[kind="secondary"] {
-  border: 1px solid var(--border) !important; background: var(--surface) !important;
-  color: #334155 !important; border-radius: 9px !important; font-size: 13px !important;
+/* Secondary button */
+.stButton>button[kind="secondary"],
+.stButton>button[data-testid="baseButton-secondary"]{
+  border:1px solid rgba(99,102,241,0.25)!important;
+  background:rgba(255,255,255,0.85)!important;
+  color:#334155!important;border-radius:9px!important;
+  font-size:13px!important;padding:8px 18px!important;
+  backdrop-filter:blur(8px)!important;
 }
-.stButton > button[kind="secondary"]:hover {
-  border-color: #6366f1 !important; color: #6366f1 !important;
+.stButton>button[kind="secondary"]:hover{
+  border-color:#6366f1!important;color:#6366f1!important;
 }
 
-/* inputs */
-.stTextInput > div > div > input,
-.stTextArea  > div > div > textarea,
-.stNumberInput > div > div > input,
-.stSelectbox   > div > div {
-  background: rgba(255,255,255,0.95) !important; border: 1px solid var(--border) !important;
-  border-radius: 8px !important; color: #0f172a !important; font-size: 13px !important;
+/* ── Inputs ── */
+.stTextInput>div>div>input,
+.stTextArea>div>div>textarea,
+.stNumberInput>div>div>input,
+.stSelectbox>div>div{
+  background:rgba(255,255,255,0.95)!important;
+  border:1px solid rgba(99,102,241,0.20)!important;
+  border-radius:9px!important;color:#0f172a!important;
+  font-size:14px!important;padding:9px 13px!important;
+  font-family:'Noto Sans',sans-serif!important;
+  transition:border-color .15s,box-shadow .15s!important;
 }
-.stTextInput > div > div > input:focus,
-.stTextArea  > div > div > textarea:focus {
-  border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+.stTextInput>div>div>input:focus,
+.stTextArea>div>div>textarea:focus,
+.stNumberInput>div>div>input:focus{
+  border-color:#6366f1!important;
+  box-shadow:0 0 0 3px rgba(99,102,241,0.15)!important;
 }
-.stSlider > div > div > div > div { background: #6366f1 !important; }
+/* Labels */
+.stTextInput label,.stTextArea label,.stNumberInput label,
+.stSelectbox label,.stSlider label,.stRadio label,
+.stCheckbox label,.stFileUploader label{
+  font-size:11px!important;font-weight:700!important;
+  text-transform:uppercase!important;letter-spacing:.07em!important;
+  color:#64748b!important;margin-bottom:6px!important;
+}
+/* Slider */
+.stSlider>div>div>div>div{background:#6366f1!important}
+.stSlider>div>div>div{background:rgba(99,102,241,0.15)!important;height:5px!important}
+/* Progress */
+.stProgress>div>div>div{
+  background:linear-gradient(90deg,#6366f1,#06b6d4)!important;
+  border-radius:3px!important;
+}
+.stProgress>div>div{background:#e2e8f0!important;border-radius:3px!important;height:6px!important}
 
-/* progress */
-.stProgress > div > div > div  { background: linear-gradient(90deg,#6366f1,#06b6d4) !important; border-radius: 3px !important; }
-.stProgress > div > div        { background: #e2e8f0 !important; border-radius: 3px !important; height: 6px !important; }
+/* ── Phase stepper ── */
+.phase-strip{
+  display:flex;align-items:center;padding:10px 28px;
+  border-bottom:1px solid rgba(99,102,241,0.14);
+  background:rgba(255,255,255,0.78);backdrop-filter:blur(20px);
+  overflow-x:auto;scrollbar-width:none;gap:0;
+}
+.phase-strip::-webkit-scrollbar{display:none}
+.phase-chip{
+  display:flex;align-items:center;gap:7px;padding:5px 14px;
+  border-radius:20px;cursor:pointer;font-size:11px;font-weight:600;
+  color:#64748b;white-space:nowrap;flex-shrink:0;transition:all .2s;
+}
+.phase-chip.active{color:#6366f1;background:rgba(99,102,241,0.10);font-weight:700}
+.phase-chip.done{color:#10b981}
+.phase-circle{
+  width:20px;height:20px;border-radius:50%;
+  background:#e2e8f0;color:#64748b;
+  font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;transition:all .2s;flex-shrink:0;
+}
+.phase-circle.active{background:#6366f1;color:#fff}
+.phase-circle.done{background:#10b981;color:#fff}
+.phase-connector{flex:1;min-width:20px;max-width:52px;height:1px;background:#e2e8f0;margin:0 2px}
+.phase-connector.done{background:#10b981}
 
-/* metric / done / summary cards */
-.metric-card  { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px 22px; text-align: center; backdrop-filter: blur(20px); }
-.metric-value { font-size: 30px; font-weight: 700; color: #6366f1; font-family: 'JetBrains Mono',monospace; line-height: 1; }
-.metric-unit  { font-size: 14px; font-weight: 400; margin-left: 3px; }
-.metric-label { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; }
-.metric-delta-pos { font-size: 11px; color: #ef4444; margin-top: 4px; font-family: 'JetBrains Mono',monospace; }
-.metric-delta-neg { font-size: 11px; color: #10b981; margin-top: 4px; font-family: 'JetBrains Mono',monospace; }
-.done-bar  { display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;
-             background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);margin-top:16px; }
-.done-icon { font-size: 20px; line-height: 1; }
-.done-text { font-size: 14px; font-weight: 600; color: #10b981; }
-.done-file { font-size: 11px; color: #64748b; font-family: 'JetBrains Mono',monospace; margin-top: 2px; }
-.summary-card { padding:14px 18px;border-radius:10px;background:rgba(99,102,241,0.07);
-                border:1px solid rgba(99,102,241,0.18);font-size:13px;color:#1e293b;
-                margin-bottom:16px;font-family:'JetBrains Mono',monospace; }
-.wait-card    { text-align:center;padding:52px 36px;background:var(--card-bg);
-                border:1px solid var(--card-border);border-radius:12px;
-                backdrop-filter:blur(20px);margin:0 auto;max-width:480px; }
-.wait-icon    { font-size:52px;margin-bottom:18px;display:block; }
-.wait-title   { font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px; }
-.wait-sub     { font-size:13px;color:#475569;line-height:1.55; }
+/* ── Topbar ── */
+.topbar{
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;border-bottom:1px solid rgba(99,102,241,0.14);
+  background:rgba(255,255,255,0.78);backdrop-filter:blur(20px);
+}
+.topbar-bc{font-size:13px;color:#1e293b;display:flex;align-items:center;gap:6px}
+.topbar-sep{color:#94a3b8;font-size:15px}
+.topbar-ws{
+  display:flex;align-items:center;gap:6px;padding:4px 12px;
+  background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);
+  border-radius:20px;font-size:10px;color:#64748b;
+  font-family:'JetBrains Mono',monospace;white-space:nowrap;
+}
 
-/* misc */
-.group-label  { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:8px;margin-top:20px; }
-.host-card    { display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:10px;
-                border:1px solid var(--card-border);background:var(--card-bg);
-                cursor:pointer;transition:all .18s;margin-bottom:8px; }
-.host-card:hover { border-color:rgba(99,102,241,0.35); transform:translateX(2px); }
-.host-name    { font-size:13px;font-weight:600;color:#0f172a; }
-.host-color-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
-.host-tag     { font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
-                margin-left:auto;font-family:'JetBrains Mono',monospace;
-                background:var(--accent-soft);color:#6366f1; }
-.file-name    { font-family:'JetBrains Mono',monospace;font-size:12px;color:#6366f1;flex:1; }
-.file-desc    { font-size:12px;color:#475569;flex:2; }
-.file-size    { font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace; }
-.chip         { display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;
-                font-size:12px;font-weight:500;background:var(--accent-soft);
-                border:1px solid var(--border);color:#6366f1;cursor:pointer;
-                transition:all .15s;margin:3px;user-select:none; }
-.chip:hover   { background:#6366f1;color:#fff;border-color:#6366f1; }
-[data-testid="stExpander"] { border:1px solid var(--border) !important;border-radius:10px !important;background:var(--card-bg) !important;margin-bottom:12px !important; }
-hr { border-color:var(--border) !important; margin:20px 0 !important; }
-</style>""", unsafe_allow_html=True)
+/* ── Step header ── */
+.step-header{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:28px 36px 0;margin-bottom:28px;
+}
+.step-badge{
+  width:36px;height:36px;border-radius:10px;
+  background:#6366f1;color:#fff;
+  font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-family:'JetBrains Mono',monospace;
+  box-shadow:0 4px 16px rgba(99,102,241,0.35);
+}
+.step-title{font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-.3px;line-height:1.2}
+.step-subtitle{font-size:14px;color:#475569;margin-top:5px;line-height:1.6}
+
+/* ── Content pad ── */
+.content-pad{padding:0 36px 56px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.step-body{animation:fadeIn .22s ease}
+
+/* ── Glass card ── */
+.glass-card{
+  background:rgba(255,255,255,0.72);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,0.88);border-radius:14px;
+  box-shadow:0 2px 20px rgba(99,102,241,.06),0 1px 3px rgba(0,0,0,.04);
+  padding:20px 24px;margin-bottom:18px;
+}
+
+/* ── Cards & badges ── */
+.metric-card{
+  background:rgba(255,255,255,0.72);
+  border:1px solid rgba(255,255,255,0.88);
+  border-radius:14px;padding:20px 24px;text-align:center;
+  backdrop-filter:blur(20px);
+}
+.metric-value{
+  font-size:32px;font-weight:700;color:#6366f1;
+  font-family:'JetBrains Mono',monospace;line-height:1;
+}
+.metric-unit{font-size:15px;font-weight:400;margin-left:4px}
+.metric-label{font-size:12px;color:#64748b;margin-top:9px;line-height:1.4}
+.metric-delta-neg{font-size:12px;color:#10b981;margin-top:5px;font-family:'JetBrains Mono',monospace}
+.metric-delta-pos{font-size:12px;color:#ef4444;margin-top:5px;font-family:'JetBrains Mono',monospace}
+
+.done-bar{
+  display:flex;align-items:center;gap:14px;padding:15px 20px;
+  border-radius:12px;background:rgba(16,185,129,0.08);
+  border:1px solid rgba(16,185,129,0.25);margin-top:18px;
+}
+.done-icon{font-size:22px;line-height:1}
+.done-text{font-size:15px;font-weight:600;color:#10b981}
+.done-file{font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-top:3px}
+
+.summary-card{
+  padding:14px 18px;border-radius:10px;
+  background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);
+  font-size:13px;color:#1e293b;margin-bottom:16px;
+  font-family:'JetBrains Mono',monospace;
+}
+.wait-card{
+  text-align:center;padding:56px 40px;
+  background:rgba(255,255,255,0.72);
+  border:1px solid rgba(255,255,255,0.88);
+  border-radius:16px;backdrop-filter:blur(20px);
+  margin:0 auto;max-width:500px;
+}
+.wait-icon{font-size:56px;margin-bottom:20px;display:block}
+.wait-title{font-size:21px;font-weight:700;color:#0f172a;margin-bottom:10px}
+.wait-sub{font-size:14px;color:#475569;line-height:1.65}
+
+/* ── Host cards ── */
+.host-card{
+  display:flex;align-items:center;gap:13px;padding:14px 18px;
+  border-radius:12px;border:1px solid rgba(255,255,255,0.88);
+  background:rgba(255,255,255,0.72);cursor:pointer;
+  transition:all .18s;margin-bottom:10px;backdrop-filter:blur(12px);
+}
+.host-card:hover{border-color:rgba(99,102,241,0.40);transform:translateX(3px)}
+.host-color-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.host-name{font-size:14px;font-weight:600;color:#0f172a}
+.host-tag{
+  font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;
+  margin-left:auto;font-family:'JetBrains Mono',monospace;
+  background:rgba(99,102,241,0.09);color:#6366f1;
+}
+
+/* ── Misc ── */
+.group-label{
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.10em;color:#64748b;margin-bottom:10px;margin-top:22px;
+}
+.file-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:#6366f1;flex:1}
+.file-desc{font-size:13px;color:#475569;flex:2}
+.file-size{font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace}
+.chip{
+  display:inline-flex;align-items:center;padding:5px 13px;
+  border-radius:20px;font-size:12px;font-weight:500;
+  background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.18);
+  color:#6366f1;cursor:pointer;transition:all .15s;margin:3px;
+}
+.chip:hover{background:#6366f1;color:#fff;border-color:#6366f1}
+
+[data-testid="stExpander"]{
+  border:1px solid rgba(99,102,241,0.16)!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,0.70)!important;
+  backdrop-filter:blur(12px)!important;
+  margin-bottom:12px!important;
+}
+[data-testid="stExpander"] summary{
+  font-size:14px!important;font-weight:600!important;color:#0f172a!important;
+  padding:14px 18px!important;
+}
+hr{border-color:rgba(99,102,241,0.14)!important;margin:22px 0!important}
+
+/* ── Streamlit widget sizing overrides ── */
+.stRadio>div{gap:12px!important}
+.stRadio>div label{font-size:14px!important;color:#334155!important;font-weight:400!important;text-transform:none!important;letter-spacing:0!important}
+.stCheckbox label{font-size:14px!important;color:#334155!important;font-weight:400!important;text-transform:none!important;letter-spacing:0!important}
+.stSelectbox>div>div{padding:9px 13px!important;font-size:14px!important}
+div[data-testid="stDataFrame"]{border:1px solid rgba(99,102,241,0.16)!important;border-radius:12px!important;overflow:hidden!important}
+</style>
+""", unsafe_allow_html=True)
 
 # ─── Session state defaults ────────────────────────────────────────────────────
 DEFAULTS = {
@@ -344,11 +445,10 @@ def next_button(next_step: int, label: str = "Next →", key_suffix: str = ""):
 
 def section_header(title: str, subtitle: str = "", step_num: int = None):
     badge = f'<div class="step-badge">{step_num}</div>' if step_num is not None else ""
+    sub   = f'<div class="step-subtitle">{subtitle}</div>' if subtitle else ""
     st.markdown(
         f'<div class="step-header">{badge}'
-        f'<div><div class="step-title">{title}</div>'
-        + (f'<div class="step-subtitle">{subtitle}</div>' if subtitle else "")
-        + "</div></div>",
+        f'<div><div class="step-title">{title}</div>{sub}</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -575,35 +675,38 @@ STEP_LABELS = [
 ]
 
 def render_stepper(current):
-    """Render the DFDD phase stepper bar."""
     PHASES = [
-        {"label": "Setup",              "steps": [0],       "num": "1"},
-        {"label": "System Preparation", "steps": [1,2,3,4], "num": "2"},
-        {"label": "LB-PaCS-MD",         "steps": [5,6],     "num": "3"},
-        {"label": "cMD",                "steps": [7,8,9],   "num": "4"},
-        {"label": "Download",           "steps": [10],      "num": "5"},
+        ("Setup",              [0],       "1"),
+        ("System Prep",        [1,2,3,4], "2"),
+        ("LB-PaCS-MD",         [5,6],     "3"),
+        ("cMD",                [7,8,9],   "4"),
+        ("Download",           [10],      "5"),
     ]
     html = '<div class="phase-strip">'
-    for i, phase in enumerate(PHASES):
-        is_active = current in phase["steps"]
-        is_done   = current > max(phase["steps"])
-        chip_cls  = "phase-chip active" if is_active else ("phase-chip done" if is_done else "phase-chip")
-        circ_cls  = "phase-circle active" if is_active else ("phase-circle done" if is_done else "phase-circle")
-        icon      = "✓" if is_done else phase["num"]
-        html += f'<div class="{chip_cls}"><div class="{circ_cls}">{icon}</div>{phase["label"]}</div>'
+    for i, (label, steps, num) in enumerate(PHASES):
+        active = current in steps
+        done   = current > max(steps)
+        cc = "phase-chip active" if active else ("phase-chip done" if done else "phase-chip")
+        pc = "phase-circle active" if active else ("phase-circle done" if done else "phase-circle")
+        ic = "✓" if done else num
+        html += f'<div class="{cc}"><div class="{pc}">{ic}</div>{label}</div>'
         if i < len(PHASES) - 1:
-            html += f'<div class="{"phase-connector done" if is_done else "phase-connector"}"></div>'
+            html += f'<div class="{"phase-connector done" if done else "phase-connector"}"></div>'
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
 
-def render_topbar(label: str):
-    ws = st.session_state.get("workdir", "~/dfdd_workspace").replace(os.path.expanduser("~"), "~")
+def render_topbar(label: str, step_num: int = None):
+    ws = st.session_state.get("workdir", "~/dfdd_workspace")
+    ws_short = ws.replace(os.path.expanduser("~"), "~")
+    step_part = f'<span class="topbar-sep">›</span><span style="color:#6366f1;font-weight:600">{label}</span>' if label else ""
     st.markdown(
-        f'<div class="topbar"><div class="topbar-breadcrumb">'
-        f'<span style="color:#94a3b8">DFDD</span><span class="bc-sep">›</span>'
-        f'<span>{label}</span></div>'
-        f'<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#94a3b8;">📁 {ws}</div>'
+        f'<div class="topbar">'
+        f'<div class="topbar-bc">'
+        f'<span style="color:#94a3b8;font-size:13px">DFDD</span>'
+        f'{step_part}'
+        f'</div>'
+        f'<div class="topbar-ws">📁 {ws_short}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -945,6 +1048,10 @@ def page_guest():
     smiles_in     = ""
     uploaded_file = None
 
+    # Restore smiles_in from session state on re-render (PubChem/Ketcher survive rerun)
+    if input_type in ("Search by name (PubChem)", "Draw (Ketcher)"):
+        smiles_in = st.session_state.get("guest_smiles", "")
+
     # ── SMILES ────────────────────────────────────────────────────────────────
     if input_type == "SMILES":
 
@@ -1272,6 +1379,14 @@ def page_guest():
                     st.error(f"❌ RDKit error: {err}")
                     st.stop()
                 mol_in = sdf_raw if os.path.exists(sdf_raw) else pdb_raw
+                # Always derive charge from the final protonated SMILES via RDKit
+                try:
+                    from rdkit import Chem as _Chem
+                    _m = _Chem.MolFromSmiles(smi_to_use)
+                    if _m is not None:
+                        detected = _Chem.GetFormalCharge(_m)
+                except Exception:
+                    pass
                 log   += f"RDKit detected charge: {detected}\n"
                 # Persist the final SMILES used
                 st.session_state["guest_smiles_protonated"] = smi_to_use
@@ -2352,44 +2467,68 @@ def page_download():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR — minimal nav + status
+# SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    cur_step = st.session_state["step"]
+    cur = st.session_state["step"]
 
     # Logo
     st.markdown("""
-    <div style="padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:6px;">
-      <div style="font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.3px;margin-bottom:2px;">🧬 DFDD</div>
-      <div style="font-size:10px;color:#475569;line-height:1.4;">Cyclodextrin–Drug Binding<br>Free Energy Wizard</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div style="padding:18px 14px 14px;border-bottom:1px solid oklch(21% 0.055 274);margin-bottom:4px;">
+      <div style="font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px;margin-bottom:2px;">🧬 DFDD</div>
+      <div style="font-size:10px;color:oklch(48% 0.04 274);line-height:1.45;">
+        Cyclodextrin–Drug Binding<br>Free Energy Wizard
+      </div>
+    </div>""", unsafe_allow_html=True)
 
     # Nav groups
     NAV = [
-        ("SETUP",              [("Install",        0)]),
-        ("SYSTEM PREPARATION", [("Host",           1), ("Guest",      2),
-                                 ("Build & Solvate",3), ("Minimize",   4)]),
-        ("LB-PACS-MD",         [("LB-PaCS-MD",    5), ("Analysis",   6)]),
-        ("CMD",                [("cMD",            7), ("MM-PBSA",    8), ("DBFE", 9)]),
-        ("DOWNLOAD",           [("Download",       10)]),
+        ("SETUP",              [("Install",         0)]),
+        ("SYSTEM PREPARATION", [("Host",            1), ("Guest",       2),
+                                 ("Build & Solvate", 3), ("Minimize",    4)]),
+        ("LB-PACS-MD",         [("LB-PaCS-MD",     5), ("Analysis",    6)]),
+        ("CMD",                [("cMD",             7), ("MM-PBSA",     8), ("DBFE", 9)]),
+        ("DOWNLOAD",           [("Download",        10)]),
     ]
+    DONE_FLAGS = {
+        0:  st.session_state.get("install_done", False),
+        1:  bool(st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or "")),
+        2:  bool(st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or "")),
+        3:  st.session_state.get("topo_done", False),
+        4:  st.session_state.get("min_done", False),
+        5:  st.session_state.get("pacsmd_done", False),
+        6:  os.path.exists(wpath("dis.dat")),
+        7:  st.session_state.get("cmd_done", False),
+        8:  st.session_state.get("mmpbsa_done", False),
+        9:  st.session_state.get("dbfe_done", False),
+        10: False,
+    }
+
     for grp, steps in NAV:
         st.markdown(
             f'<div style="font-size:9px;font-weight:700;text-transform:uppercase;'
-            f'letter-spacing:.1em;color:#374151;padding:9px 9px 3px;">{grp}</div>',
+            f'letter-spacing:.1em;color:oklch(38% 0.04 274);padding:9px 9px 3px;">{grp}</div>',
             unsafe_allow_html=True,
         )
         for label, idx in steps:
-            is_cur = cur_step == idx
-            if st.button(label, key=f"nav_{idx}",
-                         type="primary" if is_cur else "secondary",
-                         use_container_width=True):
+            is_cur  = (cur == idx)
+            is_done = DONE_FLAGS.get(idx, False)
+            pip_html = '<div style="width:5px;height:5px;border-radius:50%;background:#10b981;flex-shrink:0;margin-left:auto;"></div>' if is_done and not is_cur else ""
+            if st.button(
+                f"{'✓' if is_done and not is_cur else str(idx)}  {label}",
+                key=f"nav_{idx}",
+                type="primary" if is_cur else "secondary",
+                use_container_width=True,
+            ):
                 go_step(idx)
 
     # Status dots
-    st.markdown('<div style="border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 4px;"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#374151;padding:4px 9px 6px;">Status</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="border-top:1px solid oklch(20% 0.055 274);margin:8px 0 4px;"></div>'
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;'
+        'color:oklch(37% 0.04 274);padding:4px 9px 6px;">Status</div>',
+        unsafe_allow_html=True,
+    )
     checks = [
         ("Host",      bool(st.session_state.get("host_path") and os.path.exists(st.session_state.get("host_path") or ""))),
         ("Guest",     bool(st.session_state.get("guest_path") and os.path.exists(st.session_state.get("guest_path") or ""))),
@@ -2400,35 +2539,34 @@ with st.sidebar:
         ("cMD",       os.path.exists(wpath("md.dcd"))),
         ("MM-PBSA",   st.session_state.get("mmpbsa_done", False)),
     ]
-    dots_html = ""
+    dots = ""
     for lbl, ok in checks:
-        clr = "#10b981" if ok else "#374151"
+        clr    = "#10b981" if ok else "oklch(28% 0.04 274)"
         shadow = "box-shadow:0 0 5px #10b98155;" if ok else ""
-        dots_html += (
-            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 9px;font-size:11px;color:#64748b;">'
+        dots += (
+            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 9px;'
+            f'font-size:11px;color:oklch(48% 0.03 274);">'
             f'<div style="width:5px;height:5px;border-radius:50%;background:{clr};{shadow}flex-shrink:0;"></div>'
             f'{lbl}</div>'
         )
-    st.markdown(dots_html, unsafe_allow_html=True)
+    st.markdown(dots, unsafe_allow_html=True)
 
-    # Workspace
-    st.markdown('<div style="border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 0;padding:8px 9px 0;"></div>', unsafe_allow_html=True)
+    # Workspace + citation
+    st.markdown('<div style="border-top:1px solid oklch(18% 0.05 274);margin:8px 0 0;padding:8px 9px 0;"></div>', unsafe_allow_html=True)
     new_wd = st.text_input("Workspace", value=WD(), key="_wd_in", label_visibility="collapsed")
     if st.button("Set workspace", key="set_wd"):
         os.makedirs(new_wd, exist_ok=True)
         st.session_state["workdir"] = new_wd
         st.rerun()
-
-    # Citation
     st.markdown("""
-    <div style="border-top:1px solid rgba(255,255,255,0.07);padding:10px 9px;margin-top:8px;">
-      <div style="font-size:9px;color:#374151;line-height:1.55;">
+    <div style="border-top:1px solid oklch(18% 0.05 274);padding:10px 9px;margin-top:8px;">
+      <div style="font-size:9px;color:oklch(32% 0.04 274);line-height:1.55;">
         Hengphasatporn et al.<br>
-        <em>J. Chem. Inf. Model.</em> 2026, <strong style="color:#475569;">66</strong>, 4, 1955–1963<br>
-        <a href="https://doi.org/10.1021/acs.jcim.5c02852" style="color:#6366f1;text-decoration:none;">doi:10.1021/acs.jcim.5c02852</a>
+        <em>J. Chem. Inf. Model.</em> 2026, <strong style="color:oklch(42% 0.04 274);">66</strong>, 4, 1955–1963<br>
+        <a href="https://doi.org/10.1021/acs.jcim.5c02852"
+           style="color:#6366f1;text-decoration:none;">doi:10.1021/acs.jcim.5c02852</a>
       </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
