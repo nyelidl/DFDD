@@ -3,6 +3,9 @@
 
 *version 1.3.7* | 18 March 2026
 
+For **DFDD — Protein–Ligand Input Generator**, please visit: [![DFDD Input Generator](https://img.shields.io/badge/GitHub-DFDD_Input_Generator-181717?logo=github&logoColor=white)](https://github.com/nyelidl/DFDD_GEN)
+
+
 <img src="https://raw.githubusercontent.com/nyelidl/DFDD/main/Udo-san.gif">
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FfTuVSykgsstjzN0nJN0ZQo1_tw0WXSe?usp=sharing) 
