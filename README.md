@@ -168,7 +168,5 @@ DOI: https://doi.org/10.1021/acs.jcim.5c02852
 arxiv: https://arxiv.org/abs/2603.12253 | Code: https://github.com/molecularmodelinglab/dbfe
 
 <div align="center">
-
-<img src="./DFDD-l.png" alt="PaCS-Q logo" width="220">
-
+  <img src="./DFDD-l.png" alt="DFDD logo" width="220">
 </div>
